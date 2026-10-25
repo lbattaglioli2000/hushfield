@@ -1,6 +1,7 @@
 @php
     /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\Room> $rooms */
     /** @var array<int, int> $counts */
+    /** @var array<int, int> $totals */
     $cell = 'padding: .5rem .75rem; text-align: left; border-top: 1px solid rgba(127, 127, 127, .2);';
 @endphp
 
@@ -11,7 +12,7 @@
         </p>
 
         @forelse ($rooms as $room)
-            @php($total = $room->instances->sum(fn ($instance) => $counts[$instance->id] ?? 0))
+            @php($total = $totals[$room->id])
 
             <x-filament::section :description="$room->slug . ' · ' . $room->capacity_per_instance . ' per instance' . ($room->is_active ? '' : ' · inactive')">
                 <x-slot name="heading">

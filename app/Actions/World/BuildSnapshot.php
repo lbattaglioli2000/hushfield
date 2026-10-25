@@ -4,9 +4,9 @@ namespace App\Actions\World;
 
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\Clock;
+use App\Domain\World\PlayerState;
 use App\Domain\World\PositionStore;
-use App\Domain\World\StoredPath;
-use App\Exceptions\WorldActionRefused;
+use App\Domain\World\Snapshot;
 use App\Models\RoomInstance;
 use App\Models\User;
 
@@ -21,49 +21,21 @@ final readonly class BuildSnapshot
         private PositionStore $positions,
     ) {}
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function __invoke(User $viewer, RoomInstance $instance): array
+    public function __invoke(User $viewer, RoomInstance $instance): Snapshot
     {
-        if (! $this->members->contains($instance->id, $viewer->id)) {
-            throw WorldActionRefused::notInRoom();
-        }
+        $this->members->ensureContains($instance->id, $viewer->id);
 
-        $room = $instance->room;
         $memberIds = $this->members->all($instance->id);
-        $paths = $this->positions->many($memberIds);
         $now = Clock::nowMs();
+        $paths = $this->positions->manyOrSpawn($memberIds, $instance->room, $now);
 
-        $players = User::query()
+        $players = array_values(User::query()
             ->with('avatar')
             ->whereIn('id', $memberIds)
             ->get()
-            ->map(fn (User $user): array => [
-                'id' => $user->id,
-                'username' => $user->username,
-                'avatar' => $user->avatar?->toPayload(),
-                ...($paths[$user->id] ?? StoredPath::standingAt($room->spawn_x, $room->spawn_y, $now))->toArray(),
-            ])
-            ->values()
-            ->all();
+            ->map(fn (User $user): PlayerState => new PlayerState($user, $paths[$user->id]))
+            ->all());
 
-        return [
-            'protocol' => (int) config('hushfield.protocol'),
-            'server_time_ms' => $now,
-            'instance' => [
-                'id' => $instance->id,
-                'number' => $instance->number,
-                'label' => $instance->label(),
-                'channel' => $instance->channelName(),
-            ],
-            'room' => [
-                'slug' => $room->slug,
-                'name' => $room->name,
-                'map_version' => $room->map_version,
-                'map_url' => route('world.maps.show', ['room' => $room->slug, 'version' => $room->map_version]),
-            ],
-            'players' => $players,
-        ];
+        return new Snapshot($instance, $now, $players);
     }
 }

@@ -3,9 +3,12 @@
 namespace App\Actions\Moderation;
 
 use App\Actions\Presence\EndWorldSession;
+use App\Domain\Audit\AuditLog;
 use App\Domain\Moderation\SanctionType;
 use App\Events\Moderation\PlayerWarned;
 use App\Events\Moderation\WorldAccessRevoked;
+use App\Events\WorldBroadcast;
+use App\Exceptions\ModerationActionRefused;
 use App\Models\ChatReport;
 use App\Models\Sanction;
 use App\Models\User;
@@ -15,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Mutes, bans, or warns a player. A ban takes effect immediately: the player's
  * client is told through its private channel and removed from its instance.
+ * Staff accounts cannot be sanctioned.
  */
 final readonly class IssueSanction
 {
@@ -22,6 +26,10 @@ final readonly class IssueSanction
 
     public function __invoke(User $target, SanctionType $type, string $reason, ?CarbonInterface $endsAt, User $staff, ?ChatReport $report = null): Sanction
     {
+        if ($target->isStaff()) {
+            throw ModerationActionRefused::staffTarget();
+        }
+
         $sanction = DB::transaction(function () use ($target, $type, $reason, $endsAt, $staff, $report): Sanction {
             $sanction = Sanction::query()->create([
                 'user_id' => $target->id,
@@ -34,13 +42,13 @@ final readonly class IssueSanction
             ]);
 
             if ($type === SanctionType::Ban) {
-                $target->forceFill(['banned_until' => $endsAt ?? User::PERMANENT_BAN_UNTIL])->save();
+                $target->syncBannedUntil();
             }
 
             return $sanction;
         });
 
-        activity('moderation')
+        activity(AuditLog::Moderation)
             ->performedOn($target)
             ->causedBy($staff)
             ->withProperties(['type' => $type->value, 'reason' => $reason, 'ends_at' => $endsAt?->toIso8601String(), 'report_id' => $report?->id])
@@ -54,13 +62,13 @@ final readonly class IssueSanction
         if ($type === SanctionType::Ban) {
             ($this->endWorldSession)($target->refresh());
 
-            if ($token !== null) {
-                rescue(fn () => broadcast(new WorldAccessRevoked($token)));
+            if (is_string($token)) {
+                WorldBroadcast::send(new WorldAccessRevoked($token));
             }
         }
 
-        if ($type === SanctionType::Warning && $token !== null) {
-            rescue(fn () => broadcast(new PlayerWarned($token)));
+        if ($type === SanctionType::Warning && is_string($token)) {
+            WorldBroadcast::send(new PlayerWarned($token));
         }
 
         return $sanction;

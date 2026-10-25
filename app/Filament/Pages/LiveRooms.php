@@ -10,6 +10,7 @@ use App\Models\Room;
 use App\Models\RoomInstance;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Collection;
@@ -37,7 +38,7 @@ class LiveRooms extends Page
     }
 
     /**
-     * @return array{rooms: Collection<int, Room>, counts: array<int, int>}
+     * @return array{rooms: Collection<int, Room>, counts: array<int, int>, totals: array<int, int>}
      */
     protected function getViewData(): array
     {
@@ -46,11 +47,14 @@ class LiveRooms extends Page
             ->orderBy('name')
             ->get();
 
-        $instanceIds = $rooms->flatMap(fn (Room $room) => $room->instances->modelKeys())->map(fn (mixed $id): int => (int) $id)->values()->all();
+        $counts = app(InstanceMembers::class)->countsFor($rooms->flatMap->instances);
 
         return [
             'rooms' => $rooms,
-            'counts' => app(InstanceMembers::class)->counts(array_values($instanceIds)),
+            'counts' => $counts,
+            'totals' => $rooms->mapWithKeys(fn (Room $room): array => [
+                $room->id => $room->instances->sum(fn (RoomInstance $instance): int => $counts[$instance->id] ?? 0),
+            ])->all(),
         ];
     }
 
@@ -61,12 +65,20 @@ class LiveRooms extends Page
             ->icon(Heroicon::OutlinedXCircle)
             ->color('danger')
             ->size('sm')
-            ->authorize(fn (): bool => Gate::allows('manageInstances', Room::class))
+            ->authorize('manageInstances', Room::class)
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments): string => 'Close '.$this->instance($arguments)->label())
             ->modalDescription('Everyone in this instance is moved to the busiest open instance of the room.')
             ->action(function (array $arguments, CloseInstance $closeInstance, Action $action): void {
-                $moved = $closeInstance($this->instance($arguments), Staff::current());
+                $instance = $this->instance($arguments);
+
+                // Another staff member, or the empty-instance sweep, may have closed it since the page rendered.
+                if (! $instance->is_open) {
+                    Notification::make()->warning()->title($instance->label().' is already closed.')->send();
+                    $action->cancel();
+                }
+
+                $moved = $closeInstance($instance, Staff::current());
 
                 $action->successNotificationTitle("Instance closed. Moved {$moved} ".str('player')->plural($moved).'.');
                 $action->success();
@@ -80,7 +92,7 @@ class LiveRooms extends Page
             ->icon(Heroicon::OutlinedArrowsPointingIn)
             ->color('warning')
             ->size('sm')
-            ->authorize(fn (): bool => Gate::allows('manageInstances', Room::class))
+            ->authorize('manageInstances', Room::class)
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments): string => 'Gather '.$this->room($arguments)->name.' into instance 1')
             ->modalDescription('Every other open instance of this room is closed and its players are moved to instance 1.')

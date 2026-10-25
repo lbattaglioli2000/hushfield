@@ -2,10 +2,6 @@
 
 namespace App\Providers\Filament;
 
-use App\Features\WorldFlags;
-use App\Filament\Support\UsernameFilamentManager;
-use App\Policies\ActivityPolicy;
-use App\Policies\WorldFlagsPolicy;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -20,28 +16,10 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
-use Illuminate\Support\Facades\Facade;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Spatie\Activitylog\Models\Activity;
 
 class AdminPanelProvider extends PanelProvider
 {
-    public function register(): void
-    {
-        $this->app->scoped('filament', fn (): UsernameFilamentManager => new UsernameFilamentManager);
-        Facade::clearResolvedInstance('filament');
-
-        parent::register();
-    }
-
-    public function boot(): void
-    {
-        // Neither lives in App\Models, so policy discovery would not find them.
-        Gate::policy(Activity::class, ActivityPolicy::class);
-        Gate::policy(WorldFlags::class, WorldFlagsPolicy::class);
-    }
-
     public function panel(Panel $panel): Panel
     {
         return $panel

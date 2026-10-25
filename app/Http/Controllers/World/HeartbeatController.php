@@ -5,6 +5,7 @@ namespace App\Http\Controllers\World;
 use App\Actions\Presence\RecordHeartbeat;
 use App\Domain\World\Clock;
 use App\Http\Controllers\Controller;
+use App\Http\Responses\WorldResponse;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,8 +18,7 @@ final class HeartbeatController extends Controller
         $user = $request->user();
         $recordHeartbeat($user->worldSession);
 
-        return response()->json([
-            'protocol' => (int) config('hushfield.protocol'),
+        return WorldResponse::json([
             'server_time_ms' => Clock::nowMs(),
         ]);
     }

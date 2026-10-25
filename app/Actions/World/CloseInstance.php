@@ -2,8 +2,10 @@
 
 namespace App\Actions\World;
 
+use App\Domain\Audit\AuditLog;
 use App\Domain\Presence\InstanceMembers;
 use App\Events\Presence\InstanceReassigned;
+use App\Events\WorldBroadcast;
 use App\Models\RoomInstance;
 use App\Models\User;
 
@@ -30,12 +32,12 @@ final readonly class CloseInstance
             ($this->leaveRoom)($user, $instance);
 
             if ($user->worldSession !== null) {
-                broadcast(new InstanceReassigned($user->worldSession->session_token, $target?->id));
+                WorldBroadcast::send(new InstanceReassigned($user->worldSession->session_token, $target?->id));
             }
         }
 
         if ($staff !== null) {
-            activity('rooms')
+            activity(AuditLog::Rooms)
                 ->performedOn($instance)
                 ->causedBy($staff)
                 ->withProperties(['moved' => $users->count(), 'target_instance_id' => $target?->id, 'closed' => ! $keepOpen])

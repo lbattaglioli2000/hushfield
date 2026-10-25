@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Identity;
 
 use App\Actions\Identity\PassAgeGate;
+use App\Domain\Identity\AgeGateCookie;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,11 +14,11 @@ use Illuminate\Http\Request;
  */
 final class AgeGateController extends Controller
 {
-    public function __invoke(Request $request, PassAgeGate $passAgeGate): RedirectResponse
+    public function __invoke(Request $request, PassAgeGate $passAgeGate, AgeGateCookie $cookie): RedirectResponse
     {
         $birth = $passAgeGate(
             $request->only(['birth_month', 'birth_year']),
-            $request->cookie((string) config('hushfield.accounts.underage_cookie')),
+            $cookie->isSet($request),
         );
 
         $request->session()->put('registration.birth', $birth);

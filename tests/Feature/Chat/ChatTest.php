@@ -17,17 +17,16 @@ beforeEach(function () {
     ['token' => $this->token, 'instance' => $this->instance] = enterWorld($this->user, $this->room);
 });
 
-function say(string $body, ?string $socket = null)
+function postChat(string $body, ?string $socket = null)
 {
-    return test()->actingAs(test()->user)
-        ->withHeaders(worldHeaders(test()->token, $socket))
+    return asResident(test()->user, test()->token, $socket)
         ->postJson(route('world.instances.chat', test()->instance), ['body' => $body]);
 }
 
 test('chat is filtered, stored, and broadcast to others in the instance', function () {
     BlockedTerm::factory()->create(['term' => 'grub', 'match_type' => BlockedTermMatchType::Exact]);
 
-    $response = say("you   are\u{200B} 9rUUb so see example.com", 'socket.9');
+    $response = postChat("you   are\u{200B} 9rUUb so see example.com", 'socket.9');
 
     $message = ChatMessage::query()->sole();
 
@@ -51,7 +50,7 @@ test('chat is filtered, stored, and broadcast to others in the instance', functi
 test('the raw body never reaches the broadcast', function () {
     BlockedTerm::factory()->create(['term' => 'grub']);
 
-    say('grub');
+    postChat('grub');
 
     Event::assertDispatched(ChatMessageSent::class, fn (ChatMessageSent $event): bool => ! str_contains(json_encode($event->broadcastWith()), 'grub'));
 });
@@ -59,7 +58,7 @@ test('the raw body never reaches the broadcast', function () {
 test('a muted resident sees their own line but nobody else does', function () {
     Sanction::factory()->for($this->user)->create(['type' => SanctionType::Mute, 'ends_at' => now()->addHour()]);
 
-    say('can anyone hear me')
+    postChat('can anyone hear me')
         ->assertCreated()
         ->assertJsonPath('id', null)
         ->assertJsonPath('body', 'can anyone hear me');
@@ -72,25 +71,25 @@ test('an expired or lifted mute no longer silences', function () {
     Sanction::factory()->for($this->user)->create(['type' => SanctionType::Mute, 'starts_at' => now()->subHours(2), 'ends_at' => now()->subHour()]);
     Sanction::factory()->for($this->user)->create(['type' => SanctionType::Mute, 'lifted_at' => now()]);
 
-    say('hello again')->assertCreated();
+    postChat('hello again')->assertCreated();
 
     expect(ChatMessage::query()->count())->toBe(1);
 });
 
 test('identical repeats within 30 seconds are dropped', function () {
-    say('hello')->assertCreated();
+    postChat('hello')->assertCreated();
     // Same after normalization: case, leetspeak, and stretched letters.
-    say('HeLLLL0')->assertStatus(202)->assertExactJson(['dropped' => true]);
+    postChat('HeLLLL0')->assertStatus(202)->assertExactJson(['protocol' => 1, 'dropped' => true]);
 
     $this->travel(29)->seconds();
-    say('hello')->assertStatus(202);
+    postChat('hello')->assertStatus(202);
 
     expect(ChatMessage::query()->count())->toBe(1);
     Event::assertDispatchedTimes(ChatMessageSent::class, 1);
 });
 
 test('the repeat window is 30 seconds long', function () {
-    say('hello')->assertCreated();
+    postChat('hello')->assertCreated();
 
     // The window is a Redis key with a real TTL, which time travel cannot age, so expire it by hand.
     $redis = $this->app['redis']->connection('world');
@@ -101,31 +100,31 @@ test('the repeat window is 30 seconds long', function () {
 
     $redis->del($keys[0]);
 
-    say('hello')->assertCreated();
+    postChat('hello')->assertCreated();
     expect(ChatMessage::query()->count())->toBe(2);
 });
 
 test('different lines are not repeats', function () {
-    say('hello')->assertCreated();
-    say('hello there')->assertCreated();
+    postChat('hello')->assertCreated();
+    postChat('hello there')->assertCreated();
 
     expect(ChatMessage::query()->count())->toBe(2);
 });
 
 test('chat is limited to 3 lines per 5 seconds', function () {
-    say('one')->assertCreated();
-    say('two')->assertCreated();
-    say('three')->assertCreated();
+    postChat('one')->assertCreated();
+    postChat('two')->assertCreated();
+    postChat('three')->assertCreated();
 
-    say('four')->assertTooManyRequests()
+    postChat('four')->assertTooManyRequests()
         ->assertJsonPath('reason', 'chat_too_fast')
         ->assertJsonPath('message', __('hushfield.chat_too_fast'));
 
     $this->travel(4)->seconds();
-    say('five')->assertTooManyRequests();
+    postChat('five')->assertTooManyRequests();
 
     $this->travel(2)->seconds();
-    say('six')->assertCreated();
+    postChat('six')->assertCreated();
 
     expect(ChatMessage::query()->pluck('body')->all())->toBe(['one', 'two', 'three', 'six']);
 });
@@ -133,30 +132,38 @@ test('chat is limited to 3 lines per 5 seconds', function () {
 test('the chat kill switch pauses chat everywhere', function () {
     WorldFlags::set(ChatEnabled::class, false);
 
-    say('hello')->assertStatus(503)->assertJsonPath('reason', 'chat_paused');
+    postChat('hello')->assertStatus(503)->assertJsonPath('reason', 'chat_paused');
 
     expect(ChatMessage::query()->count())->toBe(0);
     Event::assertNotDispatched(ChatMessageSent::class);
 
     WorldFlags::set(ChatEnabled::class, true);
 
-    say('hello')->assertCreated();
+    postChat('hello')->assertCreated();
 });
 
-test('empty and overlong lines are refused', function (string $body) {
-    say($body)->assertUnprocessable();
+test('empty and overlong lines are refused with a reason the client understands', function (string $body, string $reason) {
+    postChat($body)
+        ->assertUnprocessable()
+        ->assertExactJson(['protocol' => 1, 'reason' => $reason, 'message' => __("hushfield.{$reason}")]);
 
     expect(ChatMessage::query()->count())->toBe(0);
 })->with([
-    'empty' => '',
-    'only invisible characters' => "\u{200B}\u{FEFF}  \n",
-    'too long' => str_repeat('a', 121),
+    'empty' => ['', 'chat_empty'],
+    'only invisible characters' => ["\u{200B}\u{FEFF}  \n", 'chat_empty'],
+    'too long' => [str_repeat('a', 121), 'chat_too_long'],
 ]);
+
+test('the length limit counts the line after invisible characters are stripped', function () {
+    postChat(str_repeat('a', 120)."\u{200B}\u{200B}")->assertCreated();
+
+    expect(ChatMessage::query()->sole()->body)->toBe(str_repeat('a', 120));
+});
 
 test('only members of the instance can chat in it', function () {
     $other = $this->room->instances()->create(['number' => 2, 'is_open' => true]);
 
-    $this->actingAs($this->user)->withHeaders(worldHeaders($this->token))
+    asResident($this->user, $this->token)
         ->postJson(route('world.instances.chat', $other), ['body' => 'hi'])
         ->assertStatus(409)
         ->assertJsonPath('reason', 'not_in_room');

@@ -31,6 +31,6 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*', 'world/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('world/*') || $request->expectsJson(),
         );
     })->create();

@@ -13,7 +13,6 @@ return [
     'entering' => 'Unlocking the square…',
 
     // Rooms
-    'instance_label' => 'Town Square (:number). There are simply several town squares.',
     'instance_full' => 'This square is full. Another one has been arranged.',
     'instance_closed' => 'This square is being folded away. You have been shown to another.',
     'joins_paused' => 'The square is not admitting visitors right now. Please try again in a few minutes.',
@@ -23,10 +22,10 @@ return [
     'unreachable' => "You can't get there from here. Few can.",
 
     // Chat
-    'chat_muted' => 'Your voice has been placed on hold.',
     'chat_paused' => 'The square is quiet by request. Chat will return shortly.',
     'chat_too_fast' => 'Words need a moment to land. Wait a few seconds, then try again.',
     'chat_empty' => 'Say something first. Silence is already well represented here.',
+    'chat_too_long' => 'That is rather a lot to say at once. Please keep it shorter.',
     'filtered_placeholder' => '(hushed)',
 
     // Moderation

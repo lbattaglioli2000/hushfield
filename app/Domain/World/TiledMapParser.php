@@ -41,7 +41,6 @@ final class TiledMapParser
         $height = $this->positiveInt($map, 'height');
         $tileHeight = $this->positiveInt($map, 'tileheight');
 
-        /** @var list<array<string, mixed>> $layers */
         $layers = is_array($map['layers'] ?? null) ? $map['layers'] : [];
 
         $cells = $this->walkableCells($this->layer($layers, 'walkable', 'tilelayer'), $width, $height);
@@ -55,12 +54,18 @@ final class TiledMapParser
     }
 
     /**
-     * @param  list<array<string, mixed>>  $layers
-     * @return array<string, mixed>
+     * Finds a layer by name, looking inside group layers too.
+     *
+     * @param  array<mixed>  $layers
+     * @return array<mixed>
      */
     private function layer(array $layers, string $name, string $type): array
     {
         foreach ($layers as $layer) {
+            if (! is_array($layer)) {
+                continue;
+            }
+
             if (($layer['name'] ?? null) === $name) {
                 if (($layer['type'] ?? null) !== $type) {
                     throw new InvalidMapException("The \"{$name}\" layer must be a {$type}.");
@@ -82,7 +87,7 @@ final class TiledMapParser
     }
 
     /**
-     * @param  array<string, mixed>  $layer
+     * @param  array<mixed>  $layer
      */
     private function walkableCells(array $layer, int $width, int $height): string
     {
@@ -116,7 +121,7 @@ final class TiledMapParser
     /**
      * Tiled positions objects on isometric maps in tile-height pixel units on both axes.
      *
-     * @param  array<string, mixed>  $layer
+     * @param  array<mixed>  $layer
      * @return list<array{int, int}>
      */
     private function spawns(array $layer, int $tileHeight, WalkabilityGrid $grid): array

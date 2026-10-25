@@ -2,28 +2,29 @@
 
 namespace App\Actions\World;
 
-use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\Clock;
+use App\Domain\World\InstanceAllocator;
 use App\Domain\World\JoinResult;
+use App\Domain\World\PlayerState;
 use App\Domain\World\PositionStore;
 use App\Domain\World\StoredPath;
 use App\Domain\World\WalkabilityGridRepository;
 use App\Events\World\PlayerJoined;
+use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
 use App\Features\JoinsEnabled;
 use App\Features\WorldFlags;
 use App\Models\Room;
 use App\Models\RoomInstance;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 
 /**
- * Puts the player in the busiest open instance that still has room, opening another when all are full.
+ * Puts the player in a room instance (see InstanceAllocator) at a random spawn and announces them.
  */
 final readonly class JoinRoom
 {
     public function __construct(
-        private InstanceMembers $members,
+        private InstanceAllocator $allocator,
         private PositionStore $positions,
         private WalkabilityGridRepository $grids,
         private LeaveRoom $leaveRoom,
@@ -45,12 +46,7 @@ final readonly class JoinRoom
             ($this->leaveRoom)($user, $user->lastRoomInstance);
         }
 
-        [$instance, $overflowed] = Cache::lock("join-room:{$room->id}", 5)->block(5, function () use ($room, $user, $preferred): array {
-            [$instance, $overflowed] = $this->pickInstance($room, $preferred);
-            $this->members->add($instance->id, $user->id);
-
-            return [$instance, $overflowed];
-        });
+        [$instance, $overflowed] = $this->allocator->allocate($room, $user->id, $preferred);
 
         $instance->forceFill(['empty_since' => null])->save();
         $instance->setRelation('room', $room);
@@ -63,48 +59,8 @@ final readonly class JoinRoom
         $user->setRelation('lastRoomInstance', $instance);
         $user->loadMissing('avatar');
 
-        broadcast(new PlayerJoined($instance, $user, $position))->toOthers();
+        WorldBroadcast::toOthers(new PlayerJoined($instance->id, new PlayerState($user, $position)));
 
         return new JoinResult($instance, $position, $overflowed);
-    }
-
-    /**
-     * @return array{RoomInstance, bool}
-     */
-    private function pickInstance(Room $room, ?RoomInstance $preferred): array
-    {
-        $capacity = $room->capacity_per_instance;
-
-        if ($preferred !== null && $preferred->room_id === $room->id && $preferred->is_open && $this->members->count($preferred->id) < $capacity) {
-            return [$preferred, false];
-        }
-
-        $open = $room->instances()->where('is_open', true)->orderBy('number')->get();
-        $counts = $this->members->counts($open->modelKeys());
-
-        $best = $open
-            ->filter(fn (RoomInstance $instance): bool => $counts[$instance->id] < $capacity)
-            ->sortBy([fn (RoomInstance $a, RoomInstance $b): int => $counts[$b->id] <=> $counts[$a->id] ?: $a->number <=> $b->number])
-            ->first();
-
-        if ($best !== null) {
-            return [$best, false];
-        }
-
-        $closed = $room->instances()->where('is_open', false)->orderBy('number')->first();
-
-        if ($closed !== null) {
-            $closed->forceFill(['is_open' => true])->save();
-
-            return [$closed, $open->isNotEmpty()];
-        }
-
-        /** @var RoomInstance $created */
-        $created = $room->instances()->create([
-            'number' => ((int) $room->instances()->max('number')) + 1,
-            'is_open' => true,
-        ]);
-
-        return [$created, $open->isNotEmpty()];
     }
 }

@@ -11,3 +11,7 @@ parameters:
         - routes/
 
     level: 7
+
+    excludePaths:
+        # Published unchanged from laravel/pulse; its driver match is exhaustive only for the drivers Pulse supports.
+        - database/migrations/2026_10_25_032753_create_pulse_tables.php

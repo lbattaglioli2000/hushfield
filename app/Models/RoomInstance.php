@@ -52,6 +52,14 @@ class RoomInstance extends Model
 
     public function channelName(): string
     {
-        return "room.{$this->id}";
+        return self::channelNameFor($this->id);
+    }
+
+    /**
+     * The presence channel everyone in the instance shares (presence-room.{id} on the wire).
+     */
+    public static function channelNameFor(int $instanceId): string
+    {
+        return "room.{$instanceId}";
     }
 }

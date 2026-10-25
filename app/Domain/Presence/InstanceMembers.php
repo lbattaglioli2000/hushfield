@@ -2,6 +2,8 @@
 
 namespace App\Domain\Presence;
 
+use App\Exceptions\WorldActionRefused;
+use App\Models\RoomInstance;
 use Illuminate\Redis\RedisManager;
 
 /**
@@ -26,16 +28,26 @@ final class InstanceMembers
         return (bool) $this->redis->connection('world')->sismember(self::key($instanceId), $userId);
     }
 
+    /**
+     * @throws WorldActionRefused when the user is not in the instance.
+     */
+    public function ensureContains(int $instanceId, int $userId): void
+    {
+        if (! $this->contains($instanceId, $userId)) {
+            throw WorldActionRefused::notInRoom();
+        }
+    }
+
     public function count(int $instanceId): int
     {
         return (int) $this->redis->connection('world')->scard(self::key($instanceId));
     }
 
     /**
-     * @param  list<int>  $instanceIds
-     * @return array<int, int>
+     * @param  iterable<int>  $instanceIds
+     * @return array<int, int> Member count keyed by instance id.
      */
-    public function counts(array $instanceIds): array
+    public function counts(iterable $instanceIds): array
     {
         $connection = $this->redis->connection('world');
         $counts = [];
@@ -48,6 +60,21 @@ final class InstanceMembers
     }
 
     /**
+     * @param  iterable<RoomInstance>  $instances
+     * @return array<int, int> Member count keyed by instance id.
+     */
+    public function countsFor(iterable $instances): array
+    {
+        $ids = [];
+
+        foreach ($instances as $instance) {
+            $ids[] = $instance->id;
+        }
+
+        return $this->counts($ids);
+    }
+
+    /**
      * @return list<int>
      */
     public function all(int $instanceId): array
@@ -55,7 +82,7 @@ final class InstanceMembers
         /** @var list<string|int> $members */
         $members = $this->redis->connection('world')->smembers(self::key($instanceId));
 
-        return array_values(array_map(intval(...), $members));
+        return array_map(intval(...), $members);
     }
 
     public static function key(int $instanceId): string

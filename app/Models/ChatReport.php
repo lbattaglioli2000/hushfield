@@ -7,6 +7,8 @@ use App\Domain\Moderation\ReportResolution;
 use App\Domain\Moderation\ReportStatus;
 use Database\Factories\ChatReportFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +46,15 @@ class ChatReport extends Model
             'resolution' => ReportResolution::class,
             'resolved_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function open(Builder $query): void
+    {
+        $query->where('status', ReportStatus::Open);
     }
 
     /** @return BelongsTo<User, $this> */

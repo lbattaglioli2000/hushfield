@@ -2,8 +2,8 @@
 
 namespace App\Actions\Identity;
 
+use App\Domain\Identity\AgeGateCookie;
 use App\Domain\Identity\AgePolicy;
-use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -13,17 +13,19 @@ use Illuminate\Validation\ValidationException;
  */
 final readonly class PassAgeGate
 {
-    public function __construct(private AgePolicy $ages) {}
+    public function __construct(
+        private AgePolicy $ages,
+        private AgeGateCookie $cookie,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $input
+     * @param  bool  $refusedRecently  Whether this browser still carries the refusal cookie.
      * @return array{birth_month: int, birth_year: int}
      */
-    public function __invoke(array $input, ?string $refusalCookie): array
+    public function __invoke(array $input, bool $refusedRecently): array
     {
-        $cookie = (string) config('hushfield.accounts.underage_cookie');
-
-        if ($refusalCookie !== null) {
+        if ($refusedRecently) {
             throw ValidationException::withMessages(['underage' => __('hushfield.underage')]);
         }
 
@@ -39,7 +41,7 @@ final readonly class PassAgeGate
         $year = (int) $validated['birth_year'];
 
         if (! $this->ages->meetsMinimumAge($month, $year)) {
-            Cookie::queue($cookie, '1', (int) config('hushfield.accounts.underage_cookie_minutes'));
+            $this->cookie->remember();
 
             throw ValidationException::withMessages(['underage' => __('hushfield.underage')]);
         }

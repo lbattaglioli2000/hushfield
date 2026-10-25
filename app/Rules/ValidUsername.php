@@ -2,8 +2,8 @@
 
 namespace App\Rules;
 
-use App\Domain\Chat\BlockedTermsFilter;
 use App\Domain\Chat\TextNormalizer;
+use App\Domain\Identity\UsernameScreen;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -31,7 +31,7 @@ final class ValidUsername implements ValidationRule
             return;
         }
 
-        if (app(BlockedTermsFilter::class)->containsBlockedTerm($value)) {
+        if (app(UsernameScreen::class)->containsBlockedTerm($value)) {
             $fail(__('hushfield.username_blocked'));
         }
     }

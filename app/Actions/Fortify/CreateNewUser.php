@@ -6,6 +6,7 @@ use App\Actions\Identity\PassAgeGate;
 use App\Actions\Identity\RegisterResident;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
+use App\Domain\Identity\AgeGateCookie;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
@@ -21,6 +22,7 @@ class CreateNewUser implements CreatesNewUsers
     public function __construct(
         private readonly PassAgeGate $passAgeGate,
         private readonly RegisterResident $registerResident,
+        private readonly AgeGateCookie $ageGateCookie,
     ) {}
 
     /**
@@ -28,7 +30,7 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
-        ($this->passAgeGate)($input, request()->cookie((string) config('hushfield.accounts.underage_cookie')));
+        $birth = ($this->passAgeGate)($input, $this->ageGateCookie->isSet(request()));
 
         Validator::make($input, [
             'username' => $this->usernameRules(),
@@ -38,7 +40,7 @@ class CreateNewUser implements CreatesNewUsers
             'username.unique' => __('hushfield.username_taken'),
         ])->validate();
 
-        $user = ($this->registerResident)($input['username'], $input['email'], $input['password'], (int) $input['birth_year']);
+        $user = ($this->registerResident)($input['username'], $input['email'], $input['password'], $birth['birth_year']);
 
         request()->session()->forget('registration.birth');
 

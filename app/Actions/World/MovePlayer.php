@@ -9,6 +9,7 @@ use App\Domain\World\PositionStore;
 use App\Domain\World\StoredPath;
 use App\Domain\World\WalkabilityGridRepository;
 use App\Events\World\PlayerMoved;
+use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
 use App\Models\RoomInstance;
 use App\Models\User;
@@ -28,16 +29,12 @@ final readonly class MovePlayer
 
     public function __invoke(User $user, RoomInstance $instance, int $x, int $y): StoredPath
     {
-        if (! $this->members->contains($instance->id, $user->id)) {
-            throw WorldActionRefused::notInRoom();
-        }
+        $this->members->ensureContains($instance->id, $user->id);
 
         $room = $instance->room;
         $grid = $this->grids->forRoom($room);
         $now = Clock::nowMs();
-        $current = $this->positions->get($user->id)
-            ?? StoredPath::standingAt($room->spawn_x, $room->spawn_y, $now);
-        $position = $current->positionAt($now);
+        $position = $this->positions->currentOrSpawn($user->id, $room, $now)->positionAt($now);
 
         // Mid-step, finish the current step first so the walker never jumps:
         // the new path begins with the step already under way, backdated to when it started.
@@ -59,7 +56,7 @@ final readonly class MovePlayer
 
         $this->positions->put($user->id, $path);
 
-        broadcast(new PlayerMoved($instance->id, $user->id, $path))->toOthers();
+        WorldBroadcast::toOthers(new PlayerMoved($instance->id, $user->id, $path));
 
         return $path;
     }

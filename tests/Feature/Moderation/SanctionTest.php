@@ -10,6 +10,7 @@ use App\Domain\Presence\InstanceMembers;
 use App\Events\Moderation\PlayerWarned;
 use App\Events\Moderation\WorldAccessRevoked;
 use App\Events\World\PlayerLeft;
+use App\Exceptions\ModerationActionRefused;
 use App\Models\ChatMessage;
 use App\Models\ChatReport;
 use App\Models\Sanction;
@@ -51,9 +52,9 @@ test('a ban revokes world access immediately', function () {
 test('a banned resident\'s old token is refused as banned', function () {
     app(IssueSanction::class)($this->target, SanctionType::Ban, 'Spam', null, $this->staff);
 
-    expect($this->target->fresh()->banned_until->year)->toBe(9999);
+    expect($this->target->fresh()->isPermanentlyBanned())->toBeTrue();
 
-    $this->actingAs($this->target)->withHeaders(worldHeaders($this->token))
+    asResident($this->target, $this->token)
         ->postJson(route('world.instances.move', $this->instance), ['x' => 2, 'y' => 2])
         ->assertForbidden()
         ->assertJsonPath('reason', 'banned');
@@ -91,8 +92,32 @@ test('lifting a ban while a permanent ban remains keeps it permanent', function 
 
     app(LiftSanction::class)($temporary, $this->staff, 'Superseded');
 
-    expect($this->target->fresh()->banned_until->year)->toBe(9999);
+    expect($this->target->fresh()->isPermanentlyBanned())->toBeTrue();
 });
+
+test('a shorter ban never shortens a longer one', function () {
+    app(IssueSanction::class)($this->target, SanctionType::Ban, 'Threats', null, $this->staff);
+    app(IssueSanction::class)($this->target, SanctionType::Ban, 'Spam', now()->addDay(), $this->staff);
+
+    expect($this->target->fresh()->isPermanentlyBanned())->toBeTrue();
+
+    $longEnd = now()->addDays(10)->startOfSecond();
+    $other = resident();
+    app(IssueSanction::class)($other, SanctionType::Ban, 'Spam', $longEnd, $this->staff);
+    app(IssueSanction::class)($other, SanctionType::Ban, 'Spam again', now()->addDay(), $this->staff);
+
+    expect($other->fresh()->banned_until->equalTo($longEnd))->toBeTrue();
+});
+
+test('staff cannot be sanctioned', function (SanctionType $type) {
+    $colleague = User::factory()->staff()->create();
+
+    expect(fn () => app(IssueSanction::class)($colleague, $type, 'Oops', now()->addDay(), $this->staff))
+        ->toThrow(ModerationActionRefused::class);
+
+    expect(Sanction::query()->count())->toBe(0)
+        ->and($colleague->fresh()->banned_until)->toBeNull();
+})->with(SanctionType::cases());
 
 test('lifting a mute lets the resident chat again', function () {
     $mute = app(IssueSanction::class)($this->target, SanctionType::Mute, 'Spam', now()->addHour(), $this->staff);
@@ -116,39 +141,89 @@ function openReport(User $reporter, User $reported, int $instanceId): ChatReport
     ]);
 }
 
-test('resolving a report records the outcome and issues the matching sanction', function (ReportResolution $resolution, ?SanctionType $type) {
+test('resolving a report records the outcome', function (ReportResolution $resolution) {
     $report = openReport(resident(), $this->target, $this->instance->id);
 
     app(ResolveReport::class)($report, $resolution, $this->staff, 'Reviewed', now()->addDay());
 
     $report->refresh();
-    $sanctions = Sanction::query()->where('user_id', $this->target->id)->get();
 
     expect($report->status)->toBe(ReportStatus::Resolved)
         ->and($report->resolution)->toBe($resolution)
         ->and($report->resolved_by)->toBe($this->staff->id)
-        ->and($report->resolved_at)->not->toBeNull()
-        ->and($sanctions->pluck('type')->all())->toBe($type === null ? [] : [$type])
-        ->and($sanctions->first()?->chat_report_id)->toBe($type === null ? null : $report->id)
-        ->and($this->target->fresh()->isBanned())->toBe($type === SanctionType::Ban)
-        ->and($this->target->fresh()->isMuted())->toBe($type === SanctionType::Mute)
-        ->and($this->members->contains($this->instance->id, $this->target->id))->toBe($type !== SanctionType::Ban);
+        ->and($report->resolved_at)->not->toBeNull();
 
     $this->assertDatabaseHas('activity_log', ['event' => 'report.resolved', 'subject_id' => $report->id, 'subject_type' => ChatReport::class]);
+})->with(ReportResolution::cases());
 
-    $type === SanctionType::Warning
-        ? Event::assertDispatched(PlayerWarned::class, fn (PlayerWarned $event): bool => $event->broadcastOn()->name === "private-world-session.{$this->token}")
-        : Event::assertNotDispatched(PlayerWarned::class);
+test('dismissing a report sanctions nobody', function () {
+    $report = openReport(resident(), $this->target, $this->instance->id);
 
-    $type === SanctionType::Ban
-        ? Event::assertDispatched(WorldAccessRevoked::class, fn (WorldAccessRevoked $event): bool => $event->broadcastOn()->name === "private-world-session.{$this->token}")
-        : Event::assertNotDispatched(WorldAccessRevoked::class);
-})->with([
-    'dismissed' => [ReportResolution::Dismissed, null],
-    'warned' => [ReportResolution::Warned, SanctionType::Warning],
-    'muted' => [ReportResolution::Muted, SanctionType::Mute],
-    'banned' => [ReportResolution::Banned, SanctionType::Ban],
-]);
+    app(ResolveReport::class)($report, ReportResolution::Dismissed, $this->staff, 'Fine');
+
+    expect(Sanction::query()->count())->toBe(0)
+        ->and($this->members->contains($this->instance->id, $this->target->id))->toBeTrue();
+    Event::assertNotDispatched(PlayerWarned::class);
+    Event::assertNotDispatched(WorldAccessRevoked::class);
+});
+
+test('resolving a report as warned warns the player in the world', function () {
+    $report = openReport(resident(), $this->target, $this->instance->id);
+
+    app(ResolveReport::class)($report, ReportResolution::Warned, $this->staff, 'Be kind');
+
+    expect(Sanction::query()->sole())->type->toBe(SanctionType::Warning)->chat_report_id->toBe($report->id)
+        ->and($this->target->fresh()->isMuted())->toBeFalse()
+        ->and($this->target->fresh()->isBanned())->toBeFalse();
+    Event::assertDispatched(PlayerWarned::class, fn (PlayerWarned $event): bool => $event->broadcastOn()->name === "private-world-session.{$this->token}");
+});
+
+test('resolving a report as muted mutes the player', function () {
+    $report = openReport(resident(), $this->target, $this->instance->id);
+
+    app(ResolveReport::class)($report, ReportResolution::Muted, $this->staff, 'Spam', now()->addDay());
+
+    expect(Sanction::query()->sole())->type->toBe(SanctionType::Mute)->chat_report_id->toBe($report->id)
+        ->and($this->target->fresh()->isMuted())->toBeTrue()
+        ->and($this->members->contains($this->instance->id, $this->target->id))->toBeTrue();
+    Event::assertNotDispatched(WorldAccessRevoked::class);
+});
+
+test('resolving a report as banned bans the player and removes them from the world', function () {
+    $report = openReport(resident(), $this->target, $this->instance->id);
+
+    app(ResolveReport::class)($report, ReportResolution::Banned, $this->staff, 'Threats', now()->addDay());
+
+    expect(Sanction::query()->sole())->type->toBe(SanctionType::Ban)->chat_report_id->toBe($report->id)
+        ->and($this->target->fresh()->isBanned())->toBeTrue()
+        ->and($this->members->contains($this->instance->id, $this->target->id))->toBeFalse();
+    Event::assertDispatched(WorldAccessRevoked::class, fn (WorldAccessRevoked $event): bool => $event->broadcastOn()->name === "private-world-session.{$this->token}");
+});
+
+test('a report can only be resolved once', function () {
+    $report = openReport(resident(), $this->target, $this->instance->id);
+    $staleCopy = $report->fresh();
+
+    app(ResolveReport::class)($report, ReportResolution::Muted, $this->staff, 'Spam', now()->addDay());
+
+    expect(fn () => app(ResolveReport::class)($staleCopy, ReportResolution::Banned, $this->staff, 'Spam', now()->addDay()))
+        ->toThrow(ModerationActionRefused::class);
+
+    expect(Sanction::query()->pluck('type')->all())->toBe([SanctionType::Mute])
+        ->and($report->fresh()->resolution)->toBe(ReportResolution::Muted)
+        ->and($this->target->fresh()->isBanned())->toBeFalse();
+});
+
+test('a report against staff is not resolved when the sanction is refused', function () {
+    $colleague = User::factory()->staff()->create();
+    $report = openReport(resident(), $colleague, $this->instance->id);
+
+    expect(fn () => app(ResolveReport::class)($report, ReportResolution::Muted, $this->staff, 'Spam', now()->addDay()))
+        ->toThrow(ModerationActionRefused::class);
+
+    expect($report->fresh()->status)->toBe(ReportStatus::Open)
+        ->and(Sanction::query()->count())->toBe(0);
+});
 
 test('a warning restricts nothing and is not active afterwards', function () {
     $warning = app(IssueSanction::class)($this->target, SanctionType::Warning, 'Be kind', now()->addYear(), $this->staff);

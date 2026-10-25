@@ -6,12 +6,7 @@ use App\Domain\Chat\BlockedTermsFilter;
 use App\Domain\Chat\FilterLevel;
 use App\Models\BlockedTerm;
 
-function blockTerm(string $term, BlockedTermMatchType $type = BlockedTermMatchType::Exact, BlockedTermSeverity $severity = BlockedTermSeverity::High): void
-{
-    BlockedTerm::factory()->create(['term' => $term, 'match_type' => $type, 'severity' => $severity]);
-}
-
-function hush(string $body, FilterLevel $level = FilterLevel::Strict): string
+function filteredBody(string $body, FilterLevel $level = FilterLevel::Strict): string
 {
     return app(BlockedTermsFilter::class)->filter($body, $level)->body;
 }
@@ -36,14 +31,14 @@ it('replaces an exact term with the placeholder, not asterisks', function () {
 it('uses the same placeholder whatever the length of the hidden word', function () {
     blockTerm('grub');
 
-    expect(hush('grub'))->toBe(HUSHED)
-        ->and(hush('gggrrrruuuubbbbbb'))->toBe(HUSHED);
+    expect(filteredBody('grub'))->toBe(HUSHED)
+        ->and(filteredBody('gggrrrruuuubbbbbb'))->toBe(HUSHED);
 });
 
 it('sees through leetspeak, accents, and repeated letters', function (string $body) {
     blockTerm('grub');
 
-    expect(hush("well {$body} then"))->toBe('well '.HUSHED.' then');
+    expect(filteredBody("well {$body} then"))->toBe('well '.HUSHED.' then');
 })->with([
     'digits' => '9rub',
     'symbols' => 'gru8',
@@ -57,7 +52,7 @@ it('does not flag innocent words that contain an exact term', function () {
     blockTerm('ass');
     blockTerm('hell');
 
-    expect(hush('hello class, the assistant passed the shell'))->toBe('hello class, the assistant passed the shell');
+    expect(filteredBody('hello class, the assistant passed the shell'))->toBe('hello class, the assistant passed the shell');
 });
 
 it('keeps a double letter in a term significant', function () {
@@ -65,33 +60,33 @@ it('keeps a double letter in a term significant', function () {
     blockTerm('ass');
     blockTerm('loot', BlockedTermMatchType::Contains);
 
-    expect(hush('as I was saying, a lot of us'))->toBe('as I was saying, a lot of us')
-        ->and(hush('you aaasss'))->toBe('you '.HUSHED)
-        ->and(hush('free l00000t here, or a lotto'))->toBe('free '.HUSHED.' here, or a lotto')
-        ->and(hush('bigloot'))->toBe(HUSHED);
+    expect(filteredBody('as I was saying, a lot of us'))->toBe('as I was saying, a lot of us')
+        ->and(filteredBody('you aaasss'))->toBe('you '.HUSHED)
+        ->and(filteredBody('free l00000t here, or a lotto'))->toBe('free '.HUSHED.' here, or a lotto')
+        ->and(filteredBody('bigloot'))->toBe(HUSHED);
 });
 
 it('matches multi-word exact terms only as a run of whole words', function () {
     blockTerm('meet me');
 
-    expect(hush('pls m33t   ME at the pier'))->toBe('pls '.HUSHED.' at the pier')
-        ->and(hush('meet the mayor, me too'))->toBe('meet the mayor, me too')
-        ->and(hush('meeting me'))->toBe('meeting me');
+    expect(filteredBody('pls m33t   ME at the pier'))->toBe('pls '.HUSHED.' at the pier')
+        ->and(filteredBody('meet the mayor, me too'))->toBe('meet the mayor, me too')
+        ->and(filteredBody('meeting me'))->toBe('meeting me');
 });
 
 it('matches contains terms inside longer words', function () {
     blockTerm('grub', BlockedTermMatchType::Contains);
 
-    expect(hush('such a grubby little gr8ubber'))->toBe('such a '.HUSHED.' little gr8ubber')
-        ->and(hush('supergrubber'))->toBe(HUSHED);
+    expect(filteredBody('such a grubby little gr8ubber'))->toBe('such a '.HUSHED.' little gr8ubber')
+        ->and(filteredBody('supergrubber'))->toBe(HUSHED);
 });
 
 it('matches regex terms against normalized words', function () {
     blockTerm('^sn[aiu]rk$', BlockedTermMatchType::Regex);
 
-    expect(hush('what a snirk'))->toBe('what a '.HUSHED)
-        ->and(hush('SNAAARK'))->toBe(HUSHED)
-        ->and(hush('snorkel snark'))->toBe('snorkel '.HUSHED);
+    expect(filteredBody('what a snirk'))->toBe('what a '.HUSHED)
+        ->and(filteredBody('SNAAARK'))->toBe(HUSHED)
+        ->and(filteredBody('snorkel snark'))->toBe('snorkel '.HUSHED);
 });
 
 it('leaves clean messages untouched', function () {
@@ -105,7 +100,7 @@ it('leaves clean messages untouched', function () {
 });
 
 it('blocks links, email addresses, and phone numbers on strict', function (string $body, string $expected) {
-    expect(hush($body, FilterLevel::Strict))->toBe($expected);
+    expect(filteredBody($body, FilterLevel::Strict))->toBe($expected);
 })->with([
     'url' => ['go to https://example.com/x now', 'go to '.HUSHED.' now'],
     'bare domain' => ['visit coolsite.gg', 'visit '.HUSHED],
@@ -117,7 +112,7 @@ it('blocks links, email addresses, and phone numbers on strict', function (strin
 ]);
 
 it('allows links, email addresses, and phone numbers on standard', function (string $body) {
-    expect(hush($body, FilterLevel::Standard))->toBe($body);
+    expect(filteredBody($body, FilterLevel::Standard))->toBe($body);
 })->with([
     'go to https://example.com/x now',
     'mail kid@example.com ok',
@@ -125,7 +120,7 @@ it('allows links, email addresses, and phone numbers on standard', function (str
 ]);
 
 it('does not treat short numbers as phone numbers', function () {
-    expect(hush('I have 25 coins and 300 shells', FilterLevel::Strict))->toBe('I have 25 coins and 300 shells');
+    expect(filteredBody('I have 25 coins and 300 shells', FilterLevel::Strict))->toBe('I have 25 coins and 300 shells');
 });
 
 it('blocks severities by filter level', function () {
@@ -133,25 +128,28 @@ it('blocks severities by filter level', function () {
     blockTerm('blast', severity: BlockedTermSeverity::Medium);
     blockTerm('grub', severity: BlockedTermSeverity::High);
 
-    expect(hush('drat blast grub', FilterLevel::Strict))->toBe(HUSHED)
-        ->and(hush('drat blast grub', FilterLevel::Standard))->toBe('drat '.HUSHED)
-        ->and(hush('drat', FilterLevel::Standard))->toBe('drat');
+    expect(filteredBody('drat blast grub', FilterLevel::Strict))->toBe(HUSHED)
+        ->and(filteredBody('drat blast grub', FilterLevel::Standard))->toBe('drat '.HUSHED)
+        ->and(filteredBody('drat', FilterLevel::Standard))->toBe('drat');
 });
 
 it('sees new terms immediately after they are added', function () {
-    expect(hush('grub'))->toBe('grub');
+    expect(filteredBody('grub'))->toBe('grub');
 
     blockTerm('grub');
 
-    expect(hush('grub'))->toBe(HUSHED);
+    expect(filteredBody('grub'))->toBe(HUSHED);
 });
 
-it('finds blocked terms anywhere in a username', function () {
+it('ignores a regex term that does not compile', function () {
+    BlockedTerm::factory()->create(['term' => '(unclosed', 'match_type' => BlockedTermMatchType::Regex]);
     blockTerm('grub');
-    blockTerm('^x+y+z+', BlockedTermMatchType::Regex);
-    $filter = app(BlockedTermsFilter::class);
 
-    expect($filter->containsBlockedTerm('Big_9rub_77'))->toBeTrue()
-        ->and($filter->containsBlockedTerm('xxyz_fan'))->toBeTrue()
-        ->and($filter->containsBlockedTerm('Penguin_99'))->toBeFalse();
+    expect(filteredBody('(unclosed grub'))->toBe('(unclosed '.HUSHED);
+});
+
+it('reports contact details by kind', function () {
+    $result = app(BlockedTermsFilter::class)->filter('mail kid@example.com or call 555-123-4567', FilterLevel::Strict);
+
+    expect($result->matches)->toBe(['email', 'phone']);
 });

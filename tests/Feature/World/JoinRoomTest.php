@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Presence\StartWorldSession;
 use App\Actions\World\JoinRoom;
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\PositionStore;
@@ -21,10 +20,7 @@ beforeEach(function () {
 
 function joinOverHttp(User $user, Room $room, array $data = [], ?string $socket = null)
 {
-    $token = app(StartWorldSession::class)($user)->session_token;
-
-    return test()->actingAs($user)
-        ->withHeaders(worldHeaders($token, $socket))
+    return asResident($user, startSession($user), $socket)
         ->postJson(route('world.rooms.join', $room), $data);
 }
 
@@ -63,17 +59,19 @@ test('joining puts the resident in instance 1 at a spawn and announces them to o
         && $event->broadcastWith()['player']['path'] === [[1, 1]]);
 });
 
-test('the 41st resident lands in instance 2 with an overflow notice', function () {
+test('a resident joining a full instance lands in instance 2 with an overflow notice', function () {
+    $this->room->update(['capacity_per_instance' => 3]);
     $first = $this->room->instances()->where('number', 1)->firstOrFail();
-    fillInstance($first, 40);
+    fillInstance($first, 3);
 
     $response = joinOverHttp(resident(), $this->room);
 
     $response->assertOk()
+        ->assertJsonPath('protocol', 1)
         ->assertJsonPath('notice', __('hushfield.instance_full'))
         ->assertJsonPath('snapshot.instance.number', 2);
 
-    expect($this->members->count($first->id))->toBe(40)
+    expect($this->members->count($first->id))->toBe(3)
         ->and($this->room->instances()->count())->toBe(2);
 });
 
@@ -177,18 +175,17 @@ test('inactive rooms refuse joins', function () {
 
 test('banned residents cannot join', function () {
     $user = resident();
-    $token = app(StartWorldSession::class)($user)->session_token;
+    $token = startSession($user);
     $user->forceFill(['banned_until' => now()->addDay()])->save();
 
-    $this->actingAs($user)->withHeaders(worldHeaders($token))->postJson(route('world.rooms.join', $this->room))
+    asResident($user, $token)->postJson(route('world.rooms.join', $this->room))
         ->assertForbidden()
         ->assertJsonPath('reason', 'banned');
 });
 
 test('joins are rate limited', function () {
     $user = resident();
-    $token = app(StartWorldSession::class)($user)->session_token;
-    $this->actingAs($user)->withHeaders(worldHeaders($token));
+    asResident($user, startSession($user));
 
     foreach (range(1, 10) as $attempt) {
         $this->postJson(route('world.rooms.join', $this->room))->assertOk();

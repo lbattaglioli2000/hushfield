@@ -2,26 +2,13 @@
 
 namespace App\Events\World;
 
-use App\Events\WorldEvent;
-use Illuminate\Broadcasting\PresenceChannel;
+use App\Events\RoomEvent;
 
-final class PlayerLeft extends WorldEvent
+final class PlayerLeft extends RoomEvent
 {
-    public function __construct(
-        public readonly int $instanceId,
-        public readonly int $userId,
-    ) {
-        parent::__construct();
-    }
-
-    public function broadcastOn(): PresenceChannel
+    public function __construct(int $instanceId, public readonly int $userId)
     {
-        return new PresenceChannel("room.{$this->instanceId}");
-    }
-
-    public function broadcastAs(): string
-    {
-        return 'PlayerLeft';
+        parent::__construct($instanceId);
     }
 
     protected function payload(): array

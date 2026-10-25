@@ -4,10 +4,12 @@ namespace App\Actions\Presence;
 
 use App\Actions\World\LeaveRoom;
 use App\Models\User;
-use App\Models\WorldSession;
 
 /**
  * Takes the player out of the world: leaves their room and drops the session token.
+ *
+ * With $onlyToken, does nothing unless that token is still the current session,
+ * so a late goodbye from an old tab cannot end a newer session.
  */
 final readonly class EndWorldSession
 {
@@ -15,7 +17,7 @@ final readonly class EndWorldSession
 
     public function __invoke(User $user, ?string $onlyToken = null): void
     {
-        $session = WorldSession::query()->where('user_id', $user->id)->first();
+        $session = $user->worldSession;
 
         if ($onlyToken !== null && $session?->session_token !== $onlyToken) {
             return;
@@ -26,5 +28,6 @@ final readonly class EndWorldSession
         }
 
         $session?->delete();
+        $user->setRelation('worldSession', null);
     }
 }

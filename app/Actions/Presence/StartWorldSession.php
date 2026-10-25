@@ -3,6 +3,7 @@
 namespace App\Actions\Presence;
 
 use App\Events\Presence\SessionSuperseded;
+use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
 use App\Models\User;
 use App\Models\WorldSession;
@@ -20,11 +21,7 @@ final readonly class StartWorldSession
             throw WorldActionRefused::banned();
         }
 
-        $previous = $user->worldSession()->first();
-
-        if ($previous !== null) {
-            broadcast(new SessionSuperseded($previous->session_token));
-        }
+        $previousToken = $user->worldSession()->value('session_token');
 
         // Through the relation, so user_id is set as the foreign key rather than mass-assigned.
         /** @var WorldSession $session */
@@ -34,6 +31,10 @@ final readonly class StartWorldSession
         );
 
         $user->setRelation('worldSession', $session);
+
+        if (is_string($previousToken)) {
+            WorldBroadcast::send(new SessionSuperseded($previousToken));
+        }
 
         return $session;
     }

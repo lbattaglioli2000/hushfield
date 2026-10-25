@@ -12,6 +12,6 @@ final class SnapshotController extends Controller
 {
     public function __invoke(Request $request, RoomInstance $instance, BuildSnapshot $buildSnapshot): JsonResponse
     {
-        return response()->json($buildSnapshot($request->user(), $instance));
+        return response()->json($buildSnapshot($request->user(), $instance)->toArray());
     }
 }

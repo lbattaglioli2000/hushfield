@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Policies\Concerns\DeniesPanelWrites;
 
 /**
  * Staff (admins and moderators) moderate players. Only admins change staff roles.
@@ -10,6 +11,8 @@ use App\Models\User;
  */
 final class UserPolicy
 {
+    use DeniesPanelWrites;
+
     public function viewAny(User $staff): bool
     {
         return $staff->isStaff();
@@ -18,26 +21,6 @@ final class UserPolicy
     public function view(User $staff, User $user): bool
     {
         return $staff->isStaff();
-    }
-
-    public function create(User $staff): bool
-    {
-        return false;
-    }
-
-    public function update(User $staff, User $user): bool
-    {
-        return false;
-    }
-
-    public function delete(User $staff, User $user): bool
-    {
-        return false;
-    }
-
-    public function deleteAny(User $staff): bool
-    {
-        return false;
     }
 
     /**

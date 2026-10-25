@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Http\Responses\WorldResponse;
 use Illuminate\Http\JsonResponse;
 use RuntimeException;
 
@@ -58,6 +59,21 @@ final class WorldActionRefused extends RuntimeException
         return new self('chat_empty', 422);
     }
 
+    public static function chatTooLong(): self
+    {
+        return new self('chat_too_long', 422);
+    }
+
+    public static function chatTooFast(): self
+    {
+        return new self('chat_too_fast', 429);
+    }
+
+    public static function reportTooMany(): self
+    {
+        return new self('report_too_many', 429);
+    }
+
     public static function reportSelf(): self
     {
         return new self('report_self', 422);
@@ -65,10 +81,9 @@ final class WorldActionRefused extends RuntimeException
 
     public function render(): JsonResponse
     {
-        return response()->json([
+        return WorldResponse::json([
             'reason' => $this->reason,
             'message' => $this->getMessage(),
-            'protocol' => (int) config('hushfield.protocol'),
         ], $this->status);
     }
 }

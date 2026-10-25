@@ -22,6 +22,9 @@ class Avatar extends Model
     /** @use HasFactory<AvatarFactory> */
     use HasFactory;
 
+    /** The one sprite every resident wears until the paper-doll system lands. */
+    public const string DEFAULT_SPRITE = 'resident';
+
     public const array BODY_COLORS = [
         '#e8a87c', '#c38d9e', '#41b3a3', '#85cdca', '#e27d60', '#a3b18a',
         '#b8a1d9', '#f2c14e', '#7fa7d9', '#d98f8f', '#9bc995', '#c9b79c',

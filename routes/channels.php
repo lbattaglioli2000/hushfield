@@ -6,19 +6,13 @@ use App\Models\User;
 use App\Models\WorldSession;
 use Illuminate\Support\Facades\Broadcast;
 
-Broadcast::channel('App.Models.User.{id}', fn (User $user, int $id): bool => $user->id === $id);
-
-// presence-room.{instance}: only current, unbanned members of the instance.
+// presence-room.{instance} (RoomInstance::channelNameFor): only current, unbanned members of the instance.
 Broadcast::channel('room.{instance}', function (User $user, RoomInstance $instance): array|false {
     if ($user->isBanned() || ! app(InstanceMembers::class)->contains($instance->id, $user->id)) {
         return false;
     }
 
-    return [
-        'id' => $user->id,
-        'username' => $user->username,
-        'avatar' => $user->avatar?->toPayload(),
-    ];
+    return $user->toPlayerPayload();
 });
 
 // private-world-session.{token}: session notices (superseded, banned, moved).

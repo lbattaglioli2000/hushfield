@@ -17,7 +17,6 @@ class RoomFactory extends Factory
         return [
             'slug' => $slug,
             'name' => str($slug)->title()->toString(),
-            'map_path' => "resources/maps/{$slug}.json",
             'map_version' => null,
             'capacity_per_instance' => 40,
             'spawn_x' => 0,

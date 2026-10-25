@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Domain\Identity\AgeGateCookie;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -16,14 +17,6 @@ use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
-    public function register(): void
-    {
-        //
-    }
-
     /**
      * Bootstrap any application services.
      */
@@ -70,8 +63,10 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::registerView(fn (Request $request) => Inertia::render('auth/register', [
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
             'birth' => $request->session()->get('registration.birth'),
-            'refused' => $request->cookie((string) config('hushfield.accounts.underage_cookie')) !== null,
+            'refused' => app(AgeGateCookie::class)->isSet($request),
             'underageMessage' => __('hushfield.underage'),
+            'usernameMin' => (int) config('hushfield.accounts.username.min'),
+            'usernameMax' => (int) config('hushfield.accounts.username.max'),
         ]));
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/two-factor-challenge'));

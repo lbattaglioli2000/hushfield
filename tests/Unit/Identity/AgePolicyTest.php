@@ -3,13 +3,13 @@
 use App\Domain\Identity\AgePolicy;
 use Carbon\CarbonImmutable;
 
-function on(string $date): CarbonImmutable
+function hushfieldDate(string $date): CarbonImmutable
 {
     return CarbonImmutable::parse($date, 'America/New_York');
 }
 
 it('meets the minimum age only once the last possible birthday has passed', function (int $month, int $year, string $today, bool $expected) {
-    expect((new AgePolicy)->meetsMinimumAge($month, $year, on($today)))->toBe($expected);
+    expect((new AgePolicy)->meetsMinimumAge($month, $year, hushfieldDate($today)))->toBe($expected);
 })->with([
     'turns 13 this month, not yet the last day' => [10, 2013, '2026-10-30', false],
     'turns 13 this month, on the last day' => [10, 2013, '2026-10-31', true],
@@ -28,7 +28,7 @@ it('meets the minimum age only once the last possible birthday has passed', func
 ]);
 
 it('treats someone as a minor until a 31 December eighteenth birthday has passed', function (int $year, string $today, bool $expected) {
-    expect((new AgePolicy)->isMinor($year, on($today)))->toBe($expected);
+    expect((new AgePolicy)->isMinor($year, hushfieldDate($today)))->toBe($expected);
 })->with([
     'born 2008, 30 December 2026' => [2008, '2026-12-30', true],
     'born 2008, 31 December 2026' => [2008, '2026-12-31', false],

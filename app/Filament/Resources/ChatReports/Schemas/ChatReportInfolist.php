@@ -2,8 +2,6 @@
 
 namespace App\Filament\Resources\ChatReports\Schemas;
 
-use App\Domain\Moderation\ReportReason;
-use App\Domain\Moderation\ReportStatus;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\ChatMessage;
 use App\Models\ChatReport;
@@ -27,10 +25,8 @@ class ChatReportInfolist
                     ->columns(4)
                     ->schema([
                         TextEntry::make('status')
-                            ->badge()
-                            ->color(fn (ReportStatus $state): string => $state === ReportStatus::Open ? 'danger' : 'gray'),
-                        TextEntry::make('reason')
-                            ->formatStateUsing(fn (ReportReason $state): string => $state->label()),
+                            ->badge(),
+                        TextEntry::make('reason'),
                         TextEntry::make('reportedUser.username')
                             ->label('Reported player')
                             ->url(fn (ChatReport $record): string => UserResource::getUrl('view', ['record' => $record->reported_user_id])),
@@ -56,32 +52,10 @@ class ChatReportInfolist
                         ViewEntry::make('context')
                             ->hiddenLabel()
                             ->view('filament.reports.message-context')
-                            ->state(fn (ChatReport $record): Collection => self::context($record)),
+                            ->state(fn (ChatReport $record): Collection => $record->chatMessage === null
+                                ? new Collection
+                                : ChatMessage::around($record->chatMessage, self::CONTEXT)),
                     ]),
             ]);
-    }
-
-    /**
-     * @return Collection<int, ChatMessage>
-     */
-    public static function context(ChatReport $report): Collection
-    {
-        $message = $report->chatMessage;
-
-        if ($message === null) {
-            return new Collection;
-        }
-
-        $base = fn () => ChatMessage::query()
-            ->with('user')
-            ->where('room_instance_id', $message->room_instance_id);
-
-        $before = $base()->where('id', '<', $message->id)->orderByDesc('id')->limit(self::CONTEXT)->get()->reverse();
-        $after = $base()->where('id', '>', $message->id)->orderBy('id')->limit(self::CONTEXT)->get();
-
-        return $before->toBase()
-            ->push($message->loadMissing('user'))
-            ->merge($after)
-            ->values();
     }
 }

@@ -19,9 +19,10 @@ final readonly class SweepGhosts
         $swept = 0;
 
         WorldSession::query()
-            ->with('user.lastRoomInstance.room')
+            ->with('user.lastRoomInstance')
             ->where('last_seen_at', '<', now()->subSeconds((int) config('hushfield.presence.ghost_after_seconds')))
             ->each(function (WorldSession $session) use (&$swept): void {
+                $session->user->setRelation('worldSession', $session);
                 ($this->endWorldSession)($session->user, $session->session_token);
                 $swept++;
             });

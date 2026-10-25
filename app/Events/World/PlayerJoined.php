@@ -2,41 +2,18 @@
 
 namespace App\Events\World;
 
-use App\Domain\World\StoredPath;
-use App\Events\WorldEvent;
-use App\Models\RoomInstance;
-use App\Models\User;
-use Illuminate\Broadcasting\PresenceChannel;
+use App\Domain\World\PlayerState;
+use App\Events\RoomEvent;
 
-final class PlayerJoined extends WorldEvent
+final class PlayerJoined extends RoomEvent
 {
-    public function __construct(
-        public readonly RoomInstance $instance,
-        public readonly User $user,
-        public readonly StoredPath $position,
-    ) {
-        parent::__construct();
-    }
-
-    public function broadcastOn(): PresenceChannel
+    public function __construct(int $instanceId, public readonly PlayerState $player)
     {
-        return new PresenceChannel($this->instance->channelName());
-    }
-
-    public function broadcastAs(): string
-    {
-        return 'PlayerJoined';
+        parent::__construct($instanceId);
     }
 
     protected function payload(): array
     {
-        return [
-            'player' => [
-                'id' => $this->user->id,
-                'username' => $this->user->username,
-                'avatar' => $this->user->avatar?->toPayload(),
-                ...$this->position->toArray(),
-            ],
-        ];
+        return ['player' => $this->player->toArray()];
     }
 }

@@ -7,10 +7,13 @@ use App\Domain\Identity\StaffRole;
 use App\Domain\Moderation\SanctionType;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -48,7 +51,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  */
 #[Fillable(['username', 'email', 'password', 'birth_year', 'is_minor', 'chat_filter_level', 'direct_messages_allowed', 'friend_requests_allowed'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'birth_year'])]
-class User extends Authenticatable implements FilamentUser, MustVerifyEmail, PasskeyUser
+class User extends Authenticatable implements FilamentUser, HasName, MustVerifyEmail, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
@@ -107,9 +110,42 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Pas
         return $this->hasMany(ChatMessage::class);
     }
 
+    /**
+     * Users whose ban has not yet run out.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function banned(Builder $query): void
+    {
+        $query->where('banned_until', '>', now());
+    }
+
     public function isBanned(): bool
     {
         return $this->banned_until !== null && $this->banned_until->isFuture();
+    }
+
+    public function isPermanentlyBanned(): bool
+    {
+        return $this->banned_until?->format('Y-m-d H:i:s') === self::PERMANENT_BAN_UNTIL;
+    }
+
+    /**
+     * Recomputes banned_until from the active ban sanctions: permanent if any
+     * has no end, otherwise the latest end, otherwise not banned.
+     */
+    public function syncBannedUntil(): void
+    {
+        $bans = $this->sanctions()->active()->where('type', SanctionType::Ban)->get();
+
+        $this->forceFill([
+            'banned_until' => match (true) {
+                $bans->isEmpty() => null,
+                $bans->contains(fn (Sanction $ban): bool => $ban->ends_at === null) => self::PERMANENT_BAN_UNTIL,
+                default => $bans->max('ends_at'),
+            },
+        ])->save();
     }
 
     public function isMuted(): bool
@@ -130,6 +166,25 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Pas
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->isStaff() && $this->hasVerifiedEmail();
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->username;
+    }
+
+    /**
+     * The public view of a player that other clients see.
+     *
+     * @return array{id: int, username: string, avatar: array{body_color: string, sprite_key: string}|null}
+     */
+    public function toPlayerPayload(): array
+    {
+        return [
+            'id' => $this->id,
+            'username' => $this->username,
+            'avatar' => $this->avatar?->toPayload(),
+        ];
     }
 
     public function ageBracket(): string

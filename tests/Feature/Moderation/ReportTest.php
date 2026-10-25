@@ -16,9 +16,7 @@ beforeEach(function () {
 
 function fileReport(array $data)
 {
-    return test()->actingAs(test()->reporter)
-        ->withHeaders(worldHeaders(test()->token))
-        ->postJson(route('world.reports.store'), $data);
+    return asResident(test()->reporter, test()->token)->postJson(route('world.reports.store'), $data);
 }
 
 test('reporting a chat bubble links the message', function () {
@@ -28,7 +26,9 @@ test('reporting a chat bubble links the message', function () {
         'reported_user_id' => $this->reported->id,
         'chat_message_id' => $message->id,
         'reason' => 'harassment',
-    ])->assertCreated()->assertJsonPath('message', __('hushfield.report_sent'));
+    ])->assertCreated()
+        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('message', __('hushfield.report_sent'));
 
     $report = ChatReport::query()->sole();
 
@@ -69,10 +69,13 @@ test('a message must belong to the reported resident', function () {
 });
 
 test('reports need a known resident and reason', function (array $data, string $error) {
-    fileReport($data)->assertUnprocessable()->assertJsonValidationErrors($error);
+    fileReport($data)->assertUnprocessable()->assertOnlyJsonValidationErrors([$error]);
+
+    expect(ChatReport::query()->count())->toBe(0);
 })->with([
-    'unknown resident' => [['reported_user_id' => 999999, 'reason' => 'spam'], 'reported_user_id'],
-    'unknown reason' => [['reported_user_id' => 1, 'reason' => 'boring'], 'reason'],
+    // Bound closures run after beforeEach, so the otherwise valid fields can name its residents.
+    'unknown resident' => [fn (): array => ['reported_user_id' => 999999, 'reason' => 'spam'], 'reported_user_id'],
+    'unknown reason' => [fn (): array => ['reported_user_id' => $this->reported->id, 'reason' => 'boring'], 'reason'],
 ]);
 
 test('residents cannot report themselves', function () {
@@ -91,7 +94,7 @@ test('residents can file 5 reports an hour', function () {
 
     fileReport(['reported_user_id' => $this->reported->id, 'reason' => 'spam'])
         ->assertTooManyRequests()
-        ->assertJsonPath('reason', 'report_too_many');
+        ->assertExactJson(['protocol' => 1, 'reason' => 'report_too_many', 'message' => __('hushfield.report_too_many')]);
 
     expect(ChatReport::query()->count())->toBe(5);
 

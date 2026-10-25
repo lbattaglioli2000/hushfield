@@ -3,27 +3,16 @@
 namespace App\Events\World;
 
 use App\Domain\World\StoredPath;
-use App\Events\WorldEvent;
-use Illuminate\Broadcasting\PresenceChannel;
+use App\Events\RoomEvent;
 
-final class PlayerMoved extends WorldEvent
+final class PlayerMoved extends RoomEvent
 {
     public function __construct(
-        public readonly int $instanceId,
+        int $instanceId,
         public readonly int $userId,
         public readonly StoredPath $path,
     ) {
-        parent::__construct();
-    }
-
-    public function broadcastOn(): PresenceChannel
-    {
-        return new PresenceChannel("room.{$this->instanceId}");
-    }
-
-    public function broadcastAs(): string
-    {
-        return 'PlayerMoved';
+        parent::__construct($instanceId);
     }
 
     protected function payload(): array

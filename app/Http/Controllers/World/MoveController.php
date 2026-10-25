@@ -5,6 +5,7 @@ namespace App\Http\Controllers\World;
 use App\Actions\World\MovePlayer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\World\MoveRequest;
+use App\Http\Responses\WorldResponse;
 use App\Models\RoomInstance;
 use Illuminate\Http\JsonResponse;
 
@@ -14,9 +15,6 @@ final class MoveController extends Controller
     {
         $path = $movePlayer($request->user(), $instance, $request->integer('x'), $request->integer('y'));
 
-        return response()->json([
-            'protocol' => (int) config('hushfield.protocol'),
-            ...$path->toArray(),
-        ]);
+        return WorldResponse::json($path->toArray());
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Domain\Moderation;
 
-enum ReportReason: string
+use Filament\Support\Contracts\HasLabel;
+
+enum ReportReason: string implements HasLabel
 {
     case Harassment = 'harassment';
     case Hate = 'hate';
@@ -23,5 +25,10 @@ enum ReportReason: string
             self::Impersonation => 'Pretending to be staff or someone else',
             self::Other => 'Something else',
         };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 }

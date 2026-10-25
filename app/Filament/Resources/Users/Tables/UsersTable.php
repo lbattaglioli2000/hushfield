@@ -45,8 +45,8 @@ class UsersTable
                     ->options(StaffRole::class),
                 TernaryFilter::make('banned')
                     ->queries(
-                        true: fn (Builder $query): Builder => $query->where('banned_until', '>', now()),
-                        false: fn (Builder $query): Builder => $query->where(fn (Builder $query): Builder => $query->whereNull('banned_until')->orWhere('banned_until', '<=', now())),
+                        true: fn (Builder $query): Builder => $query->whereIn('id', User::query()->banned()->select('id')),
+                        false: fn (Builder $query): Builder => $query->whereNotIn('id', User::query()->banned()->select('id')),
                     ),
             ])
             ->recordActions([

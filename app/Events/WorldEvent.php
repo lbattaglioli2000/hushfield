@@ -2,12 +2,15 @@
 
 namespace App\Events;
 
+use App\Domain\World\Clock;
+use App\Domain\World\Protocol;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 
 /**
  * Every world broadcast carries the protocol version and the server time it happened at,
  * so clients can detect outdated builds and order events against snapshots.
+ * The client listens for each event by its class name.
  */
 abstract class WorldEvent implements ShouldBroadcastNow
 {
@@ -17,7 +20,7 @@ abstract class WorldEvent implements ShouldBroadcastNow
 
     public function __construct()
     {
-        $this->atMs = (int) now()->getTimestampMs();
+        $this->atMs = Clock::nowMs();
     }
 
     /**
@@ -25,13 +28,18 @@ abstract class WorldEvent implements ShouldBroadcastNow
      */
     abstract protected function payload(): array;
 
+    public function broadcastAs(): string
+    {
+        return class_basename(static::class);
+    }
+
     /**
      * @return array<string, mixed>
      */
     final public function broadcastWith(): array
     {
         return [
-            'protocol' => (int) config('hushfield.protocol'),
+            'protocol' => Protocol::VERSION,
             'at_ms' => $this->atMs,
             ...$this->payload(),
         ];

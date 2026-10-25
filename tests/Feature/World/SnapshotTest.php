@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Presence\StartWorldSession;
 use App\Actions\World\MovePlayer;
 use Carbon\CarbonImmutable;
 
@@ -19,8 +18,7 @@ test('the snapshot describes the instance and every player in it', function () {
 
     $this->travel(100)->milliseconds();
 
-    $response = $this->actingAs($me)->withHeaders(worldHeaders($token))
-        ->getJson(route('world.instances.snapshot', $instance));
+    $response = asResident($me, $token)->getJson(route('world.instances.snapshot', $instance));
 
     $response->assertOk()
         ->assertJsonPath('protocol', 1)
@@ -52,11 +50,10 @@ test('the snapshot describes the instance and every player in it', function () {
 
 test('the snapshot is only for members of the instance', function () {
     $outsider = resident();
-    $token = app(StartWorldSession::class)($outsider)->session_token;
+    $token = startSession($outsider);
     ['instance' => $instance] = enterWorld(resident(), $this->room);
 
-    $this->actingAs($outsider)->withHeaders(worldHeaders($token))
-        ->getJson(route('world.instances.snapshot', $instance))
+    asResident($outsider, $token)->getJson(route('world.instances.snapshot', $instance))
         ->assertStatus(409)
         ->assertJsonPath('reason', 'not_in_room');
 });

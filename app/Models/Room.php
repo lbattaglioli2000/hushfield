@@ -12,14 +12,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property string $slug
  * @property string $name
- * @property string $map_path
  * @property string|null $map_version
  * @property int $capacity_per_instance
  * @property int $spawn_x
  * @property int $spawn_y
  * @property bool $is_active
  */
-#[Fillable(['slug', 'name', 'map_path', 'map_version', 'capacity_per_instance', 'spawn_x', 'spawn_y', 'is_active'])]
+#[Fillable(['slug', 'name', 'map_version', 'capacity_per_instance', 'spawn_x', 'spawn_y', 'is_active'])]
 class Room extends Model
 {
     /** @use HasFactory<RoomFactory> */

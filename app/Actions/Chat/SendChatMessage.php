@@ -7,6 +7,7 @@ use App\Domain\Chat\ChatSanitizer;
 use App\Domain\Chat\TextNormalizer;
 use App\Domain\Presence\InstanceMembers;
 use App\Events\Chat\ChatMessageSent;
+use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
 use App\Features\ChatEnabled;
 use App\Features\WorldFlags;
@@ -16,7 +17,8 @@ use App\Models\User;
 use Illuminate\Redis\RedisManager;
 
 /**
- * Filters, stores, and broadcasts one chat line.
+ * Sanitizes, filters, stores, and broadcasts one chat line. This is the only
+ * place chat input is cleaned and measured, so every refusal has the same shape.
  *
  * Returns null when the line is silently dropped (an identical repeat).
  * A muted player's line comes back unsaved and unbroadcast, so only their own client shows it.
@@ -37,14 +39,16 @@ final readonly class SendChatMessage
             throw WorldActionRefused::chatPaused();
         }
 
-        if (! $this->members->contains($instance->id, $user->id)) {
-            throw WorldActionRefused::notInRoom();
-        }
+        $this->members->ensureContains($instance->id, $user->id);
 
-        $body = mb_substr($this->sanitizer->sanitize($body), 0, (int) config('hushfield.chat.max_length'));
+        $body = $this->sanitizer->sanitize($body);
 
         if ($body === '') {
             throw WorldActionRefused::chatEmpty();
+        }
+
+        if (mb_strlen($body) > (int) config('hushfield.chat.max_length')) {
+            throw WorldActionRefused::chatTooLong();
         }
 
         if ($this->isRepeat($user, $body)) {
@@ -67,21 +71,25 @@ final readonly class SendChatMessage
 
         $message->save();
 
-        broadcast(new ChatMessageSent($message))->toOthers();
+        WorldBroadcast::toOthers(new ChatMessageSent($message));
 
         return $message;
     }
 
+    /**
+     * Claims the line's fingerprint for the repeat window; false when it was already claimed.
+     */
     private function isRepeat(User $user, string $body): bool
     {
         $fingerprint = hash('xxh3', $this->normalizer->compact($body));
-        $stored = $this->redis->connection('world')->set(
+        $ttl = (int) config('hushfield.chat.repeat_window_seconds');
+
+        // SET key 1 NX EX ttl, in phpredis's option-array form.
+        $stored = $this->redis->connection('world')->command('set', [
             "chat:last:{$user->id}:{$fingerprint}",
             1,
-            'EX',
-            (int) config('hushfield.chat.repeat_window_seconds'),
-            'NX',
-        );
+            ['nx', 'ex' => $ttl],
+        ]);
 
         return ! $stored;
     }

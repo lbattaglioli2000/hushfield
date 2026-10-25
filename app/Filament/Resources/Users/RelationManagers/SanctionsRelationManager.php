@@ -40,12 +40,7 @@ class SanctionsRelationManager extends RelationManager
             ->defaultSort('starts_at', 'desc')
             ->columns([
                 TextColumn::make('type')
-                    ->badge()
-                    ->color(fn (SanctionType $state): string => match ($state) {
-                        SanctionType::Ban => 'danger',
-                        SanctionType::Mute => 'warning',
-                        SanctionType::Warning => 'gray',
-                    }),
+                    ->badge(),
                 TextColumn::make('reason')
                     ->wrap()
                     ->limit(120),
@@ -80,7 +75,7 @@ class SanctionsRelationManager extends RelationManager
                     ->color('success')
                     ->authorize('lift')
                     ->modalHeading('Lift sanction')
-                    ->schema(ModerationForm::fields(null))
+                    ->schema([ModerationForm::reasonField()])
                     ->action(function (Sanction $record, array $data, LiftSanction $liftSanction): void {
                         $liftSanction($record, Staff::current(), ModerationForm::reason($data));
                     })

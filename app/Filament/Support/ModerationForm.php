@@ -3,14 +3,19 @@
 namespace App\Filament\Support;
 
 use App\Domain\Moderation\SanctionType;
+use App\Exceptions\ModerationActionRefused;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Component;
 
 /**
- * The reason and end date fields shared by every sanction and report action.
+ * The reason and end date fields shared by every audited staff action, and the
+ * handling of a moderation action the server refuses.
  */
 final class ModerationForm
 {
@@ -19,14 +24,7 @@ final class ModerationForm
      */
     public static function fields(?SanctionType $type): array
     {
-        $fields = [
-            Textarea::make('reason')
-                ->label('Reason')
-                ->helperText('Recorded in the audit log.')
-                ->required()
-                ->maxLength(255)
-                ->rows(3),
-        ];
+        $fields = [self::reasonField()];
 
         if ($type === SanctionType::Mute || $type === SanctionType::Ban) {
             $fields[] = DateTimePicker::make('ends_at')
@@ -39,6 +37,16 @@ final class ModerationForm
         }
 
         return $fields;
+    }
+
+    public static function reasonField(): Textarea
+    {
+        return Textarea::make('reason')
+            ->label('Reason')
+            ->helperText('Recorded in the audit log.')
+            ->required()
+            ->maxLength(255)
+            ->rows(3);
     }
 
     /**
@@ -57,5 +65,22 @@ final class ModerationForm
         $endsAt = $data['ends_at'] ?? null;
 
         return is_string($endsAt) && $endsAt !== '' ? CarbonImmutable::parse($endsAt) : null;
+    }
+
+    /**
+     * Runs the moderation action, showing a refusal to staff as a danger
+     * notification instead of an error page.
+     *
+     * @param  Closure(): mixed  $run
+     */
+    public static function runOrNotify(Action $action, Closure $run): void
+    {
+        try {
+            $run();
+        } catch (ModerationActionRefused $refused) {
+            Notification::make()->danger()->title($refused->getMessage())->send();
+
+            $action->cancel();
+        }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\World;
 
 use App\Actions\Presence\StartWorldSession;
 use App\Http\Controllers\Controller;
+use App\Http\Responses\WorldResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,8 +14,7 @@ final class StartWorldSessionController extends Controller
     {
         $session = $startWorldSession($request->user());
 
-        return response()->json([
-            'protocol' => (int) config('hushfield.protocol'),
+        return WorldResponse::json([
             'session_token' => $session->session_token,
             'user_id' => $session->user_id,
         ], 201);

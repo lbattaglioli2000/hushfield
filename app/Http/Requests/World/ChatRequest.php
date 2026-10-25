@@ -2,17 +2,16 @@
 
 namespace App\Http\Requests\World;
 
-use App\Domain\Chat\ChatSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Only a loose bound on the raw input. SendChatMessage sanitizes the line and
+ * refuses empty or overlong ones with a world refusal the client understands.
+ */
 final class ChatRequest extends FormRequest
 {
-    protected function prepareForValidation(): void
-    {
-        if (is_string($this->input('body'))) {
-            $this->merge(['body' => app(ChatSanitizer::class)->sanitize($this->input('body'))]);
-        }
-    }
+    /** Generous enough for invisible characters the sanitizer will strip. */
+    private const int RAW_MAX_LENGTH = 1000;
 
     /**
      * @return array<string, list<string>>
@@ -20,15 +19,12 @@ final class ChatRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'body' => ['required', 'string', 'max:'.(int) config('hushfield.chat.max_length')],
+            'body' => ['nullable', 'string', 'max:'.self::RAW_MAX_LENGTH],
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
+    public function chatBody(): string
     {
-        return ['body.required' => (string) __('hushfield.chat_empty')];
+        return $this->string('body')->toString();
     }
 }

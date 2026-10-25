@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Presence\StartWorldSession;
 use App\Domain\Presence\InstanceMembers;
 use App\Events\Presence\SessionSuperseded;
 use App\Events\World\PlayerLeft;
@@ -55,7 +54,7 @@ test('a new session supersedes the old one, whose token then gets 409', function
 
 test('world requests without a token are refused', function () {
     $user = resident();
-    app(StartWorldSession::class)($user);
+    startSession($user);
 
     $this->actingAs($user)->postJson(route('world.heartbeat'))
         ->assertStatus(409)
@@ -64,21 +63,21 @@ test('world requests without a token are refused', function () {
 
 test('world requests after the session ended report it expired', function () {
     $user = resident();
-    $token = app(StartWorldSession::class)($user)->session_token;
+    $token = startSession($user);
     WorldSession::query()->delete();
 
-    $this->actingAs($user)->withHeaders(worldHeaders($token))->postJson(route('world.heartbeat'))
+    asResident($user, $token)->postJson(route('world.heartbeat'))
         ->assertStatus(409)
         ->assertJsonPath('reason', 'session_expired');
 });
 
 test('one resident cannot use another resident\'s token', function () {
     $owner = resident();
-    $token = app(StartWorldSession::class)($owner)->session_token;
+    $token = startSession($owner);
     $intruder = resident();
-    app(StartWorldSession::class)($intruder);
+    startSession($intruder);
 
-    $this->actingAs($intruder)->withHeaders(worldHeaders($token))->postJson(route('world.heartbeat'))
+    asResident($intruder, $token)->postJson(route('world.heartbeat'))
         ->assertStatus(409);
 });
 
@@ -101,11 +100,11 @@ test('an expired ban no longer blocks', function () {
 test('a heartbeat marks the session as seen and reports server time', function () {
     $this->freezeTime();
     $user = resident();
-    $token = app(StartWorldSession::class)($user)->session_token;
+    $token = startSession($user);
 
     $this->travel(45)->seconds();
 
-    $this->actingAs($user)->withHeaders(worldHeaders($token))->postJson(route('world.heartbeat'))
+    asResident($user, $token)->postJson(route('world.heartbeat'))
         ->assertOk()
         ->assertJsonPath('server_time_ms', now()->getTimestampMs());
 
@@ -116,7 +115,7 @@ test('ending the session leaves the room and drops the token', function () {
     $user = resident();
     ['token' => $token, 'instance' => $instance] = enterWorld($user, $this->room);
 
-    $this->actingAs($user)->withHeaders(worldHeaders($token, 'socket.1'))->postJson(route('world.session.end'))
+    asResident($user, $token, 'socket.1')->postJson(route('world.session.end'))
         ->assertNoContent();
 
     expect(WorldSession::query()->count())->toBe(0)

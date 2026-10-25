@@ -6,14 +6,11 @@ use Laravel\Pennant\Feature;
 
 /**
  * Global (not per-user) feature flags. Pennant has no null scope for class
- * features, so global flags share one fixed scope.
+ * features, so global flags share one fixed scope. The flags are listed in WorldFlag.
  */
 final class WorldFlags
 {
     public const string SCOPE = 'world';
-
-    /** @var list<class-string> */
-    public const array FLAGS = [ChatEnabled::class, JoinsEnabled::class];
 
     public static function active(string $feature): bool
     {

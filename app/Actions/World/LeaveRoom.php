@@ -5,6 +5,7 @@ namespace App\Actions\World;
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\PositionStore;
 use App\Events\World\PlayerLeft;
+use App\Events\WorldBroadcast;
 use App\Models\RoomInstance;
 use App\Models\User;
 
@@ -30,9 +31,8 @@ final readonly class LeaveRoom
             $instance->forceFill(['empty_since' => $instance->empty_since ?? now()])->save();
         }
 
-        // Redis and Postgres are already updated; a websocket outage must not undo a leave.
         if ($wasMember) {
-            rescue(fn () => broadcast(new PlayerLeft($instance->id, $user->id)));
+            WorldBroadcast::send(new PlayerLeft($instance->id, $user->id));
         }
     }
 }

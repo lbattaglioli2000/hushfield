@@ -30,7 +30,6 @@ final readonly class ImportMap
         ]);
 
         $room->fill([
-            'map_path' => "resources/maps/{$slug}.json",
             'map_version' => $map->version,
             'spawn_x' => $map->grid->spawns[0][0],
             'spawn_y' => $map->grid->spawns[0][1],

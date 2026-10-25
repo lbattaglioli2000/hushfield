@@ -1,7 +1,5 @@
 <?php
 
-use App\Actions\Presence\StartWorldSession;
-use App\Actions\World\JoinRoom;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -48,8 +46,7 @@ test('members of an instance may join its presence channel', function () {
 test('residents outside the instance may not join its presence channel', function () {
     ['instance' => $instance] = enterWorld(resident(), $this->room);
     $outsider = resident();
-    $elsewhere = $this->room->instances()->create(['number' => 2, 'is_open' => true]);
-    app(JoinRoom::class)($outsider, $this->room, $elsewhere);
+    enterWorld($outsider, $this->room, $this->room->instances()->create(['number' => 2, 'is_open' => true]));
 
     authorizeChannel($outsider, "presence-room.{$instance->id}")->assertForbidden();
 });
@@ -71,8 +68,8 @@ test('guests may not join any channel', function () {
 
 test('only the session owner may join the private session channel, and only for the current token', function () {
     $owner = resident();
-    $old = app(StartWorldSession::class)($owner)->session_token;
-    $current = app(StartWorldSession::class)($owner)->session_token;
+    $old = startSession($owner);
+    $current = startSession($owner);
 
     authorizeChannel($owner, "private-world-session.{$current}")->assertOk()->assertJsonStructure(['auth']);
     authorizeChannel($owner, "private-world-session.{$old}")->assertForbidden();

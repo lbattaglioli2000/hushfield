@@ -29,10 +29,8 @@ class ChatReportsTable
                 TextColumn::make('id')
                     ->label('#'),
                 TextColumn::make('status')
-                    ->badge()
-                    ->color(fn (ReportStatus $state): string => $state === ReportStatus::Open ? 'danger' : 'gray'),
-                TextColumn::make('reason')
-                    ->formatStateUsing(fn (ReportReason $state): string => $state->label()),
+                    ->badge(),
+                TextColumn::make('reason'),
                 TextColumn::make('reportedUser.username')
                     ->label('Reported player')
                     ->searchable(),
@@ -55,7 +53,7 @@ class ChatReportsTable
                 SelectFilter::make('status')
                     ->options(ReportStatus::class),
                 SelectFilter::make('reason')
-                    ->options(collect(ReportReason::cases())->mapWithKeys(fn (ReportReason $reason): array => [$reason->value => $reason->label()])->all()),
+                    ->options(ReportReason::class),
                 SelectFilter::make('resolution')
                     ->options(ReportResolution::class),
             ])

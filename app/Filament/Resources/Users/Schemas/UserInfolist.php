@@ -42,7 +42,7 @@ class UserInfolist
                             ->label('Banned until')
                             ->state(fn (User $record): ?string => match (true) {
                                 ! $record->isBanned() => null,
-                                $record->banned_until?->year === 9999 => 'Permanently',
+                                $record->isPermanentlyBanned() => 'Permanently',
                                 default => $record->banned_until?->toDayDateTimeString(),
                             })
                             ->placeholder('Not banned')

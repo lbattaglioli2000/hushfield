@@ -24,8 +24,7 @@ class GameMetrics extends StatsOverviewWidget
      */
     protected function getStats(): array
     {
-        $openInstanceIds = RoomInstance::query()->where('is_open', true)->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
-        $counts = app(InstanceMembers::class)->counts(array_values($openInstanceIds));
+        $counts = app(InstanceMembers::class)->countsFor(RoomInstance::query()->where('is_open', true)->get(['id']));
         $inRooms = array_sum($counts);
         $perInstance = $counts === [] ? 0 : $inRooms / count($counts);
 

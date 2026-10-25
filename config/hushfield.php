@@ -1,5 +1,7 @@
 <?php
 
+use App\Domain\World\Protocol;
+
 return [
 
     /*
@@ -8,12 +10,8 @@ return [
      */
     'timezone' => env('HUSHFIELD_TIMEZONE', 'America/New_York'),
 
-    /*
-     * Bump whenever a broadcast payload or snapshot changes shape. Clients on
-     * an older protocol are asked to reload. Must match
-     * resources/js/game/protocol.ts.
-     */
-    'protocol' => 1,
+    // Read-only mirror of Protocol::VERSION (bump it there) for code that reads config.
+    'protocol' => Protocol::VERSION,
 
     'accounts' => [
         'minimum_age' => 13,
@@ -77,6 +75,13 @@ return [
         // Point at a CDN later; the client only ever reads URLs from the manifest.
         'base_url' => env('HUSHFIELD_ASSET_URL'),
         'version' => env('HUSHFIELD_ASSET_VERSION', '1'),
+        // Manifest key => file name under {base_url}/v{version}/.
+        'images' => [
+            'tiles' => 'tiles.png',
+            'resident' => 'resident.png',
+            'marker' => 'marker.png',
+            'hover' => 'hover.png',
+        ],
     ],
 
 ];

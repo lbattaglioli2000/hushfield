@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\ChatReports;
 
-use App\Domain\Moderation\ReportStatus;
 use App\Filament\Resources\ChatReports\Pages\ListChatReports;
 use App\Filament\Resources\ChatReports\Pages\ViewChatReport;
 use App\Filament\Resources\ChatReports\Schemas\ChatReportInfolist;
@@ -31,7 +30,7 @@ class ChatReportResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $open = ChatReport::query()->where('status', ReportStatus::Open)->count();
+        $open = ChatReport::query()->open()->count();
 
         return $open > 0 ? (string) $open : null;
     }

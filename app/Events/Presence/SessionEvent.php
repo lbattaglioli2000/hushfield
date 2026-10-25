@@ -21,11 +21,6 @@ abstract class SessionEvent extends WorldEvent
         return new PrivateChannel(WorldSession::channelNameFor($this->sessionToken));
     }
 
-    public function broadcastAs(): string
-    {
-        return class_basename(static::class);
-    }
-
     protected function payload(): array
     {
         return [];
