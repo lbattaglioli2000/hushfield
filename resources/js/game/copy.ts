@@ -27,6 +27,9 @@ export type CopyKey =
     | 'decorate_hint'
     | 'friends_title'
     | 'friends_empty'
+    | 'town_map_title'
+    | 'town_map_intro'
+    | 'town_map_unplaced'
     | 'chat_placeholder'
     | 'on_air_host';
 

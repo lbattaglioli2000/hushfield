@@ -11,6 +11,7 @@ import OnAirTicker from '@/components/play/on-air-ticker';
 import PlayerCard from '@/components/play/player-card';
 import Residences from '@/components/play/residences';
 import { SignalTray } from '@/components/play/signal-tray';
+import TownMap from '@/components/play/town-map';
 import TuningDial, { Static, stationKey } from '@/components/play/tuning-dial';
 import BakelitePanel from '@/components/radio/bakelite-panel';
 import Knob from '@/components/radio/knob';
@@ -144,6 +145,7 @@ export default function Play({ game }: PlayProps) {
                                 >
                                     <EconomyHud bus={bus} copy={game.copy} />
                                     <Friends bus={bus} copy={game.copy} />
+                                    <TownMap bus={bus} copy={game.copy} />
                                     <Residences bus={bus} copy={game.copy} />
                                 </div>
                             </div>

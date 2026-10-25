@@ -120,6 +120,20 @@ export type Wallet = {
     inventory: Item[];
 };
 
+/** A room on the town map. `position` is its grid cell, null for a map that sets none; `links` are the rooms its doors join it to. */
+export type TownRoom = {
+    slug: string;
+    name: string;
+    kind: 'public' | 'residence';
+    frequency: number | null;
+    position: { x: number; y: number } | null;
+    links: string[];
+    /** Everyone in the room's open instances; null for the residence, whose homes are private. */
+    occupants: number | null;
+};
+
+export type TownMap = { rooms: TownRoom[] };
+
 /** The resident's own home, and the homes open to visitors. `residence` is null until the residence map is imported. */
 export type HomesList = {
     residence: string | null;

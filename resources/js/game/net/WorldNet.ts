@@ -24,6 +24,7 @@ import type {
     PlacedFurniture,
     Snapshot,
     Tile,
+    TownMap,
     Wallet,
 } from '../protocol/types';
 import { pathState, PROTOCOL } from '../protocol/types';
@@ -214,6 +215,10 @@ export class WorldNet {
 
     claimStipend(): Promise<WalletUpdate> {
         return this.request<WalletUpdate>('POST', '/world/stipend');
+    }
+
+    town(): Promise<TownMap> {
+        return this.request<TownMap>('GET', '/world/town');
     }
 
     homes(): Promise<HomesList> {

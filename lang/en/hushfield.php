@@ -22,6 +22,11 @@ return [
     'exit_too_far' => 'You need to be at the door to use it. Doors are particular about this.',
     'exit_closed' => "That door doesn't open today. It may never have.",
 
+    // The town map
+    'town_map_title' => 'Hushfield',
+    'town_map_intro' => 'The town as Hearthmore Group has agreed to describe it. Choose a place and you will be there. Nobody will ask how.',
+    'town_map_unplaced' => 'Also on the air. Nobody has drawn where.',
+
     // Homes
     'residences_title' => 'Hearthmore Residences',
     'residences_intro' => 'Every resident is provided a home. Some leave their doors open.',

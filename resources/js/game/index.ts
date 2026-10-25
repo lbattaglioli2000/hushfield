@@ -26,6 +26,8 @@ export type {
     Item,
     ItemSlot,
     PlacedFurniture,
+    TownMap,
+    TownRoom,
     Wallet,
 } from './protocol/types';
 
@@ -151,6 +153,18 @@ export function startGame(
                     bus.emit('report-result', {
                         ok: false,
                         message: userMessage(error, config.copy),
+                    }),
+                );
+        }),
+    );
+
+    cleanups.push(
+        bus.on('load-town', () => {
+            net.town()
+                .then((map) => bus.emit('town', { map }))
+                .catch((error: unknown) =>
+                    bus.emit('town', {
+                        error: userMessage(error, config.copy),
                     }),
                 );
         }),

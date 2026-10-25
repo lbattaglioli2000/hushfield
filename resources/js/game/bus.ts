@@ -5,6 +5,7 @@ import type {
     HomesList,
     Item,
     PlacedFurniture,
+    TownMap,
     Wallet,
 } from './protocol/types';
 
@@ -41,6 +42,8 @@ export type GameEvents = {
     furniture: { placed: PlacedFurniture[] };
     /** The answer to a 'load-homes' or 'set-home-open'. */
     homes: HomesList;
+    /** The answer to a 'load-town', or why it could not be had. */
+    town: { map: TownMap } | { error: string };
     /** After entering the world, after every change to the list, and whenever a friend request arrives. */
     friends: FriendsList;
     /** The outcome of anything asked of the friends list. */
@@ -81,6 +84,8 @@ export type GameEvents = {
     /** Go to a room: the residence with no instance is the player's own home. */
     travel: { slug: string; instanceId: number | null };
     'load-homes': Record<string, never>;
+    /** The town map, with fresh counts, for when the Map key opens it. */
+    'load-town': Record<string, never>;
     'set-home-visitors': { visitors: HomeVisitors };
     /** Fresh locations and requests, for when the friends list opens. */
     'load-friends': Record<string, never>;
