@@ -55,7 +55,7 @@ test('email is not verified with invalid user id', function () {
 
     Event::fake();
 
-    $this->actingAs($user)->get(verificationUrl(123, sha1($user->email)));
+    $this->actingAs($user)->get(verificationUrl($user->id + 1, sha1($user->email)));
 
     Event::assertNotDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
