@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Actions\World\CloseInstance;
 use App\Actions\World\GatherIntoFirstInstance;
 use App\Domain\Presence\InstanceMembers;
+use App\Domain\World\RoomKind;
 use App\Filament\Support\Staff;
 use App\Models\Room;
 use App\Models\RoomInstance;
@@ -18,7 +19,8 @@ use Illuminate\Support\Facades\Gate;
 use UnitEnum;
 
 /**
- * Every room with its instances and live occupancy from Redis.
+ * Every public room with its instances and live occupancy from Redis.
+ * Homes are not listed; they are on each resident's page.
  */
 class LiveRooms extends Page
 {
@@ -43,6 +45,7 @@ class LiveRooms extends Page
     protected function getViewData(): array
     {
         $rooms = Room::query()
+            ->where('kind', RoomKind::Public)
             ->with(['instances' => fn ($query) => $query->orderBy('number')])
             ->orderBy('name')
             ->get();

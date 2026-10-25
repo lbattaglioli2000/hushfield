@@ -3,6 +3,7 @@
 namespace App\Domain\World;
 
 use App\Domain\Presence\InstanceMembers;
+use App\Exceptions\WorldActionRefused;
 use App\Models\Room;
 use App\Models\RoomInstance;
 use Illuminate\Contracts\Cache\Lock;
@@ -37,6 +38,23 @@ final readonly class InstanceAllocator
             $this->members->add($allocation[0]->id, $userId);
 
             return $allocation;
+        });
+    }
+
+    /**
+     * Puts the player in exactly this instance (a home), refusing when it is full.
+     * Someone already inside is let back in.
+     */
+    public function enter(RoomInstance $instance, int $userId): void
+    {
+        $this->lockFor($instance->room_id)->block(5, function () use ($instance, $userId): void {
+            $full = $this->members->count($instance->id) >= $instance->room->capacity_per_instance;
+
+            if ($full && ! $this->members->contains($instance->id, $userId)) {
+                throw WorldActionRefused::homeFull();
+            }
+
+            $this->members->add($instance->id, $userId);
         });
     }
 

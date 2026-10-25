@@ -59,6 +59,10 @@ class UserInfolist
                         TextEntry::make('created_at')
                             ->label('Joined')
                             ->dateTime(),
+                        TextEntry::make('home')
+                            ->label('Residence')
+                            ->state(fn (User $record): ?string => $record->home === null ? null : ($record->home->is_open ? 'Open to visitors' : 'Closed').' · '.$record->home->furniture()->count().' pieces placed')
+                            ->placeholder('Not moved in'),
                         TextEntry::make('coins')
                             ->label('Coins')
                             ->numeric()

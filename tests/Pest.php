@@ -10,6 +10,7 @@ use App\Events\Moderation\PlayerWarned;
 use App\Events\Moderation\WorldAccessRevoked;
 use App\Events\Presence\InstanceReassigned;
 use App\Events\Presence\SessionSuperseded;
+use App\Events\World\FurnitureChanged;
 use App\Events\World\PlayerJoined;
 use App\Events\World\PlayerLeft;
 use App\Events\World\PlayerMoved;
@@ -55,6 +56,7 @@ const WORLD_EVENTS = [
     WorldAccessRevoked::class,
     InstanceReassigned::class,
     PlayerWarned::class,
+    FurnitureChanged::class,
 ];
 
 function fakeWorldEvents(): void

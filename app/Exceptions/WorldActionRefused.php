@@ -116,4 +116,44 @@ final class WorldActionRefused extends RuntimeException
     {
         return new self('shop_too_fast', 429);
     }
+
+    public static function exitTooFar(): self
+    {
+        return new self('exit_too_far', 422);
+    }
+
+    public static function exitClosed(): self
+    {
+        return new self('exit_closed', 409);
+    }
+
+    public static function homeClosed(): self
+    {
+        return new self('home_closed', 403);
+    }
+
+    public static function homeFull(): self
+    {
+        return new self('home_full', 409);
+    }
+
+    public static function residencesClosed(): self
+    {
+        return new self('residences_closed', 409);
+    }
+
+    public static function notFurniture(): self
+    {
+        return new self('not_furniture', 422);
+    }
+
+    public static function furnitureBlocked(): self
+    {
+        return new self('furniture_blocked', 422);
+    }
+
+    public static function homeTooFast(): self
+    {
+        return new self('home_too_fast', 429);
+    }
 }

@@ -18,6 +18,26 @@ return [
     'joins_paused' => 'The square is not admitting visitors right now. Please try again in a few minutes.',
     'not_in_room' => "You aren't in this square anymore. Reload to find your way back.",
 
+    // Doors
+    'exit_too_far' => 'You need to be at the door to use it. Doors are particular about this.',
+    'exit_closed' => "That door doesn't open today. It may never have.",
+
+    // Homes
+    'residences_title' => 'Hearthmore Residences',
+    'residences_intro' => 'Every resident is provided a home. Some leave their doors open.',
+    'residences_empty' => 'No doors are open right now. Everyone is in, or pretending to be.',
+    'decorate_hint' => 'Choose a piece, then a spot on the floor. Tap a placed piece to put it away.',
+    'home_label' => ":name's residence",
+    'home_closed' => 'That residence is not receiving visitors right now. Hearthmore Group respects a closed door.',
+    'home_full' => 'That residence is full. There is a limit to how many guests a floor can bear.',
+    'home_door_closed' => 'Your host has closed their door. You have been shown back to the square.',
+    'residences_closed' => 'Hearthmore Residences is not accepting residents just yet.',
+    'home_opened' => 'Your door is open. Visitors may now let themselves in.',
+    'home_shut' => 'Your door is closed. Only you may come in.',
+    'not_furniture' => "That isn't furniture. Please don't try to sit on it.",
+    'furniture_blocked' => "That spot isn't available. Something, or a doorway, is already there.",
+    'home_too_fast' => 'Your residence needs a moment to settle. Please try again shortly.',
+
     // Movement
     'unreachable' => "You can't get there from here. Few can.",
 

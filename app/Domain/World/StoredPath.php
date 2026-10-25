@@ -21,6 +21,16 @@ final readonly class StoredPath
         return new self([[$x, $y]], $nowMs, (float) config('hushfield.movement.speed_tiles_per_sec'));
     }
 
+    /**
+     * The tile the path ends on.
+     *
+     * @return array{int, int}
+     */
+    public function destination(): array
+    {
+        return $this->path[count($this->path) - 1];
+    }
+
     public function positionAt(int $nowMs): PathPosition
     {
         return PathClock::positionAt($this->path, $this->startedAtMs, $this->speed, $nowMs);

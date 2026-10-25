@@ -4,8 +4,6 @@ namespace App\Actions\World;
 
 use App\Domain\Audit\AuditLog;
 use App\Domain\Presence\InstanceMembers;
-use App\Events\Presence\InstanceReassigned;
-use App\Events\WorldBroadcast;
 use App\Models\RoomInstance;
 use App\Models\User;
 
@@ -17,7 +15,7 @@ final readonly class CloseInstance
 {
     public function __construct(
         private InstanceMembers $members,
-        private LeaveRoom $leaveRoom,
+        private RelocatePlayer $relocatePlayer,
     ) {}
 
     public function __invoke(RoomInstance $instance, ?User $staff, ?RoomInstance $target = null, bool $keepOpen = false): int
@@ -29,11 +27,7 @@ final readonly class CloseInstance
         $users = User::query()->with('worldSession')->whereIn('id', $this->members->all($instance->id))->get();
 
         foreach ($users as $user) {
-            ($this->leaveRoom)($user, $instance);
-
-            if ($user->worldSession !== null) {
-                WorldBroadcast::send(new InstanceReassigned($user->worldSession->session_token, $target?->id));
-            }
+            ($this->relocatePlayer)($user, $instance, (string) __('hushfield.instance_closed'), $target);
         }
 
         if ($staff !== null) {

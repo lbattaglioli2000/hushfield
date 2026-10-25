@@ -22,4 +22,19 @@ final class MapFiles
 
         return (string) file_get_contents($path);
     }
+
+    /**
+     * Every committed map, by slug.
+     *
+     * @return list<string>
+     */
+    public function slugs(): array
+    {
+        $files = glob(rtrim((string) config('hushfield.maps.path'), '/').'/*.json') ?: [];
+
+        return array_values(array_filter(
+            array_map(fn (string $file): string => basename($file, '.json'), $files),
+            fn (string $slug): bool => (bool) preg_match('/^[a-z0-9-]+$/', $slug),
+        ));
+    }
 }

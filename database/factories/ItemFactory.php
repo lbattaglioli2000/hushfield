@@ -29,6 +29,11 @@ class ItemFactory extends Factory
         ];
     }
 
+    public function furniture(): static
+    {
+        return $this->state(['slot' => ItemSlot::Furniture]);
+    }
+
     public function notInShop(): static
     {
         return $this->state(['in_shop' => false]);

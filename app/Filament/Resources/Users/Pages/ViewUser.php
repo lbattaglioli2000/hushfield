@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Actions\Economy\AdjustCoins;
+use App\Actions\Housing\ResetHome;
 use App\Actions\Identity\ChangeStaffRole;
 use App\Actions\Items\GrantItem;
 use App\Actions\Moderation\IssueSanction;
@@ -31,6 +32,7 @@ class ViewUser extends ViewRecord
             $this->sanctionAction(SanctionType::Mute),
             $this->sanctionAction(SanctionType::Ban),
             $this->staffRoleAction(),
+            $this->resetHomeAction(),
             ActionGroup::make([
                 $this->adjustCoinsAction(),
                 $this->grantItemAction(),
@@ -40,6 +42,27 @@ class ViewUser extends ViewRecord
                 ->color('gray')
                 ->button(),
         ];
+    }
+
+    /**
+     * For a home arrangement that breaks the rules: furniture back to inventory, door closed.
+     */
+    private function resetHomeAction(): Action
+    {
+        return Action::make('resetHome')
+            ->label('Reset home')
+            ->icon(Heroicon::OutlinedHomeModern)
+            ->color('warning')
+            ->authorize('resetHome')
+            ->modalHeading(fn (User $record): string => "Reset {$record->username}'s residence")
+            ->modalDescription('Puts away every piece of furniture and closes the home to visitors. The resident keeps their items.')
+            ->schema([ModerationForm::reasonField()])
+            ->action(function (User $record, array $data, ResetHome $resetHome): void {
+                if ($record->home !== null) {
+                    $resetHome($record->home, Staff::current(), ModerationForm::reason($data));
+                }
+            })
+            ->successNotificationTitle('Home reset');
     }
 
     /**

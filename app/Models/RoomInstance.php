@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property bool $is_open
  * @property Carbon|null $empty_since
  * @property-read Room $room
+ * @property-read Home|null $home
  */
 #[Fillable(['number', 'is_open', 'empty_since'])]
 class RoomInstance extends Model
@@ -45,8 +47,21 @@ class RoomInstance extends Model
         return $this->hasMany(ChatMessage::class);
     }
 
+    /** @return HasOne<Home, $this> */
+    public function home(): HasOne
+    {
+        return $this->hasOne(Home::class);
+    }
+
+    /**
+     * How players and staff see the instance: "Town Square (2)", or "Wren's residence" for a home.
+     */
     public function label(): string
     {
+        if ($this->room->isResidence() && $this->home !== null) {
+            return (string) __('hushfield.home_label', ['name' => $this->home->owner->username]);
+        }
+
         return "{$this->room->name} ({$this->number})";
     }
 

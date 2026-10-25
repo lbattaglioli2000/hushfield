@@ -44,4 +44,12 @@ final class UserPolicy
     {
         return $staff->isAdmin() && $staff->isNot($user);
     }
+
+    /**
+     * Put away a resident's furniture and close their home. Any staff member, like other moderation.
+     */
+    public function resetHome(User $staff, User $user): bool
+    {
+        return $staff->isStaff() && $user->home !== null;
+    }
 }

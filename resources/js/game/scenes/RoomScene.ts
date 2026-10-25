@@ -6,6 +6,8 @@ import type {
     ChatMessageSentEvent,
     PlayerJoinedEvent,
     PlayerLeftEvent,
+    PathState,
+    PlacedFurniture,
     PlayerMovedEvent,
     PlayerState,
     Snapshot,
@@ -13,8 +15,9 @@ import type {
 } from '../protocol/types';
 import { pathState } from '../protocol/types';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
-import { CAMERA, COLORS, DEPTH } from '../theme';
+import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
+import { FurnitureLayer } from '../world/FurnitureLayer';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
 import type { MovementPort } from '../world/MovementController';
 import { MovementController } from '../world/MovementController';
@@ -23,15 +26,28 @@ import { MovementController } from '../world/MovementController';
 export type RoomPort = MovementPort & {
     /** Ends the game with a fatal screen, for failures the scene can't recover from. */
     abort(error: unknown): void;
+    useExit(name: string): Promise<void>;
+    placeFurniture(itemId: number, tile: Tile): Promise<void>;
+    putAwayFurniture(itemId: number): Promise<void>;
 };
 
 export type RoomSceneOptions = {
     manifest: AssetManifest;
+    /** Tells the player why something they asked for (a door, a piece of furniture) didn't happen. */
+    refused: (error: unknown) => void;
     bubbleSeconds: number;
     maxPathSteps: number;
 };
 
 const TAP_SLOP_PX = 10;
+
+const NIGHT_RGB = (() => {
+    const { red, green, blue } = Phaser.Display.Color.HexStringToColor(
+        COLORS.night,
+    );
+
+    return [red, green, blue] as const;
+})();
 
 /**
  * Draws whichever room the latest snapshot describes, map included. Every position
@@ -45,6 +61,14 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
     private readonly movement: MovementController;
     private selfId = 0;
     private map: IsoMap | null = null;
+    private furniture: FurnitureLayer | null = null;
+    /** Whether the drawn instance is the player's own home. */
+    private ownHome = false;
+    private decorating: { armedItemId: number | null } | null = null;
+    /** Between leaving one room and drawing the next: the screen is faded and taps are ignored. */
+    private travelling = false;
+    /** The path whose arrival at a door was already acted on, so each walk goes through at most once. */
+    private doorTriedFor: PathState | null = null;
     private hover!: Phaser.GameObjects.Image;
     private marker!: Phaser.GameObjects.Image;
     /** A snapshot that arrived before create(), or while its map was loading. */
@@ -123,14 +147,40 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         for (const avatar of this.avatars.values()) {
             const pos = avatar.update(now, delta, this.map);
 
-            if (
-                avatar.id === this.selfId &&
-                pos.finished &&
-                this.marker.visible
-            ) {
-                this.marker.setVisible(false);
+            if (avatar.id !== this.selfId || !pos.finished) continue;
+
+            if (this.marker.visible) this.marker.setVisible(false);
+
+            const door = this.map.doorAt(pos.tile);
+
+            if (door && this.doorTriedFor !== avatar.state) {
+                this.doorTriedFor = avatar.state;
+                this.travel(() => this.port.useExit(door.name));
             }
         }
+    }
+
+    /**
+     * Fades out, runs the request that moves the player, and fades back in once
+     * the next snapshot is drawn (or straight away when the request fails).
+     */
+    travel(run: () => Promise<void>): void {
+        if (this.travelling) return;
+
+        this.travelling = true;
+        this.decorating = null;
+        this.marker.setVisible(false);
+        this.cameras.main.fadeOut(TRAVEL.fadeMs, ...NIGHT_RGB);
+
+        run().catch((error: unknown) => {
+            this.arrived();
+            this.options.refused(error);
+        });
+    }
+
+    /** UI → game: decorate mode is only honoured in the player's own home. */
+    setDecorating(active: boolean, armedItemId: number | null): void {
+        this.decorating = active ? { armedItemId } : null;
     }
 
     // ── WorldListener ─────────────────────────────────────────────────
@@ -155,9 +205,16 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
                 return;
             }
 
+            this.furniture?.destroy();
             this.map?.destroy();
             this.map = new IsoMap(this, key);
+            this.furniture = new FurnitureLayer(this, this.map);
         }
+
+        this.furniture?.set(snapshot.furniture);
+        this.ownHome = snapshot.home?.owner_id === selfId;
+
+        if (!this.ownHome) this.decorating = null;
 
         // Replace local state wholesale: the snapshot is the truth.
         const seen = new Set<number>();
@@ -184,6 +241,8 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         }
 
         this.drainQueue();
+
+        if (this.travelling) this.arrived();
     }
 
     joined(event: PlayerJoinedEvent): void {
@@ -210,6 +269,10 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
 
     idle(userId: number, idle: boolean): void {
         this.whenDrawable(() => this.avatars.get(userId)?.setIdle(idle));
+    }
+
+    furnitureChanged(placed: PlacedFurniture[]): void {
+        this.whenDrawable(() => this.furniture?.set(placed));
     }
 
     /** Shows the player's own line straight away, including when muted (only they see it then). */
@@ -246,7 +309,15 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             return;
         }
 
+        if (this.travelling) return;
+
         this.bus.emit('input-activity', {});
+
+        if (this.decorating && this.ownHome) {
+            this.decorateAt(this.pointerTile(pointer));
+
+            return;
+        }
 
         const clicked = over.find(
             (object) => object.getData('userId') !== undefined,
@@ -271,6 +342,25 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         const tile = this.pointerTile(pointer);
 
         if (tile) void this.movement.walkTo(tile);
+    }
+
+    /** A tap while decorating: put away the piece on the tile, or place the armed one there. */
+    private decorateAt(tile: Tile | null): void {
+        if (!tile || !this.decorating) return;
+
+        const placed = this.furniture?.at(tile);
+        const request = placed
+            ? this.port.putAwayFurniture(placed.item.id)
+            : this.decorating.armedItemId !== null
+              ? this.port.placeFurniture(this.decorating.armedItemId, tile)
+              : null;
+
+        request?.catch((error: unknown) => this.options.refused(error));
+    }
+
+    private arrived(): void {
+        this.travelling = false;
+        this.cameras.main.fadeIn(TRAVEL.fadeMs, ...NIGHT_RGB);
     }
 
     private pointerTile(pointer: Phaser.Input.Pointer): Tile | null {

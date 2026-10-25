@@ -9,6 +9,7 @@ const SLOT_LABELS: Record<ItemSlot, string> = {
     hand: 'Hand',
     pin: 'Pin',
     background: 'Background',
+    furniture: 'Furniture',
 };
 
 /** The rarity's colour, until items have artwork. */

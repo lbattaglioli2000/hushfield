@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\World\RoomKind;
 use Database\Factories\RoomFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,13 +13,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property string $slug
  * @property string $name
+ * @property RoomKind $kind
  * @property string|null $map_version
  * @property int $capacity_per_instance
  * @property int $spawn_x
  * @property int $spawn_y
  * @property bool $is_active
  */
-#[Fillable(['slug', 'name', 'map_version', 'capacity_per_instance', 'spawn_x', 'spawn_y', 'is_active'])]
+#[Fillable(['slug', 'name', 'kind', 'map_version', 'capacity_per_instance', 'spawn_x', 'spawn_y', 'is_active'])]
 class Room extends Model
 {
     /** @use HasFactory<RoomFactory> */
@@ -27,6 +29,7 @@ class Room extends Model
     protected function casts(): array
     {
         return [
+            'kind' => RoomKind::class,
             'capacity_per_instance' => 'integer',
             'spawn_x' => 'integer',
             'spawn_y' => 'integer',
@@ -38,6 +41,11 @@ class Room extends Model
     public function instances(): HasMany
     {
         return $this->hasMany(RoomInstance::class);
+    }
+
+    public function isResidence(): bool
+    {
+        return $this->kind === RoomKind::Residence;
     }
 
     public function getRouteKeyName(): string

@@ -26,11 +26,33 @@ export type PlayerState = PathState & {
     avatar: AvatarLook;
 };
 
+export type RoomKind = 'public' | 'residence';
+
+/** The home a snapshot's instance belongs to. */
+export type HomeInfo = {
+    id: number;
+    owner_id: number;
+    owner: string;
+    is_open: boolean;
+};
+
+/** An owned furniture item standing on a tile of a home. */
+export type PlacedFurniture = { x: number; y: number; item: Item };
+
 export type Snapshot = {
     protocol: number;
     server_time_ms: number;
     instance: { id: number; number: number; label: string; channel: string };
-    room: { slug: string; name: string; map_version: string; map_url: string };
+    room: {
+        slug: string;
+        name: string;
+        kind: RoomKind;
+        map_version: string;
+        map_url: string;
+    };
+    /** Set when the instance is someone's residence. */
+    home: HomeInfo | null;
+    furniture: PlacedFurniture[];
     players: PlayerState[];
 };
 
@@ -46,8 +68,15 @@ export type ChatMessageSentEvent = Stamped & {
 };
 export type IdleWhisper = { user_id: number; idle: boolean };
 
+export type FurnitureChangedEvent = Stamped & {
+    furniture: PlacedFurniture[];
+};
+
 export type InstanceReassignedEvent = Stamped & {
+    message: string;
     target_instance_id: number | null;
+    /** Rejoin this room instead of the current one. */
+    room_slug: string | null;
 };
 
 export type AssetManifest = {
@@ -62,7 +91,8 @@ export type ItemSlot =
     | 'feet'
     | 'hand'
     | 'pin'
-    | 'background';
+    | 'background'
+    | 'furniture';
 
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'peculiar';
 
@@ -84,4 +114,11 @@ export type Wallet = {
     balance: number;
     stipend: { amount: number; available: boolean; next_at: string };
     inventory: Item[];
+};
+
+/** The resident's own home, and the homes open to visitors. `residence` is null until the residence map is imported. */
+export type HomesList = {
+    residence: string | null;
+    own: { instance_id: number; is_open: boolean } | null;
+    open: Array<{ instance_id: number; owner: string; visitors: number }>;
 };

@@ -4,6 +4,10 @@ use App\Http\Controllers\Economy\ClaimStipendController;
 use App\Http\Controllers\Economy\PurchaseItemController;
 use App\Http\Controllers\Economy\ShopController;
 use App\Http\Controllers\Economy\WalletController;
+use App\Http\Controllers\Housing\HomesController;
+use App\Http\Controllers\Housing\HomeVisitorsController;
+use App\Http\Controllers\Housing\PlaceFurnitureController;
+use App\Http\Controllers\Housing\PutAwayFurnitureController;
 use App\Http\Controllers\Identity\AgeGateController;
 use App\Http\Controllers\World\AssetManifestController;
 use App\Http\Controllers\World\ChatController;
@@ -16,6 +20,7 @@ use App\Http\Controllers\World\PlayController;
 use App\Http\Controllers\World\ReportController;
 use App\Http\Controllers\World\SnapshotController;
 use App\Http\Controllers\World\StartWorldSessionController;
+use App\Http\Controllers\World\UseExitController;
 use App\Http\Middleware\EnsureWorldSession;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +45,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('rooms/{room}/join', JoinRoomController::class)->middleware('throttle:join-room')->name('rooms.join');
             Route::get('instances/{instance}/snapshot', SnapshotController::class)->name('instances.snapshot');
             Route::post('instances/{instance}/move', MoveController::class)->middleware('throttle:move')->name('instances.move');
+            Route::post('instances/{instance}/exits/{exit}', UseExitController::class)->middleware('throttle:join-room')->name('instances.exit');
             Route::post('instances/{instance}/chat', ChatController::class)->middleware('throttle:chat')->name('instances.chat');
             Route::post('reports', ReportController::class)->middleware('throttle:report')->name('reports.store');
 
@@ -47,6 +53,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('stipend', ClaimStipendController::class)->middleware('throttle:economy')->name('stipend.claim');
             Route::get('shop', ShopController::class)->name('shop');
             Route::post('shop/{item}/purchase', PurchaseItemController::class)->middleware('throttle:economy')->name('shop.purchase');
+
+            Route::get('homes', HomesController::class)->name('homes');
+            Route::middleware('throttle:home')->group(function () {
+                Route::post('home/visitors', HomeVisitorsController::class)->name('home.visitors');
+                Route::post('home/furniture/{item}', PlaceFurnitureController::class)->name('home.furniture.place');
+                Route::delete('home/furniture/{item}', PutAwayFurnitureController::class)->name('home.furniture.remove');
+            });
         });
     });
 });

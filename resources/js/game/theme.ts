@@ -9,12 +9,38 @@ export const COLORS = {
 
 export const FONT_FAMILY = 'Instrument Sans, system-ui, sans-serif';
 
-/** Ground below the cursor highlights, avatars above both, sorted by screen y. */
+/** Ground and doors below the cursor highlights; furniture and avatars above, sorted by screen y; labels on top. */
 export const DEPTH = {
     ground: 0,
+    door: 0.5,
     hover: 1,
     marker: 2,
     avatars: 10,
+    labels: 100_000,
+} as const;
+
+export const DOOR = {
+    color: 0xffd27a,
+    alpha: 0.45,
+    labelFontSize: '13px',
+    labelStrokeThickness: 3,
+    labelGapY: 60,
+} as const;
+
+/** Placeholder furniture, until items have artwork: a tinted block on its tile. */
+export const FURNITURE = {
+    /** Share of a tile's diamond the block's footprint covers. */
+    footprint: 0.7,
+    heightPx: 18,
+    saturation: 0.35,
+    lightness: 0.55,
+    /** How much darker the left and right faces are than the top. */
+    shade: [0.8, 0.65],
+} as const;
+
+export const TRAVEL = {
+    /** Fade out before leaving a room, and in once the next is drawn. */
+    fadeMs: 220,
 } as const;
 
 export const AVATAR = {

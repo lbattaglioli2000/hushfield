@@ -1,4 +1,4 @@
-import type Phaser from 'phaser';
+import Phaser from 'phaser';
 import type { Tile } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
@@ -8,23 +8,29 @@ import {
     TILE_WIDTH,
     tileToScreen,
 } from '../shared/iso';
-import { CAMERA, DEPTH } from '../theme';
+import { CAMERA, COLORS, DEPTH, DOOR, FONT_FAMILY } from '../theme';
 
 /** Names inside the Tiled map and the texture key its tileset is drawn from. */
 export const MAP_LAYERS = {
     tileset: 'placeholder',
     ground: 'ground',
     walkable: 'walkable',
+    exits: 'exits',
 } as const;
 export const TILES_TEXTURE = 'tiles';
 
-/** One room's isometric tilemap: the drawn ground layer, the walkable grid, and tile↔world conversion. */
+/** A door on the map. Walking onto its tile takes the player through it; the server checks. */
+export type MapDoor = { name: string; tile: Tile; label: string | null };
+
+/** One room's isometric tilemap: the drawn ground layer and doors, the walkable grid, and tile↔world conversion. */
 export class IsoMap {
     readonly key: string;
     readonly grid: Grid;
     /** World x of tile (0,0)'s top corner. */
     readonly originX: number;
+    readonly doors: MapDoor[];
     private readonly layer: Phaser.Tilemaps.TilemapLayer | null = null;
+    private readonly decorations: Phaser.GameObjects.GameObject[] = [];
 
     constructor(scene: Phaser.Scene, key: string) {
         const map = scene.make.tilemap({ key });
@@ -54,6 +60,18 @@ export class IsoMap {
         );
 
         this.grid = { width: map.width, height: map.height, walkable: cells };
+        // Tiled positions objects on isometric maps in tile-height units on both axes.
+        this.doors = (map.getObjectLayer(MAP_LAYERS.exits)?.objects ?? []).map(
+            (object) => ({
+                name: object.name,
+                tile: [
+                    Math.floor((object.x ?? 0) / TILE_HEIGHT),
+                    Math.floor((object.y ?? 0) / TILE_HEIGHT),
+                ],
+                label: property(object, 'label'),
+            }),
+        );
+        this.doors.forEach((door) => this.drawDoor(scene, door));
 
         const widthPx = (map.width + map.height) * (TILE_WIDTH / 2);
         const heightPx = (map.width + map.height) * (TILE_HEIGHT / 2);
@@ -63,6 +81,14 @@ export class IsoMap {
             -pad,
             widthPx + pad * 2,
             heightPx + pad * 2,
+        );
+    }
+
+    doorAt(tile: Tile): MapDoor | null {
+        return (
+            this.doors.find(
+                (door) => door.tile[0] === tile[0] && door.tile[1] === tile[1],
+            ) ?? null
         );
     }
 
@@ -89,5 +115,51 @@ export class IsoMap {
 
     destroy(): void {
         this.layer?.destroy();
+        this.decorations.forEach((object) => object.destroy());
     }
+
+    /** A glowing threshold, and the name of where it leads. */
+    private drawDoor(scene: Phaser.Scene, door: MapDoor): void {
+        const { x, y } = this.toWorld(door.tile[0], door.tile[1]);
+        const glow = scene.add
+            .graphics()
+            .fillStyle(DOOR.color, DOOR.alpha)
+            .fillPoints(
+                [
+                    new Phaser.Math.Vector2(x, y - TILE_HEIGHT / 2),
+                    new Phaser.Math.Vector2(x + TILE_WIDTH / 2, y),
+                    new Phaser.Math.Vector2(x, y + TILE_HEIGHT / 2),
+                    new Phaser.Math.Vector2(x - TILE_WIDTH / 2, y),
+                ],
+                true,
+            )
+            .setDepth(DEPTH.door);
+        this.decorations.push(glow);
+
+        if (door.label) {
+            this.decorations.push(
+                scene.add
+                    .text(x, y - DOOR.labelGapY, door.label, {
+                        fontFamily: FONT_FAMILY,
+                        fontSize: DOOR.labelFontSize,
+                        color: COLORS.paper,
+                        stroke: COLORS.night,
+                        strokeThickness: DOOR.labelStrokeThickness,
+                    })
+                    .setOrigin(0.5, 1)
+                    .setDepth(DEPTH.labels),
+            );
+        }
+    }
+}
+
+function property(
+    object: Phaser.Types.Tilemaps.TiledObject,
+    name: string,
+): string | null {
+    const found = (
+        (object.properties ?? []) as Array<{ name: string; value: unknown }>
+    ).find((p) => p.name === name);
+
+    return typeof found?.value === 'string' ? found.value : null;
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\World\InvalidMapException;
+use App\Domain\World\RoomKind;
 use App\Domain\World\TiledMapParser;
 
 function fixtureMap(string $name): string
@@ -62,3 +63,50 @@ it('versions a map by its content', function () {
         ->and($parser->parse($original."\n")->version)->not->toBe($version)
         ->and($version)->not->toBeEmpty();
 });
+
+it('reads doors, arrival points and room properties', function () {
+    $map = (new TiledMapParser)->parse(fixtureMap('test-home'));
+
+    expect($map->name)->toBe('Test Residences')
+        ->and($map->kind)->toBe(RoomKind::Residence)
+        ->and($map->capacity)->toBe(3)
+        ->and($map->grid->exits['door']->toArray())->toBe(['name' => 'door', 'x' => 2, 'y' => 4, 'to' => 'test-lane', 'arrive' => 'home'])
+        ->and($map->grid->arrivals)->toBe(['door' => [2, 3]])
+        ->and($map->grid->entryPoint('door'))->toBe([2, 3])
+        ->and($map->grid->entryPoint('cellar'))->toBe([2, 2])
+        ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->kind)->toBe(RoomKind::Public);
+});
+
+it('rejects doors and arrival points that would trap or bounce players', function (callable $mutate, string $message) {
+    $map = json_decode(fixtureMap('test-home'), true);
+    $layers = collect($map['layers'])->keyBy('name')->all();
+    $mutate($layers);
+    $map['layers'] = array_values($layers);
+
+    expect(fn () => (new TiledMapParser)->parse(json_encode($map)))
+        ->toThrow(InvalidMapException::class, $message);
+})->with([
+    'door without a target' => [function (array &$layers) {
+        $layers['exits']['objects'][0]['properties'] = [];
+    }, 'Exit "door" needs a "to" property'],
+    'arrival on the door' => [function (array &$layers) {
+        $layers['arrivals']['objects'][0]['y'] = 4 * 32 + 16;
+    }, 'Arrival "door" is on an exit'],
+    'spawn on the door' => [function (array &$layers) {
+        $layers['spawns']['objects'][0]['y'] = 4 * 32 + 16;
+    }, 'Spawn at tile (2, 4) is on an exit.'],
+    'two doors with one name' => [function (array &$layers) {
+        $layers['exits']['objects'][] = $layers['exits']['objects'][0];
+    }, 'Two exits are named "door".'],
+]);
+
+it('rejects room properties it does not understand', function (array $property, string $message) {
+    $map = json_decode(fixtureMap('test-home'), true);
+    $map['properties'] = [$property];
+
+    expect(fn () => (new TiledMapParser)->parse(json_encode($map)))
+        ->toThrow(InvalidMapException::class, $message);
+})->with([
+    'unknown kind' => [['name' => 'kind', 'type' => 'string', 'value' => 'castle'], '"kind" must be "public" or "residence"'],
+    'zero capacity' => [['name' => 'capacity', 'type' => 'int', 'value' => 0], '"capacity" must be a positive integer'],
+]);

@@ -97,6 +97,10 @@ class AppServiceProvider extends ServiceProvider
             ->by('economy:'.$request->user()?->id)
             ->response(fn (): JsonResponse => WorldActionRefused::shopTooFast()->render()));
 
+        RateLimiter::for('home', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by('home:'.$request->user()?->id)
+            ->response(fn (): JsonResponse => WorldActionRefused::homeTooFast()->render()));
+
         RateLimiter::for('join-room', fn (Request $request): Limit => Limit::perMinute(10)->by('join:'.$request->user()?->id));
 
         RateLimiter::for('registration', fn (Request $request): Limit => Limit::perHour(5)->by('register:'.$request->ip()));

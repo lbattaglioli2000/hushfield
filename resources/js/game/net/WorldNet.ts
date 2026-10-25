@@ -8,6 +8,8 @@ import {
 } from '../protocol/channels';
 import type {
     ChatMessageSentEvent,
+    FurnitureChangedEvent,
+    HomesList,
     IdleWhisper,
     InstanceReassignedEvent,
     Item,
@@ -15,6 +17,7 @@ import type {
     PlayerJoinedEvent,
     PlayerLeftEvent,
     PlayerMovedEvent,
+    PlacedFurniture,
     Snapshot,
     Tile,
     Wallet,
@@ -45,7 +48,10 @@ export type WorldListener = {
     moved(event: PlayerMovedEvent): void;
     chat(event: ChatMessageSentEvent): void;
     idle(userId: number, idle: boolean): void;
+    furnitureChanged(placed: PlacedFurniture[]): void;
 };
+
+type JoinBody = { notice: string | null; snapshot: Snapshot };
 
 /**
  * The world session: owns the session token and the current room instance,
@@ -114,9 +120,14 @@ export class WorldNet {
 
     /** Moves this player to another room; the scene redraws from the snapshot that follows. */
     joinRoom(slug: string, instanceId?: number | null): Promise<void> {
-        this.roomSlug = slug;
+        return this.join(instanceId, slug);
+    }
 
-        return this.join(instanceId);
+    /** Goes through a door on the current map into the room behind it. */
+    useExit(name: string): Promise<void> {
+        return this.enter(
+            this.instancePath(`exits/${encodeURIComponent(name)}`),
+        );
     }
 
     /** Ends the game with a fatal screen: banned and moved sessions keep their kind, anything else is 'unavailable'. */
@@ -202,6 +213,37 @@ export class WorldNet {
         return this.request<WalletUpdate>('POST', '/world/stipend');
     }
 
+    homes(): Promise<HomesList> {
+        return this.request<HomesList>('GET', '/world/homes');
+    }
+
+    async setHomeOpen(open: boolean): Promise<string> {
+        const body = await this.request<{ message: string }>(
+            'POST',
+            '/world/home/visitors',
+            { open },
+        );
+
+        return body.message;
+    }
+
+    async placeFurniture(itemId: number, tile: Tile): Promise<void> {
+        const body = await this.request<{ furniture: PlacedFurniture[] }>(
+            'POST',
+            `/world/home/furniture/${itemId}`,
+            { x: tile[0], y: tile[1] },
+        );
+        this.showFurniture(body.furniture);
+    }
+
+    async putAwayFurniture(itemId: number): Promise<void> {
+        const body = await this.request<{ furniture: PlacedFurniture[] }>(
+            'DELETE',
+            `/world/home/furniture/${itemId}`,
+        );
+        this.showFurniture(body.furniture);
+    }
+
     /** Cosmetic only: tells others to dim this avatar. Nothing on the server changes. */
     whisperIdle(idle: boolean): void {
         if (!this.instance || !this.realtime) return;
@@ -251,24 +293,33 @@ export class WorldNet {
         this.subscribeSession();
     }
 
-    private async join(preferredInstanceId?: number | null): Promise<void> {
-        const previous = this.instance;
-        const sent = Date.now();
-        const body = await this.request<{
-            notice: string | null;
-            snapshot: Snapshot;
-        }>('POST', `/world/rooms/${this.roomSlug}/join`, {
+    private join(
+        preferredInstanceId?: number | null,
+        slug: string = this.roomSlug,
+    ): Promise<void> {
+        return this.enter(`/world/rooms/${slug}/join`, {
             instance_id: preferredInstanceId ?? null,
         });
+    }
+
+    /** Anything that puts the player in a room: the room in the answer becomes the one to rejoin. */
+    private async enter(
+        path: string,
+        body: Record<string, unknown> = {},
+    ): Promise<void> {
+        const previous = this.instance;
+        const sent = Date.now();
+        const result = await this.request<JoinBody>('POST', path, body);
 
         if (this.destroyed) return;
 
         if (previous) this.realtime?.echo.leave(previous.channel);
 
-        this.applySnapshot(body.snapshot, sent);
+        this.roomSlug = result.snapshot.room.slug;
+        this.applySnapshot(result.snapshot, sent);
         this.subscribeInstance();
 
-        if (body.notice) this.bus.emit('notice', { message: body.notice });
+        if (result.notice) this.bus.emit('notice', { message: result.notice });
     }
 
     private applySnapshot(snapshot: Snapshot, sentAtMs: number): void {
@@ -281,6 +332,14 @@ export class WorldNet {
             label: snapshot.instance.label,
             number: snapshot.instance.number,
         });
+        this.bus.emit('room', {
+            slug: snapshot.room.slug,
+            name: snapshot.room.name,
+            title: snapshot.home ? snapshot.instance.label : snapshot.room.name,
+            home: snapshot.home,
+            ownHome: snapshot.home?.owner_id === this.selfId,
+        });
+        this.showFurniture(snapshot.furniture, true);
     }
 
     /** After any connection drop: replace local state with a fresh snapshot, then say we're back. */
@@ -403,10 +462,13 @@ export class WorldNet {
             .listen(
                 SESSION_EVENTS.instanceReassigned,
                 (event: InstanceReassignedEvent) => {
-                    this.bus.emit('notice', { message: copy.instance_closed });
+                    this.bus.emit('notice', { message: event.message });
                     this.instance = null;
                     this.retrying(() =>
-                        this.join(event.target_instance_id),
+                        this.join(
+                            event.target_instance_id,
+                            event.room_slug ?? this.roomSlug,
+                        ),
                     ).catch((error: unknown) => this.abort(error));
                 },
             );
@@ -444,12 +506,28 @@ export class WorldNet {
                 ROOM_EVENTS.chatMessageSent,
                 guardProtocol((e: ChatMessageSentEvent) => listener.chat(e)),
             )
+            .listen(
+                ROOM_EVENTS.furnitureChanged,
+                guardProtocol((e: FurnitureChangedEvent) =>
+                    this.showFurniture(e.furniture),
+                ),
+            )
             .listenForWhisper(WHISPERS.idle, (e: IdleWhisper) =>
                 listener.idle(e.user_id, e.idle),
             );
     }
 
     // ── Plumbing ───────────────────────────────────────────────────────
+
+    /** A change to the current home's arrangement. Snapshots carry their own, which the scene draws with them. */
+    private showFurniture(
+        placed: PlacedFurniture[],
+        fromSnapshot = false,
+    ): void {
+        if (!fromSnapshot) this.listener.furnitureChanged(placed);
+
+        this.bus.emit('furniture', { placed });
+    }
 
     private fail(kind: FatalKind, message: string): void {
         this.bus.emit('fatal', { kind, message });
@@ -506,7 +584,7 @@ export class WorldNet {
         return this.instance;
     }
 
-    private instancePath(action: 'move' | 'chat' | 'snapshot'): string {
+    private instancePath(action: string): string {
         return `/world/instances/${this.currentInstance().id}/${action}`;
     }
 
@@ -521,7 +599,7 @@ export class WorldNet {
     }
 
     private async request<T>(
-        method: 'GET' | 'POST',
+        method: 'GET' | 'POST' | 'DELETE',
         path: string,
         body?: Record<string, unknown>,
         handleSessionErrors = true,

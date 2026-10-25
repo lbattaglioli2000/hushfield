@@ -20,6 +20,7 @@ export const ROOM_EVENTS = {
     playerLeft: '.PlayerLeft',
     playerMoved: '.PlayerMoved',
     chatMessageSent: '.ChatMessageSent',
+    furnitureChanged: '.FurnitureChanged',
 } as const;
 
 /** Client-to-client whispers on the presence channel; the server never sees them. */

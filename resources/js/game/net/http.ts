@@ -51,7 +51,7 @@ export class Http {
     }
 
     async send(
-        method: 'GET' | 'POST',
+        method: 'GET' | 'POST' | 'DELETE',
         path: string,
         body?: Record<string, unknown>,
     ): Promise<JsonResponse> {

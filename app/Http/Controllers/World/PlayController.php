@@ -28,7 +28,6 @@ final class PlayController extends Controller
         'banned',
         'banned_action',
         'warned',
-        'instance_closed',
         'not_in_room',
         'shop_title',
         'shop_intro',
@@ -36,6 +35,10 @@ final class PlayController extends Controller
         'inventory_empty',
         'stipend_offer',
         'members_only',
+        'residences_title',
+        'residences_intro',
+        'residences_empty',
+        'decorate_hint',
     ];
 
     public function __invoke(): Response

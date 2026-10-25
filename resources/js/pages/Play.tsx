@@ -7,8 +7,10 @@ import FatalScreen from '@/components/play/fatal-screen';
 import InstanceLabel from '@/components/play/instance-label';
 import Notices from '@/components/play/notices';
 import ReportDialog from '@/components/play/report-dialog';
+import Residences from '@/components/play/residences';
 import type { GameBootProps } from '@/game';
 import { EventBus, startGame } from '@/game';
+import { useGameBus } from '@/hooks/use-game-bus';
 
 type PlayProps = { game: GameBootProps };
 
@@ -21,6 +23,8 @@ export default function Play({ game }: PlayProps) {
     const [bus] = useState(() => new EventBus());
     // Boot props are read once: a props refresh must not tear down and reboot a running game.
     const boot = useRef(game);
+    const [title, setTitle] = useState('Hushfield');
+    useGameBus(bus, 'room', (room) => setTitle(room.title));
 
     useEffect(() => {
         if (!parent.current) return;
@@ -37,11 +41,12 @@ export default function Play({ game }: PlayProps) {
 
     return (
         <>
-            <Head title="Town Square" />
+            <Head title={title} />
             <main className="fixed inset-0 overflow-hidden bg-[#1d2330] text-[#f4efe4] select-none">
                 <div ref={parent} className="absolute inset-0 touch-none" />
                 <InstanceLabel bus={bus} />
                 <EconomyHud bus={bus} copy={game.copy} />
+                <Residences bus={bus} copy={game.copy} />
                 <ConnectionBanner bus={bus} />
                 <Notices bus={bus} />
                 <ChatBar bus={bus} maxLength={game.chatMaxLength} />

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Domain\World\RoomKind;
 use App\Models\Room;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,6 +18,7 @@ class RoomFactory extends Factory
         return [
             'slug' => $slug,
             'name' => str($slug)->title()->toString(),
+            'kind' => RoomKind::Public,
             'map_version' => null,
             'capacity_per_instance' => 40,
             'spawn_x' => 0,

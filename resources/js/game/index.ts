@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { EventBus } from './bus';
 import type { Copy } from './copy';
 import { connectEconomy } from './economy';
+import { connectHousing } from './housing';
 import { userMessage } from './net/http';
 import type { RealtimeConfig } from './net/realtime';
 import { WorldNet } from './net/WorldNet';
@@ -15,7 +16,14 @@ export type { ConnectionState, FatalKind, GameEvents } from './bus';
 export type { Copy } from './copy';
 export type { RealtimeConfig } from './net/realtime';
 export { PROTOCOL } from './protocol/types';
-export type { Item, ItemSlot, Wallet } from './protocol/types';
+export type {
+    HomeInfo,
+    HomesList,
+    Item,
+    ItemSlot,
+    PlacedFurniture,
+    Wallet,
+} from './protocol/types';
 
 export type ReportReasonOption = { value: string; label: string };
 
@@ -84,6 +92,7 @@ export function startGame(
             moved: (e) => scene?.moved(e),
             chat: (e) => scene?.chat(e),
             idle: (id, idle) => scene?.idle(id, idle),
+            furnitureChanged: (placed) => scene?.furnitureChanged(placed),
         },
     );
 
@@ -140,6 +149,7 @@ export function startGame(
 
     const economy = connectEconomy(net, bus, config.copy);
     cleanups.push(() => economy.dispose());
+    cleanups.push(connectHousing(net, bus, config.copy, () => scene));
 
     void (async () => {
         const response = await fetch(config.manifestUrl);
@@ -152,6 +162,10 @@ export function startGame(
 
         scene = new RoomScene(net, bus, {
             manifest,
+            refused: (error) =>
+                bus.emit('notice', {
+                    message: userMessage(error, config.copy),
+                }),
             bubbleSeconds: config.bubbleSeconds,
             maxPathSteps: config.maxPathSteps,
         });

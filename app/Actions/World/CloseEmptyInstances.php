@@ -4,6 +4,7 @@ namespace App\Actions\World;
 
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\InstanceAllocator;
+use App\Domain\World\RoomKind;
 use App\Models\RoomInstance;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -28,6 +29,8 @@ final readonly class CloseEmptyInstances
             ->where('is_open', true)
             ->where('number', '>', 1)
             ->where('empty_since', '<=', $cutoff)
+            // Homes belong to their owners and stay put.
+            ->whereRelation('room', 'kind', RoomKind::Public)
             ->get()
             ->groupBy('room_id')
             ->sum(fn (Collection $instances, int $roomId): int => $this->closeEmpty($roomId, $instances));

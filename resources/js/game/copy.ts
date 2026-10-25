@@ -13,13 +13,16 @@ export type CopyKey =
     | 'banned'
     | 'banned_action'
     | 'warned'
-    | 'instance_closed'
     | 'not_in_room'
     | 'shop_title'
     | 'shop_intro'
     | 'inventory_title'
     | 'inventory_empty'
     | 'stipend_offer'
-    | 'members_only';
+    | 'members_only'
+    | 'residences_title'
+    | 'residences_intro'
+    | 'residences_empty'
+    | 'decorate_hint';
 
 export type Copy = Record<CopyKey, string>;

@@ -5,7 +5,8 @@ namespace App\Domain\Items;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Where a cosmetic sits on a resident. A resident wears at most one item per slot.
+ * Where an item goes: on a resident (one worn item per slot), or, for
+ * furniture, on a tile of their home.
  */
 enum ItemSlot: string implements HasLabel
 {
@@ -16,6 +17,7 @@ enum ItemSlot: string implements HasLabel
     case Hand = 'hand';
     case Pin = 'pin';
     case Background = 'background';
+    case Furniture = 'furniture';
 
     public function getLabel(): string
     {
@@ -27,6 +29,7 @@ enum ItemSlot: string implements HasLabel
             self::Hand => 'Hand',
             self::Pin => 'Pin',
             self::Background => 'Background',
+            self::Furniture => 'Furniture',
         };
     }
 }

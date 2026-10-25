@@ -29,13 +29,20 @@ final readonly class ImportMap
             'capacity_per_instance' => (int) config('hushfield.world.capacity_per_instance'),
         ]);
 
-        $room->fill([
+        $room->fill(array_filter([
+            'name' => $map->name,
+            'kind' => $map->kind,
+            'capacity_per_instance' => $map->capacity,
+        ], fn (mixed $value): bool => $value !== null))->fill([
             'map_version' => $map->version,
             'spawn_x' => $map->grid->spawns[0][0],
             'spawn_y' => $map->grid->spawns[0][1],
         ])->save();
 
-        $room->instances()->firstOrCreate(['number' => 1], ['is_open' => true]);
+        // A residence's instances are homes, created one per resident as they move in.
+        if (! $room->isResidence()) {
+            $room->instances()->firstOrCreate(['number' => 1], ['is_open' => true]);
+        }
 
         return $map;
     }

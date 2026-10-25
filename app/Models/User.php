@@ -48,6 +48,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property-read Avatar|null $avatar
  * @property-read WorldSession|null $worldSession
  * @property-read RoomInstance|null $lastRoomInstance
+ * @property-read Home|null $home
  */
 #[Fillable(['username', 'email', 'password', 'birth_year', 'is_minor', 'chat_filter_level', 'direct_messages_allowed', 'friend_requests_allowed'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'birth_year'])]
@@ -102,6 +103,12 @@ class User extends Authenticatable implements FilamentUser, HasName, MustVerifyE
     public function sanctions(): HasMany
     {
         return $this->hasMany(Sanction::class);
+    }
+
+    /** @return HasOne<Home, $this> */
+    public function home(): HasOne
+    {
+        return $this->hasOne(Home::class);
     }
 
     /** @return HasMany<LedgerEntry, $this> */
