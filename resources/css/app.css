@@ -2,6 +2,14 @@
 
 @import 'tw-animate-css';
 
+/* Self-hosted: Archivo Narrow for the set's lettering, Chivo Mono for its readouts. */
+@import '@fontsource/archivo-narrow/latin-400.css';
+@import '@fontsource/archivo-narrow/latin-500.css';
+@import '@fontsource/archivo-narrow/latin-600.css';
+@import '@fontsource/archivo-narrow/latin-700.css';
+@import '@fontsource/chivo-mono/latin-400.css';
+@import '@fontsource/chivo-mono/latin-500.css';
+
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
@@ -9,9 +17,21 @@
 
 @theme {
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Archivo Narrow', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+    --font-mono: 'Chivo Mono', ui-monospace, monospace;
+
+    /* The Listener, Model 3B */
+    --color-bakelite: #ece4d2;
+    --color-bakelite-shade: #ddd1b9;
+    --color-walnut: #4a2e1d;
+    --color-walnut-deep: #2e1c11;
+    --color-glass: #1c130e;
+    --color-amber: #f2b84b;
+    --color-record: #c8372d;
+    --color-metal: #b8b6b0;
+    --color-ink: #2a1c12;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -61,75 +81,174 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/*
+ * The Listener, Model 3B: a 1970s bedside radio. The shadcn variables below
+ * are mapped onto the radio palette so every shared component picks it up.
+ */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.87 0 0);
-    --chart-1: oklch(0.646 0.222 41.116);
-    --chart-2: oklch(0.6 0.118 184.704);
-    --chart-3: oklch(0.398 0.07 227.392);
-    --chart-4: oklch(0.828 0.189 84.429);
-    --chart-5: oklch(0.769 0.188 70.08);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.87 0 0);
+    --background: var(--color-bakelite);
+    --foreground: var(--color-ink);
+    --card: var(--color-bakelite);
+    --card-foreground: var(--color-ink);
+    --popover: var(--color-bakelite);
+    --popover-foreground: var(--color-ink);
+    --primary: var(--color-walnut);
+    --primary-foreground: var(--color-bakelite);
+    --secondary: var(--color-bakelite-shade);
+    --secondary-foreground: var(--color-ink);
+    --muted: var(--color-bakelite-shade);
+    --muted-foreground: #6e5a48;
+    --accent: var(--color-bakelite-shade);
+    --accent-foreground: var(--color-ink);
+    --destructive: var(--color-record);
+    --destructive-foreground: var(--color-record);
+    --border: #cdbfa3;
+    --input: #cdbfa3;
+    --ring: var(--color-amber);
+    --chart-1: var(--color-amber);
+    --chart-2: var(--color-record);
+    --chart-3: var(--color-walnut);
+    --chart-4: var(--color-metal);
+    --chart-5: #8a6a4c;
+    --radius: 0.5rem;
+    --sidebar: var(--color-bakelite-shade);
+    --sidebar-foreground: var(--color-ink);
+    --sidebar-primary: var(--color-walnut);
+    --sidebar-primary-foreground: var(--color-bakelite);
+    --sidebar-accent: var(--color-bakelite);
+    --sidebar-accent-foreground: var(--color-ink);
+    --sidebar-border: #cdbfa3;
+    --sidebar-ring: var(--color-amber);
 }
 
+/* After dark the set is walnut and glass, and the amber does the talking. */
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.637 0.237 25.331);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.985 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(0.269 0 0);
-    --sidebar-ring: oklch(0.439 0 0);
+    --background: var(--color-walnut-deep);
+    --foreground: var(--color-bakelite);
+    --card: var(--color-walnut);
+    --card-foreground: var(--color-bakelite);
+    --popover: var(--color-glass);
+    --popover-foreground: var(--color-bakelite);
+    --primary: var(--color-amber);
+    --primary-foreground: var(--color-glass);
+    --secondary: var(--color-walnut);
+    --secondary-foreground: var(--color-bakelite);
+    --muted: var(--color-walnut);
+    --muted-foreground: #bba68c;
+    --accent: var(--color-walnut);
+    --accent-foreground: var(--color-bakelite);
+    --destructive: var(--color-record);
+    --destructive-foreground: #ef7a6f;
+    --border: #5c3d28;
+    --input: #5c3d28;
+    --ring: var(--color-amber);
+    --chart-1: var(--color-amber);
+    --chart-2: var(--color-record);
+    --chart-3: var(--color-bakelite);
+    --chart-4: var(--color-metal);
+    --chart-5: #8a6a4c;
+    --sidebar: var(--color-glass);
+    --sidebar-foreground: var(--color-bakelite);
+    --sidebar-primary: var(--color-amber);
+    --sidebar-primary-foreground: var(--color-glass);
+    --sidebar-accent: var(--color-walnut);
+    --sidebar-accent-foreground: var(--color-bakelite);
+    --sidebar-border: #5c3d28;
+    --sidebar-ring: var(--color-amber);
+}
+
+/* The walnut cabinet the set stands on. */
+@utility wood {
+    background-color: var(--color-walnut);
+    background-image:
+        repeating-linear-gradient(
+            90deg,
+            rgb(0 0 0 / 0.1) 0 2px,
+            transparent 2px 9px,
+            rgb(255 255 255 / 0.025) 9px 11px,
+            transparent 11px 23px
+        ),
+        linear-gradient(180deg, #4d3020, var(--color-walnut-deep));
+}
+
+/* The only thing in the room that glows. */
+@utility amber-glow {
+    color: var(--color-amber);
+    text-shadow: 0 0 8px rgb(242 184 75 / 0.45);
+}
+
+/* Dark glass: displays, readouts, and the panels behind them. */
+@utility glass {
+    background-color: var(--color-glass);
+    box-shadow:
+        inset 0 2px 6px rgb(0 0 0 / 0.6),
+        inset 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+@utility grille {
+    background-color: var(--color-bakelite-shade);
+    background-image: radial-gradient(
+        circle,
+        var(--color-glass) 0 2.4px,
+        transparent 2.9px
+    );
+    background-size: 11px 11px;
+    background-position: center;
+    box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.25);
+}
+
+/* Snow, for the moment between stations. */
+@utility static-snow {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.93 0 0 0 0 0.8 0 0 0 1.6 -0.5'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The ticker line carries its container's width as left padding, so it enters from the right edge. */
+@keyframes ticker {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-100%);
+    }
+}
+
+@keyframes static-burst {
+    0%,
+    100% {
+        opacity: 0;
+    }
+    15%,
+    60% {
+        opacity: 0.55;
+    }
+    35% {
+        opacity: 0.25;
+    }
+}
+
+@keyframes signal-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes hold {
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* No scrolling: each ticker line just sits there for a while, and the needle jumps. */
+    .ticker-line {
+        padding-left: 0 !important;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        animation-name: hold !important;
+        animation-duration: 12s !important;
+    }
 }
 
 @layer base {
