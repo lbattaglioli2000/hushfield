@@ -31,6 +31,8 @@ export type GameEvents = {
         name: string;
         /** The room's name, or "Wren's residence" in a home. */
         title: string;
+        /** Where the tuning dial points, in MHz; null leaves it off-station. */
+        frequency: number | null;
         home: HomeInfo | null;
         /** The player is standing in their own home and may decorate it. */
         ownHome: boolean;

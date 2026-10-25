@@ -15,12 +15,19 @@ use JsonException;
  * properties "to", the target room slug, and "arrive", an arrival point name
  * in the target map), an object layer named "arrivals" of named points where
  * players come in through a door, and map properties "name", "kind"
- * (public or residence) and "capacity".
+ * (public or residence), "capacity", "frequency" (the room's place on the
+ * radio's tuning dial, in MHz) and "home_frequency" (where a residence room's
+ * homes sit on the dial).
  */
 final class TiledMapParser
 {
     /** Tiled stores flip and rotation flags in the top bits of each GID. */
     private const int GID_MASK = 0x0FFFFFFF;
+
+    /** The FM band the tuning dial shows, in MHz. */
+    private const float BAND_LOW = 87.5;
+
+    private const float BAND_HIGH = 108.5;
 
     public function parse(string $contents): ImportedMap
     {
@@ -77,7 +84,31 @@ final class TiledMapParser
             name: is_string($properties['name'] ?? null) ? $properties['name'] : null,
             kind: $kind,
             capacity: $capacity,
+            frequency: $this->frequency($properties, 'frequency'),
+            homeFrequency: $this->frequency($properties, 'home_frequency'),
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $properties
+     */
+    private function frequency(array $properties, string $name): ?float
+    {
+        $value = $properties[$name] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $valid = (is_int($value) || is_float($value))
+            && $value >= self::BAND_LOW && $value <= self::BAND_HIGH
+            && abs(round($value, 1) - $value) < 1e-9;
+
+        if (! $valid) {
+            throw new InvalidMapException("The map property \"{$name}\" must be an FM frequency in MHz, such as 94.2.");
+        }
+
+        return (float) $value;
     }
 
     /**

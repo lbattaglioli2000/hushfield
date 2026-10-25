@@ -69,7 +69,7 @@ export default function Play({ game }: PlayProps) {
                 <SignalTray value={tray}>
                     <BakelitePanel className="flex min-w-0 flex-1 flex-col gap-4 p-5">
                         <TuningDial
-                            copy={game.copy}
+                            stations={game.stations}
                             room={room}
                             retune={retune}
                         />

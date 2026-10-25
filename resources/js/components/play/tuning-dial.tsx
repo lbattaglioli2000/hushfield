@@ -1,4 +1,4 @@
-import type { Copy, GameEvents } from '@/game';
+import type { GameEvents, Station } from '@/game';
 import { cn } from '@/lib/utils';
 
 const LOW = 87.5;
@@ -7,30 +7,6 @@ const HIGH = 108.5;
 const OFF_STATION = 107.3;
 
 type Room = GameEvents['room'];
-
-/** Every room's place on the band. Homes all share one frequency. */
-const STATIONS: Array<{
-    frequency: number;
-    label: keyof Copy & `station_${string}`;
-    matches: (room: Room) => boolean;
-}> = [
-    { frequency: 88.3, label: 'station_home', matches: (room) => !!room.home },
-    {
-        frequency: 94.2,
-        label: 'station_town_square',
-        matches: (room) => !room.home && room.slug === 'town-square',
-    },
-    {
-        frequency: 99.1,
-        label: 'station_lantern_street',
-        matches: (room) => !room.home && room.slug === 'lantern-street',
-    },
-    {
-        frequency: 104.8,
-        label: 'station_residences',
-        matches: (room) => !room.home && room.slug === 'hearthmore-residences',
-    },
-];
 
 /** Which station a room is on, so a change of room is a change of station. */
 export function stationKey(room: Room): string {
@@ -47,23 +23,26 @@ const TICKS = Array.from({ length: 41 }, (_, i) => 88 + i / 2);
  * needle sweeps to whichever room the player is in.
  */
 export default function TuningDial({
-    copy,
+    stations,
     room,
     retune,
 }: {
-    copy: Copy;
+    /** From the server, lowest first: each room's frequency comes from its map. */
+    stations: Station[];
     room: Room | null;
     /** Counts station changes; each one replays the static. */
     retune: number;
 }) {
-    const station = room && STATIONS.find((s) => s.matches(room));
-    const needle = station?.frequency ?? (room ? OFF_STATION : LOW);
+    const station = room?.frequency
+        ? stations.find((s) => s.frequency === room.frequency)
+        : undefined;
+    const needle = room ? (room.frequency ?? OFF_STATION) : LOW;
 
     return (
         <div
             className="relative h-[4.5rem] shrink-0 overflow-hidden rounded-xl glass px-6 font-mono select-none"
             data-test="tuning-dial"
-            data-station={station?.label ?? 'none'}
+            data-station={station?.frequency.toFixed(1) ?? 'none'}
         >
             <div className="relative h-full">
                 {NUMBERS.map((n) => (
@@ -86,18 +65,20 @@ export default function TuningDial({
                         style={{ left: at(t) }}
                     />
                 ))}
-                {STATIONS.map(({ frequency, label }) => (
+                {/* Neighbouring stations alternate between two rows so their labels never overlap. */}
+                {stations.map(({ frequency, label }, i) => (
                     <span
-                        key={label}
+                        key={frequency}
                         className={cn(
-                            'absolute bottom-1.5 pl-2 text-[0.65rem] tracking-[0.18em] whitespace-nowrap uppercase transition-colors duration-500',
-                            station?.label === label
+                            'absolute pl-2 text-[0.65rem] leading-none tracking-[0.18em] whitespace-nowrap uppercase transition-colors duration-500',
+                            i % 2 ? 'bottom-1.5' : 'bottom-4',
+                            station?.frequency === frequency
                                 ? 'amber-glow'
                                 : 'text-bakelite/45',
                         )}
                         style={{ left: at(frequency) }}
                     >
-                        {frequency.toFixed(1)} {copy[label]}
+                        {frequency.toFixed(1)} {label}
                     </span>
                 ))}
                 <span

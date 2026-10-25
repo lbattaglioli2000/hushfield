@@ -49,6 +49,8 @@ export type Snapshot = {
         slug: string;
         name: string;
         kind: RoomKind;
+        /** Where the tuning dial points, in MHz; null leaves it off-station. */
+        frequency: number | null;
         map_version: string;
         map_url: string;
     };

@@ -40,6 +40,8 @@ final readonly class Snapshot
                 'slug' => $room->slug,
                 'name' => $room->name,
                 'kind' => $room->kind->value,
+                // Where the tuning dial points: homes share their residence room's home frequency.
+                'frequency' => $home !== null ? $room->home_frequency : $room->frequency,
                 'map_version' => $room->map_version,
                 'map_url' => route('world.maps.show', ['room' => $room->slug, 'version' => $room->map_version]),
             ],

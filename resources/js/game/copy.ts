@@ -27,10 +27,6 @@ export type CopyKey =
     | 'decorate_hint'
     | 'friends_title'
     | 'friends_empty'
-    | 'station_home'
-    | 'station_town_square'
-    | 'station_lantern_street'
-    | 'station_residences'
     | 'chat_placeholder'
     | 'on_air_host';
 

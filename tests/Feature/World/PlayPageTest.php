@@ -1,6 +1,8 @@
 <?php
 
+use App\Domain\World\RoomKind;
 use App\Http\Controllers\World\PlayController;
+use App\Models\Room;
 use App\Models\User;
 use App\Models\WorldSession;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -37,6 +39,26 @@ test('verified residents get the game shell', function () {
             ->missing('game.copy.filtered_placeholder')
             ->missing('game.copy.username_taken'),
         );
+});
+
+test('the dial lists every active room with a frequency, lowest first, plus the one station homes share', function () {
+    Room::factory()->create(['slug' => 'lantern-street', 'frequency' => 99.1]);
+    Room::factory()->create(['slug' => 'town-square', 'frequency' => 94.2]);
+    Room::factory()->create(['slug' => 'hearthmore-residences', 'kind' => RoomKind::Residence, 'frequency' => 104.8, 'home_frequency' => 88.3]);
+    Room::factory()->create(['slug' => 'unnamed-alley', 'name' => 'Unnamed Alley', 'frequency' => 101.5]);
+    Room::factory()->create(['slug' => 'closed-for-now', 'frequency' => 96.0, 'is_active' => false]);
+    Room::factory()->create(['slug' => 'off-station']);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('play'))
+        ->assertInertia(fn (Assert $page) => $page->where('game.stations', [
+            ['frequency' => 88.3, 'label' => __('hushfield.stations.home')],
+            ['frequency' => 94.2, 'label' => __('hushfield.stations.town-square')],
+            ['frequency' => 99.1, 'label' => __('hushfield.stations.lantern-street')],
+            // A room without a label in the lang file is shown by its name.
+            ['frequency' => 101.5, 'label' => 'Unnamed Alley'],
+            ['frequency' => 104.8, 'label' => __('hushfield.stations.hearthmore-residences')],
+        ]));
 });
 
 test('the game shell does not expose the birth year', function () {

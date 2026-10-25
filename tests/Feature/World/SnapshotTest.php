@@ -12,6 +12,7 @@ beforeEach(function () {
 test('the snapshot describes the instance and every player in it', function () {
     $me = resident();
     $other = resident();
+    $this->room->update(['frequency' => 94.2, 'home_frequency' => 88.3]);
     ['token' => $token, 'instance' => $instance] = enterWorld($me, $this->room);
     enterWorld($other, $this->room);
     $path = app(MovePlayer::class)($other, $instance, 4, 1);
@@ -27,6 +28,8 @@ test('the snapshot describes the instance and every player in it', function () {
         ->assertJsonPath('instance.number', 1)
         ->assertJsonPath('instance.channel', "room.{$instance->id}")
         ->assertJsonPath('room.slug', 'test-square')
+        // A public room is on its own frequency; home_frequency is only for homes.
+        ->assertJsonPath('room.frequency', 94.2)
         ->assertJsonPath('room.map_version', $this->room->map_version)
         ->assertJsonPath('room.map_url', route('world.maps.show', ['room' => 'test-square', 'version' => $this->room->map_version]))
         ->assertJsonCount(2, 'players');

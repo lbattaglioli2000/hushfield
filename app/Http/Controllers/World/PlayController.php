@@ -4,7 +4,9 @@ namespace App\Http\Controllers\World;
 
 use App\Domain\Moderation\ReportReason;
 use App\Http\Controllers\Controller;
+use App\Models\Room;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Lang;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -42,10 +44,6 @@ final class PlayController extends Controller
         'decorate_hint',
         'friends_title',
         'friends_empty',
-        'station_home',
-        'station_town_square',
-        'station_lantern_street',
-        'station_residences',
         'chat_placeholder',
         'on_air_host',
         'on_air',
@@ -71,7 +69,39 @@ final class PlayController extends Controller
                 'manifestUrl' => route('assets.manifest'),
                 'reportReasons' => collect(ReportReason::cases())->map(fn (ReportReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()])->all(),
                 'copy' => Arr::only((array) __('hushfield'), self::COPY_KEYS),
+                'stations' => $this->stations(),
             ],
         ]);
+    }
+
+    /**
+     * Every station on the tuning dial, low to high: each room with a frequency
+     * on its map, plus the one homes share. Labels come from hushfield.stations.
+     *
+     * @return list<array{frequency: float, label: string}>
+     */
+    private function stations(): array
+    {
+        $stations = [];
+
+        // Keyed by frequency, so each frequency appears once whichever room claims it.
+        foreach (Room::query()->where('is_active', true)->get() as $room) {
+            if ($room->frequency !== null) {
+                $stations[(string) $room->frequency] = ['frequency' => $room->frequency, 'label' => $this->stationLabel($room->slug, $room->name)];
+            }
+
+            if ($room->home_frequency !== null) {
+                $stations[(string) $room->home_frequency] = ['frequency' => $room->home_frequency, 'label' => $this->stationLabel('home', 'Home')];
+            }
+        }
+
+        usort($stations, fn (array $a, array $b): int => $a['frequency'] <=> $b['frequency']);
+
+        return $stations;
+    }
+
+    private function stationLabel(string $key, string $fallback): string
+    {
+        return Lang::has("hushfield.stations.{$key}") ? (string) __("hushfield.stations.{$key}") : $fallback;
     }
 }

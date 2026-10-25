@@ -94,10 +94,13 @@ return [
     'friends_too_fast' => 'Friendship takes a moment. Please try again shortly.',
 
     // The set: the tuning dial, the ON AIR ticker, and the talk strip
-    'station_home' => 'Home',
-    'station_town_square' => 'Town Square',
-    'station_lantern_street' => 'Lantern Street',
-    'station_residences' => 'Hearthmore',
+    // Station labels on the dial, by room slug. Frequencies live in each room's map.
+    'stations' => [
+        'home' => 'Home',
+        'town-square' => 'Town Square',
+        'lantern-street' => 'Lantern Street',
+        'hearthmore-residences' => 'Hearthmore',
+    ],
     'chat_placeholder' => 'Press TALK or Enter, and say something kind…',
     'on_air_host' => 'Augustin Moss',
     'on_air' => [

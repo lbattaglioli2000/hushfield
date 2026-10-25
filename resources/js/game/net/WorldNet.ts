@@ -371,6 +371,7 @@ export class WorldNet {
             slug: snapshot.room.slug,
             name: snapshot.room.name,
             title: snapshot.home ? snapshot.instance.label : snapshot.room.name,
+            frequency: snapshot.room.frequency,
             home: snapshot.home,
             ownHome: snapshot.home?.owner_id === this.selfId,
         });

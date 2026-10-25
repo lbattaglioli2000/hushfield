@@ -100,6 +100,17 @@ it('rejects doors and arrival points that would trap or bounce players', functio
     }, 'Two exits are named "door".'],
 ]);
 
+it('reads where the room and its homes sit on the dial', function () {
+    $map = json_decode(fixtureMap('test-home'), true);
+    $map['properties'][] = ['name' => 'frequency', 'type' => 'float', 'value' => 104.8];
+    $map['properties'][] = ['name' => 'home_frequency', 'type' => 'float', 'value' => 88.3];
+    $parsed = (new TiledMapParser)->parse(json_encode($map));
+
+    expect($parsed->frequency)->toBe(104.8)
+        ->and($parsed->homeFrequency)->toBe(88.3)
+        ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->frequency)->toBeNull();
+});
+
 it('rejects room properties it does not understand', function (array $property, string $message) {
     $map = json_decode(fixtureMap('test-home'), true);
     $map['properties'] = [$property];
@@ -109,4 +120,8 @@ it('rejects room properties it does not understand', function (array $property, 
 })->with([
     'unknown kind' => [['name' => 'kind', 'type' => 'string', 'value' => 'castle'], '"kind" must be "public" or "residence"'],
     'zero capacity' => [['name' => 'capacity', 'type' => 'int', 'value' => 0], '"capacity" must be a positive integer'],
+    'frequency below the band' => [['name' => 'frequency', 'type' => 'float', 'value' => 87.4], '"frequency" must be an FM frequency'],
+    'frequency above the band' => [['name' => 'frequency', 'type' => 'float', 'value' => 108.6], '"frequency" must be an FM frequency'],
+    'frequency between channels' => [['name' => 'frequency', 'type' => 'float', 'value' => 94.25], '"frequency" must be an FM frequency'],
+    'frequency as text' => [['name' => 'home_frequency', 'type' => 'string', 'value' => '88.3'], '"home_frequency" must be an FM frequency'],
 ]);

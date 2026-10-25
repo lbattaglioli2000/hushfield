@@ -40,11 +40,14 @@ function placeFurniture(Item $item, int $x, int $y)
 }
 
 test('entering the residence takes a resident to their own home, created once', function () {
+    $this->residence->update(['frequency' => 104.8, 'home_frequency' => 88.3]);
     $visitor = resident();
 
     $first = visitHome($visitor, null)->assertOk()
         ->assertJsonPath('snapshot.home.owner_id', $visitor->id)
         ->assertJsonPath('snapshot.home.visitors', 'closed')
+        // Every home shares one station on the dial.
+        ->assertJsonPath('snapshot.room.frequency', 88.3)
         ->assertJsonPath('snapshot.instance.label', "{$visitor->username}'s residence")
         ->assertJsonPath('snapshot.furniture', []);
 

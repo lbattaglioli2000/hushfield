@@ -44,7 +44,12 @@ export type GameBootProps = {
     manifestUrl: string;
     reportReasons: ReportReasonOption[];
     copy: Copy;
+    /** Every station on the tuning dial, lowest frequency first. */
+    stations: Station[];
 };
+
+/** A station on the tuning dial: a room's frequency, or the one homes share. */
+export type Station = { frequency: number; label: string };
 
 /** Boot props plus where the API lives: '' on the web, an absolute origin in a native shell. */
 export type GameConfig = GameBootProps & { baseUrl: string };

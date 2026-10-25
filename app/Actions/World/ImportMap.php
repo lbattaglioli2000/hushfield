@@ -34,6 +34,9 @@ final readonly class ImportMap
             'kind' => $map->kind,
             'capacity_per_instance' => $map->capacity,
         ], fn (mixed $value): bool => $value !== null))->fill([
+            // The dial follows the map: a frequency removed from the map leaves the room off-station.
+            'frequency' => $map->frequency,
+            'home_frequency' => $map->homeFrequency,
             'map_version' => $map->version,
             'spawn_x' => $map->grid->spawns[0][0],
             'spawn_y' => $map->grid->spawns[0][1],
