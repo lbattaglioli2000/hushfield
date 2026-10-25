@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { OnTray } from '@/components/play/signal-tray';
+import RadioDialog from '@/components/radio/radio-dialog';
+import RadioKey from '@/components/radio/radio-key';
+import SignalCard from '@/components/radio/signal-card';
 import type {
     Copy,
     EventBus,
@@ -27,8 +23,8 @@ const VISITOR_OPTIONS: Array<{ value: HomeVisitors; label: string }> = [
 ];
 
 /**
- * The Residences button and directory, and decorate mode in the player's own
- * home. Hidden until the game has drawn a room.
+ * The Residences and Decorate keys, the directory, and decorate mode in the
+ * player's own home. Renders into the set's key grid; hidden until the game has drawn a room.
  */
 export default function Residences({
     bus,
@@ -89,49 +85,44 @@ export default function Residences({
 
     return (
         <>
-            <div className="flex flex-col items-start gap-2">
-                <div className="flex gap-2">
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                            setOpen(true);
-                            setResult(null);
-                            bus.emit('load-homes', {});
-                        }}
-                        data-test="open-residences"
-                    >
-                        Residences
-                    </Button>
-                    {room.ownHome && (
-                        <Button
-                            size="sm"
-                            variant={decorating ? 'default' : 'secondary'}
-                            onClick={() => {
-                                setDecorating(!decorating);
-                                setArmed(null);
-                            }}
-                            data-test="toggle-decorate"
-                        >
-                            {decorating ? 'Done decorating' : 'Decorate'}
-                        </Button>
-                    )}
-                </div>
+            <RadioKey
+                onClick={() => {
+                    setOpen(true);
+                    setResult(null);
+                    bus.emit('load-homes', {});
+                }}
+                data-test="open-residences"
+            >
+                Residences
+            </RadioKey>
+            {room.ownHome && (
+                <RadioKey
+                    className="col-span-2"
+                    aria-pressed={decorating}
+                    onClick={() => {
+                        setDecorating(!decorating);
+                        setArmed(null);
+                    }}
+                    data-test="toggle-decorate"
+                >
+                    {decorating ? 'Done decorating' : 'Decorate'}
+                </RadioKey>
+            )}
 
+            <OnTray>
                 {decorating && (
-                    <div
-                        className="flex w-64 flex-col gap-2 rounded-md bg-black/60 p-3 text-sm backdrop-blur"
+                    <SignalCard
+                        tone="amber"
+                        className="grid gap-2"
                         data-test="decorate-panel"
                     >
-                        <p className="text-xs text-white/80">
+                        <p className="text-xs text-bakelite/70">
                             {copy.decorate_hint}
                         </p>
                         {furniture.length === 0 ? (
-                            <p className="text-white/80">
-                                You own no furniture yet. The shop has some.
-                            </p>
+                            <p>You own no furniture yet. The shop has some.</p>
                         ) : (
-                            <ul className="flex max-h-[45vh] flex-col gap-1 overflow-y-auto">
+                            <ul className="flex max-h-[40vh] flex-col gap-1 overflow-y-auto">
                                 {furniture.map((item) => (
                                     <li key={item.id}>
                                         <button
@@ -143,11 +134,13 @@ export default function Residences({
                                                         : item.id,
                                                 )
                                             }
-                                            className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left ${armed === item.id ? 'bg-amber-200 text-[#1d2330]' : 'hover:bg-white/10'}`}
+                                            className={`flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-amber ${armed === item.id ? 'bg-amber text-glass' : 'text-amber hover:bg-amber/10'}`}
                                             aria-pressed={armed === item.id}
                                             data-test={`arm-${item.slug}`}
                                         >
-                                            <span>{item.name}</span>
+                                            <span className="font-sans font-bold tracking-wide uppercase">
+                                                {item.name}
+                                            </span>
                                             <span className="text-xs opacity-70">
                                                 {placedIds.has(item.id)
                                                     ? 'Placed · move'
@@ -158,134 +151,116 @@ export default function Residences({
                                 ))}
                             </ul>
                         )}
-                    </div>
+                    </SignalCard>
                 )}
 
                 {!open && result && !result.ok && (
-                    <p
+                    <SignalCard role="status">{result.message}</SignalCard>
+                )}
+            </OnTray>
+
+            <RadioDialog
+                open={open}
+                onOpenChange={setOpen}
+                title={copy.residences_title}
+                description={copy.residences_intro}
+                data-test="residences-panel"
+            >
+                {result && (
+                    <SignalCard
                         role="status"
-                        className="rounded-md bg-red-950/80 px-3 py-2 text-sm"
+                        tone={result.ok ? 'amber' : 'red'}
                     >
                         {result.message}
-                    </p>
+                    </SignalCard>
                 )}
-            </div>
 
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent data-test="residences-panel">
-                    <DialogHeader>
-                        <DialogTitle>{copy.residences_title}</DialogTitle>
-                        <DialogDescription>
-                            {copy.residences_intro}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    {result && (
-                        <p
-                            role="status"
-                            className={`rounded-md px-3 py-2 text-sm ${result.ok ? 'bg-emerald-950/80 text-white' : 'bg-red-950/80 text-white'}`}
+                {homes === null ? (
+                    <p className="text-bakelite/60">Knocking…</p>
+                ) : (
+                    <div className="grid gap-4">
+                        <RadioKey
+                            className="justify-self-start"
+                            disabled={!homes.residence || room.ownHome}
+                            onClick={() => travel(null)}
+                            data-test="go-home"
                         >
-                            {result.message}
-                        </p>
-                    )}
+                            {room.ownHome ? "You're home" : 'Go home'}
+                        </RadioKey>
 
-                    {homes === null ? (
-                        <p className="text-sm text-muted-foreground">
-                            Knocking…
-                        </p>
-                    ) : (
-                        <div className="grid gap-4">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                    disabled={!homes.residence || room.ownHome}
-                                    onClick={() => travel(null)}
-                                    data-test="go-home"
-                                >
-                                    {room.ownHome ? "You're home" : 'Go home'}
-                                </Button>
-                            </div>
+                        {homes.own && (
+                            <fieldset
+                                className="grid gap-2"
+                                data-test="door-setting"
+                            >
+                                <legend className="mb-2 text-[0.65rem] tracking-[0.2em] text-bakelite/55 uppercase">
+                                    Who may visit your home
+                                </legend>
+                                <div className="flex flex-wrap gap-2">
+                                    {VISITOR_OPTIONS.map(({ value, label }) => (
+                                        <RadioKey
+                                            key={value}
+                                            size="sm"
+                                            variant="glass"
+                                            aria-pressed={
+                                                homes.own?.visitors === value
+                                            }
+                                            onClick={() =>
+                                                bus.emit('set-home-visitors', {
+                                                    visitors: value,
+                                                })
+                                            }
+                                            data-test={`door-${value}`}
+                                        >
+                                            {label}
+                                        </RadioKey>
+                                    ))}
+                                </div>
+                            </fieldset>
+                        )}
 
-                            {homes.own && (
-                                <fieldset
-                                    className="grid gap-2"
-                                    data-test="door-setting"
-                                >
-                                    <legend className="mb-1 text-sm font-medium">
-                                        Who may visit your home
-                                    </legend>
-                                    <div className="flex flex-wrap gap-2">
-                                        {VISITOR_OPTIONS.map(
-                                            ({ value, label }) => (
-                                                <Button
-                                                    key={value}
-                                                    size="sm"
-                                                    variant={
-                                                        homes.own?.visitors ===
-                                                        value
-                                                            ? 'default'
-                                                            : 'outline'
-                                                    }
-                                                    aria-pressed={
-                                                        homes.own?.visitors ===
-                                                        value
-                                                    }
-                                                    onClick={() =>
-                                                        bus.emit(
-                                                            'set-home-visitors',
-                                                            { visitors: value },
-                                                        )
-                                                    }
-                                                    data-test={`door-${value}`}
-                                                >
-                                                    {label}
-                                                </Button>
-                                            ),
-                                        )}
-                                    </div>
-                                </fieldset>
-                            )}
-
-                            <div className="grid gap-2">
-                                <p className="text-sm font-medium">
-                                    Doors you may knock on
+                        <div className="grid gap-1">
+                            <p className="border-b border-bakelite/10 pb-1 text-[0.65rem] tracking-[0.2em] text-bakelite/55 uppercase">
+                                Doors you may knock on
+                            </p>
+                            {homes.open.length === 0 ? (
+                                <p className="text-bakelite/60">
+                                    {copy.residences_empty}
                                 </p>
-                                {homes.open.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">
-                                        {copy.residences_empty}
-                                    </p>
-                                ) : (
-                                    <ul className="grid max-h-[40vh] gap-2 overflow-y-auto">
-                                        {homes.open.map((home) => (
-                                            <li
-                                                key={home.instance_id}
-                                                className="flex items-center justify-between rounded-lg border px-3 py-2"
-                                                data-test="open-home"
-                                            >
-                                                <span>
+                            ) : (
+                                <ul className="flex max-h-[40vh] flex-col overflow-y-auto pr-1">
+                                    {homes.open.map((home) => (
+                                        <li
+                                            key={home.instance_id}
+                                            className="flex min-h-11 items-center justify-between gap-2 py-1"
+                                            data-test="open-home"
+                                        >
+                                            <span className="min-w-0 truncate">
+                                                <span className="font-sans text-base font-bold tracking-wide amber-glow uppercase">
                                                     {home.owner}
-                                                    <span className="ml-2 text-xs text-muted-foreground">
-                                                        {home.visitors} inside
-                                                        {home.friends_only &&
-                                                            ' · friends only'}
-                                                    </span>
                                                 </span>
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        travel(home.instance_id)
-                                                    }
-                                                >
-                                                    Visit
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
+                                                <span className="ml-2 text-xs text-bakelite/60">
+                                                    · {home.visitors} inside
+                                                    {home.friends_only &&
+                                                        ' · friends only'}
+                                                </span>
+                                            </span>
+                                            <RadioKey
+                                                size="sm"
+                                                onClick={() =>
+                                                    travel(home.instance_id)
+                                                }
+                                            >
+                                                Visit
+                                            </RadioKey>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+                    </div>
+                )}
+            </RadioDialog>
         </>
     );
 }

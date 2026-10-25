@@ -1,15 +1,9 @@
 import { useState } from 'react';
 import ReportDialog from '@/components/play/report-dialog';
 import type { ReportTarget } from '@/components/play/report-dialog';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import RadioDialog from '@/components/radio/radio-dialog';
+import RadioKey from '@/components/radio/radio-key';
+import SignalCard from '@/components/radio/signal-card';
 import type { EventBus, FriendsList, ReportReasonOption } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
@@ -49,58 +43,52 @@ export default function PlayerCard({
 
     return (
         <>
-            <Dialog
+            <RadioDialog
                 open={selected !== null}
                 onOpenChange={(open) => !open && setSelected(null)}
+                band="Resident"
+                title={selected?.username}
+                description="A resident of Hushfield."
+                className="sm:max-w-sm"
+                data-test="player-card"
             >
-                <DialogContent className="sm:max-w-sm" data-test="player-card">
-                    <DialogHeader>
-                        <DialogTitle>{selected?.username}</DialogTitle>
-                        <DialogDescription>
-                            A resident of Hushfield.
-                        </DialogDescription>
-                    </DialogHeader>
+                {message && <SignalCard tone="amber">{message}</SignalCard>}
 
-                    {message && <p className="text-sm">{message}</p>}
-
-                    <DialogFooter className="gap-2 sm:justify-between">
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                setReporting(selected);
-                                setSelected(null);
-                            }}
-                            data-test="report-player"
+                <div className="flex justify-between gap-2">
+                    <RadioKey
+                        variant="glass"
+                        onClick={() => {
+                            setReporting(selected);
+                            setSelected(null);
+                        }}
+                        data-test="report-player"
+                    >
+                        Report
+                    </RadioKey>
+                    {status ? (
+                        <RadioKey disabled>{status}</RadioKey>
+                    ) : (
+                        <RadioKey
+                            onClick={() =>
+                                theirRequest
+                                    ? bus.emit('answer-friend-request', {
+                                          requestId: theirRequest.id,
+                                          accept: true,
+                                      })
+                                    : selected &&
+                                      bus.emit('send-friend-request', {
+                                          username: selected.username,
+                                      })
+                            }
+                            data-test="add-friend"
                         >
-                            Report
-                        </Button>
-                        {status ? (
-                            <Button variant="secondary" disabled>
-                                {status}
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={() =>
-                                    theirRequest
-                                        ? bus.emit('answer-friend-request', {
-                                              requestId: theirRequest.id,
-                                              accept: true,
-                                          })
-                                        : selected &&
-                                          bus.emit('send-friend-request', {
-                                              username: selected.username,
-                                          })
-                                }
-                                data-test="add-friend"
-                            >
-                                {theirRequest
-                                    ? 'Accept friend request'
-                                    : 'Add friend'}
-                            </Button>
-                        )}
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                            {theirRequest
+                                ? 'Accept friend request'
+                                : 'Add friend'}
+                        </RadioKey>
+                    )}
+                </div>
+            </RadioDialog>
             <ReportDialog
                 bus={bus}
                 reasons={reasons}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import RadioKey from '@/components/radio/radio-key';
+import SignalCard from '@/components/radio/signal-card';
 import type { Copy, EventBus, GameEvents } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
@@ -38,19 +39,23 @@ export default function FatalScreen({
 
     return (
         <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#1d2330]/95 p-6 text-center"
+            className="absolute inset-0 z-40 grid place-items-center bg-glass/90 p-6"
             data-test={`fatal-${fatal.kind}`}
         >
-            <p className="max-w-md text-xl">{fatal.message}</p>
-            <p className="max-w-md text-sm text-white/70">{action}</p>
-            {fatal.kind !== 'banned' && (
-                <Button
-                    variant="secondary"
-                    onClick={() => window.location.reload()}
-                >
-                    Reload
-                </Button>
-            )}
+            <SignalCard level={0} className="grid w-full max-w-md gap-3 p-6">
+                <p className="font-sans text-2xl leading-tight font-bold tracking-wide amber-glow uppercase">
+                    {fatal.message}
+                </p>
+                <p className="text-bakelite/70">{action}</p>
+                {fatal.kind !== 'banned' && (
+                    <RadioKey
+                        className="justify-self-start"
+                        onClick={() => window.location.reload()}
+                    >
+                        Reload
+                    </RadioKey>
+                )}
+            </SignalCard>
         </div>
     );
 }

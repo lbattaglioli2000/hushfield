@@ -1,21 +1,15 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import RadioDialog from '@/components/radio/radio-dialog';
+import RadioKey from '@/components/radio/radio-key';
+import GlassInput from '@/components/radio/glass-input';
+import SignalCard, { SignalBars } from '@/components/radio/signal-card';
+import ToggleSwitch from '@/components/radio/toggle-switch';
 import type { Copy, EventBus, Friend, FriendsList, GameEvents } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
 /**
- * The Friends button, with a count of requests waiting, and the friends list:
+ * The Neighbors key, with a count of requests waiting, and the friends list:
  * requests, friends and where they are, adding by name, and the request setting.
  */
 export default function Friends({ bus, copy }: { bus: EventBus; copy: Copy }) {
@@ -38,9 +32,7 @@ export default function Friends({ bus, copy }: { bus: EventBus; copy: Copy }) {
 
     return (
         <>
-            <Button
-                size="sm"
-                variant="secondary"
+            <RadioKey
                 onClick={() => {
                     setOpen(true);
                     setResult(null);
@@ -48,188 +40,167 @@ export default function Friends({ bus, copy }: { bus: EventBus; copy: Copy }) {
                 }}
                 data-test="open-friends"
             >
-                Friends
+                Neighbors
                 {waiting > 0 && (
                     <span
-                        className="ml-1 rounded-full bg-amber-400 px-1.5 text-xs font-semibold text-[#1d2330]"
+                        className="rounded-sm bg-record px-1.5 font-mono text-xs tracking-normal text-bakelite"
                         aria-label={`${waiting} requests waiting`}
                     >
                         {waiting}
                     </span>
                 )}
-            </Button>
+            </RadioKey>
 
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent data-test="friends-panel">
-                    <DialogHeader>
-                        <DialogTitle>{copy.friends_title}</DialogTitle>
-                        <DialogDescription>
-                            {summary(friends)}
-                        </DialogDescription>
-                    </DialogHeader>
+            <RadioDialog
+                open={open}
+                onOpenChange={setOpen}
+                title={copy.friends_title}
+                description={summary(friends)}
+                data-test="friends-panel"
+            >
+                <form
+                    className="flex gap-2"
+                    onSubmit={(event) => {
+                        event.preventDefault();
 
-                    <form
-                        className="flex gap-2"
-                        onSubmit={(event) => {
-                            event.preventDefault();
+                        if (name.trim() === '') return;
 
-                            if (name.trim() === '') return;
+                        bus.emit('send-friend-request', {
+                            username: name.trim(),
+                        });
+                        setName('');
+                    }}
+                >
+                    <GlassInput
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        placeholder="Add a friend by name"
+                        aria-label="Resident's name"
+                        maxLength={32}
+                        className="h-10 border border-bakelite/10"
+                        data-test="friend-name"
+                    />
+                    <RadioKey type="submit">Send</RadioKey>
+                </form>
 
-                            bus.emit('send-friend-request', {
-                                username: name.trim(),
-                            });
-                            setName('');
-                        }}
+                {result && (
+                    <SignalCard
+                        role="status"
+                        tone={result.ok ? 'amber' : 'red'}
+                        data-test="friends-result"
                     >
-                        <Input
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="Add a friend by name"
-                            aria-label="Resident's name"
-                            maxLength={32}
-                            data-test="friend-name"
-                        />
-                        <Button type="submit" variant="secondary">
-                            Send
-                        </Button>
-                    </form>
+                        {result.message}
+                    </SignalCard>
+                )}
 
-                    {result && (
-                        <p
-                            role="status"
-                            className={`rounded-md px-3 py-2 text-sm text-white ${result.ok ? 'bg-emerald-950/80' : 'bg-red-950/80'}`}
-                            data-test="friends-result"
-                        >
-                            {result.message}
-                        </p>
+                <div className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
+                    {(friends.incoming.length > 0 ||
+                        friends.outgoing.length > 0) && (
+                        <Section title="Requests">
+                            {friends.incoming.map((request) => (
+                                <Row
+                                    key={request.id}
+                                    name={request.user.username}
+                                    detail="would like to be friends"
+                                >
+                                    <RadioKey
+                                        size="sm"
+                                        onClick={() =>
+                                            bus.emit('answer-friend-request', {
+                                                requestId: request.id,
+                                                accept: true,
+                                            })
+                                        }
+                                        data-test="accept-request"
+                                    >
+                                        Accept
+                                    </RadioKey>
+                                    <RadioKey
+                                        size="sm"
+                                        variant="glass"
+                                        onClick={() =>
+                                            bus.emit('answer-friend-request', {
+                                                requestId: request.id,
+                                                accept: false,
+                                            })
+                                        }
+                                    >
+                                        Decline
+                                    </RadioKey>
+                                </Row>
+                            ))}
+                            {friends.outgoing.map((request) => (
+                                <Row
+                                    key={request.id}
+                                    name={request.user.username}
+                                    detail="waiting for an answer"
+                                >
+                                    <RadioKey
+                                        size="sm"
+                                        variant="glass"
+                                        onClick={() =>
+                                            bus.emit('answer-friend-request', {
+                                                requestId: request.id,
+                                                accept: false,
+                                            })
+                                        }
+                                    >
+                                        Withdraw
+                                    </RadioKey>
+                                </Row>
+                            ))}
+                        </Section>
                     )}
 
-                    <div className="grid max-h-[50vh] gap-4 overflow-y-auto">
-                        {(friends.incoming.length > 0 ||
-                            friends.outgoing.length > 0) && (
-                            <section className="grid gap-2">
-                                <h3 className="text-sm font-medium">
-                                    Requests
-                                </h3>
-                                <ul className="grid gap-1">
-                                    {friends.incoming.map((request) => (
-                                        <Row
-                                            key={request.id}
-                                            name={request.user.username}
-                                            detail="would like to be friends"
-                                        >
-                                            <Button
-                                                size="sm"
-                                                onClick={() =>
-                                                    bus.emit(
-                                                        'answer-friend-request',
-                                                        {
-                                                            requestId:
-                                                                request.id,
-                                                            accept: true,
-                                                        },
-                                                    )
-                                                }
-                                                data-test="accept-request"
-                                            >
-                                                Accept
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    bus.emit(
-                                                        'answer-friend-request',
-                                                        {
-                                                            requestId:
-                                                                request.id,
-                                                            accept: false,
-                                                        },
-                                                    )
-                                                }
-                                            >
-                                                Decline
-                                            </Button>
-                                        </Row>
-                                    ))}
-                                    {friends.outgoing.map((request) => (
-                                        <Row
-                                            key={request.id}
-                                            name={request.user.username}
-                                            detail="waiting for an answer"
-                                        >
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                    bus.emit(
-                                                        'answer-friend-request',
-                                                        {
-                                                            requestId:
-                                                                request.id,
-                                                            accept: false,
-                                                        },
-                                                    )
-                                                }
-                                            >
-                                                Withdraw
-                                            </Button>
-                                        </Row>
-                                    ))}
-                                </ul>
-                            </section>
+                    <Section title="Friends" aside="Sig">
+                        {friends.friends.length === 0 ? (
+                            <p className="text-bakelite/60">
+                                {copy.friends_empty}
+                            </p>
+                        ) : (
+                            friends.friends.map((friend) => (
+                                <FriendRow
+                                    key={friend.id}
+                                    friend={friend}
+                                    here={
+                                        friend.location?.instance_id ===
+                                        instanceId
+                                    }
+                                    onGo={(location) => {
+                                        setOpen(false);
+                                        bus.emit('travel', {
+                                            slug: location.room,
+                                            instanceId: location.instance_id,
+                                        });
+                                    }}
+                                    onRemove={() =>
+                                        bus.emit('remove-friend', {
+                                            userId: friend.id,
+                                        })
+                                    }
+                                />
+                            ))
                         )}
+                    </Section>
+                </div>
 
-                        <section className="grid gap-2">
-                            <h3 className="text-sm font-medium">Friends</h3>
-                            {friends.friends.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                    {copy.friends_empty}
-                                </p>
-                            ) : (
-                                <ul className="grid gap-1">
-                                    {friends.friends.map((friend) => (
-                                        <FriendRow
-                                            key={friend.id}
-                                            friend={friend}
-                                            here={
-                                                friend.location?.instance_id ===
-                                                instanceId
-                                            }
-                                            onGo={(location) => {
-                                                setOpen(false);
-                                                bus.emit('travel', {
-                                                    slug: location.room,
-                                                    instanceId:
-                                                        location.instance_id,
-                                                });
-                                            }}
-                                            onRemove={() =>
-                                                bus.emit('remove-friend', {
-                                                    userId: friend.id,
-                                                })
-                                            }
-                                        />
-                                    ))}
-                                </ul>
-                            )}
-                        </section>
-                    </div>
-
-                    <Label className="flex items-center gap-2 text-sm font-normal">
-                        <Checkbox
-                            checked={friends.requests_allowed}
-                            onCheckedChange={(checked) =>
-                                bus.emit('set-friend-requests', {
-                                    allowed: checked === true,
-                                })
-                            }
-                            data-test="requests-allowed"
-                        />
+                <div className="flex items-center gap-3 border-t border-bakelite/10 pt-3">
+                    <ToggleSwitch
+                        id="requests-allowed"
+                        checked={friends.requests_allowed}
+                        onCheckedChange={(allowed) =>
+                            bus.emit('set-friend-requests', { allowed })
+                        }
+                        data-test="requests-allowed"
+                    />
+                    <label
+                        htmlFor="requests-allowed"
+                        className="text-xs tracking-[0.15em] text-bakelite/75 uppercase"
+                    >
                         Accept friend requests
-                    </Label>
-                </DialogContent>
-            </Dialog>
+                    </label>
+                </div>
+            </RadioDialog>
         </>
     );
 }
@@ -242,24 +213,50 @@ function summary({ friends }: FriendsList): string {
         : `${friends.length} ${friends.length === 1 ? 'friend' : 'friends'} · ${online} in Hushfield now`;
 }
 
+function Section({
+    title,
+    aside,
+    children,
+}: {
+    title: string;
+    aside?: string;
+    children: ReactNode;
+}) {
+    return (
+        <section className="flex flex-col gap-1">
+            <h3 className="flex justify-between border-b border-bakelite/10 pb-1 text-[0.65rem] tracking-[0.2em] text-bakelite/55 uppercase">
+                {title}
+                {aside && <span>{aside}</span>}
+            </h3>
+            <ul className="flex flex-col">{children}</ul>
+        </section>
+    );
+}
+
 function Row({
     name,
     detail,
+    dim = false,
     children,
 }: {
     name: string;
     detail: string;
+    dim?: boolean;
     children: ReactNode;
 }) {
     return (
-        <li className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
-            <span className="min-w-0 truncate">
-                {name}
-                <span className="ml-2 text-xs text-muted-foreground">
-                    {detail}
+        <li className="flex min-h-11 items-center justify-between gap-2 py-1">
+            <span
+                className={`flex min-w-0 flex-col ${dim ? 'opacity-50' : ''}`}
+            >
+                <span className="truncate font-sans text-base leading-tight font-bold tracking-wide amber-glow uppercase">
+                    {name}
                 </span>
+                <span className="text-xs text-bakelite/60">{detail}</span>
             </span>
-            <span className="flex shrink-0 gap-1">{children}</span>
+            <span className="flex shrink-0 items-center gap-1.5">
+                {children}
+            </span>
         </li>
     );
 }
@@ -284,33 +281,33 @@ function FriendRow({
           : (location?.label ?? 'between rooms');
 
     return (
-        <Row name={friend.username} detail={detail}>
-            <span
-                aria-hidden
-                className={`mr-1 size-2 self-center rounded-full ${friend.online ? 'bg-emerald-400' : 'bg-stone-400'}`}
-            />
+        <Row name={friend.username} detail={detail} dim={!friend.online}>
             {location?.can_join && !here && (
-                <Button
+                <RadioKey
                     size="sm"
                     onClick={() => onGo(location)}
                     data-test={`go-to-${friend.username}`}
                 >
                     Go to
-                </Button>
+                </RadioKey>
             )}
             {confirming ? (
-                <Button size="sm" variant="destructive" onClick={onRemove}>
+                <RadioKey size="sm" variant="red" onClick={onRemove}>
                     Remove?
-                </Button>
+                </RadioKey>
             ) : (
-                <Button
+                <RadioKey
                     size="sm"
-                    variant="ghost"
+                    variant="glass"
                     onClick={() => setConfirming(true)}
                 >
                     Remove
-                </Button>
+                </RadioKey>
             )}
+            <SignalBars
+                level={!friend.online ? 0 : here ? 4 : 3}
+                className="ml-2"
+            />
         </Row>
     );
 }

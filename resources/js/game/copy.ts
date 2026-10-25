@@ -26,6 +26,13 @@ export type CopyKey =
     | 'residences_empty'
     | 'decorate_hint'
     | 'friends_title'
-    | 'friends_empty';
+    | 'friends_empty'
+    | 'station_home'
+    | 'station_town_square'
+    | 'station_lantern_street'
+    | 'station_residences'
+    | 'chat_placeholder'
+    | 'on_air_host';
 
-export type Copy = Record<CopyKey, string>;
+/** `on_air` is the one list: the lines the ON AIR ticker picks from. */
+export type Copy = Record<CopyKey, string> & { on_air: string[] };

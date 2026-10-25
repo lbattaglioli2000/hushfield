@@ -10,7 +10,7 @@ export default function InstanceLabel({ bus }: { bus: EventBus }) {
 
     return (
         <div
-            className="absolute top-3 left-3 rounded-full bg-black/45 px-3 py-1 text-sm font-medium backdrop-blur"
+            className="pointer-events-none absolute top-3 left-3 rounded-md bg-glass/80 px-3 py-1 font-mono text-xs tracking-[0.15em] amber-glow uppercase"
             data-test="instance-label"
         >
             {label}

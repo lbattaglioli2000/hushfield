@@ -75,7 +75,7 @@ return [
     'stipend_claimed' => 'Hearthmore Group has already been generous today. Generosity resumes at midnight.',
 
     // Friends
-    'friends_title' => 'Friends',
+    'friends_title' => 'Neighbors',
     'friends_empty' => 'No friends yet. Everyone starts somewhere, usually here.',
     'friend_request_sent' => 'Your request has been delivered. It will be considered.',
     'friend_request_received' => ':name would like to be your friend.',
@@ -92,6 +92,26 @@ return [
     'friend_too_many_requests' => 'You have many requests waiting for answers. Let some of them land first.',
     'friend_list_full' => 'That friends list is full. Even Hushfield has limits.',
     'friends_too_fast' => 'Friendship takes a moment. Please try again shortly.',
+
+    // The set: the tuning dial, the ON AIR ticker, and the talk strip
+    'station_home' => 'Home',
+    'station_town_square' => 'Town Square',
+    'station_lantern_street' => 'Lantern Street',
+    'station_residences' => 'Hearthmore',
+    'chat_placeholder' => 'Press TALK or Enter, and say something kind…',
+    'on_air_host' => 'Augustin Moss',
+    'on_air' => [
+        'Good evening, Hushfield. The 3 A.M. hour is available again tonight. Please do not book it twice.',
+        'Hearthmore Group reminds residents that the lamps on Lantern Street are lit for your benefit, and are not to be thanked.',
+        'Weather tonight: a light fog, followed by a heavier fog, followed by a fog that knows your name.',
+        'The bus has not come back yet. We are told it is fine. It sent a postcard.',
+        'The lighthouse on the hill is older than the hill. Please do not mention this to the hill.',
+        'Lost: one hour, last seen Tuesday. If found, please keep it. We have been managing without.',
+        'The moths have asked for quiet in the square after dusk. We are inclined to give it to them.',
+        'Every door in Hearthmore Residences opens inward. Some of them open further.',
+        'Traffic: none. There has never been traffic. We report it anyway, for morale.',
+        'This has been Augustin Moss. I will be here. I am always here. Keep it low.',
+    ],
 
     // Accounts
     'underage' => "Hushfield isn't open to you yet. It will wait.",

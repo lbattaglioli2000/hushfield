@@ -1,14 +1,9 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import ItemCard from '@/components/play/item-card';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import RadioDialog from '@/components/radio/radio-dialog';
+import RadioKey from '@/components/radio/radio-key';
+import SignalCard from '@/components/radio/signal-card';
 import type { Copy, EventBus, GameEvents, Item, Wallet } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
@@ -41,45 +36,30 @@ export default function ShopPanel({
     const action = (item: Item) => {
         if (owned.has(item.id)) {
             return (
-                <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled
-                    className="w-full"
-                >
+                <RadioKey size="sm" variant="glass" disabled className="w-full">
                     Owned
-                </Button>
+                </RadioKey>
             );
         }
 
         if (item.members_only) {
             return (
-                <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled
-                    className="w-full"
-                >
+                <RadioKey size="sm" variant="glass" disabled className="w-full">
                     {copy.members_only}
-                </Button>
+                </RadioKey>
             );
         }
 
         if (!shop?.open) {
             return (
-                <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled
-                    className="w-full"
-                >
+                <RadioKey size="sm" variant="glass" disabled className="w-full">
                     Closed
-                </Button>
+                </RadioKey>
             );
         }
 
         return (
-            <Button
+            <RadioKey
                 size="sm"
                 className="w-full"
                 disabled={busy || item.price > wallet.balance}
@@ -87,43 +67,40 @@ export default function ShopPanel({
                 data-test={`buy-${item.slug}`}
             >
                 Buy · {item.price} coins
-            </Button>
+            </RadioKey>
         );
     };
 
     return (
-        <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent className="sm:max-w-2xl" data-test="shop-panel">
-                <DialogHeader>
-                    <DialogTitle>{copy.shop_title}</DialogTitle>
-                    <DialogDescription>
-                        {copy.shop_intro} You have {wallet.balance} coins.
-                    </DialogDescription>
-                </DialogHeader>
-                {/* While closed the notice says it all; a refused purchase would only repeat it. */}
-                {shop?.open !== false && result}
-                {shop && !shop.open && (
-                    <p
-                        className="rounded-md bg-muted px-3 py-2 text-sm"
-                        data-test="shop-closed"
-                    >
-                        {copy.shop_closed}
-                    </p>
-                )}
-                {shop === null ? (
-                    <p className="text-sm text-muted-foreground">Opening…</p>
-                ) : (
-                    <ul className="grid max-h-[60vh] gap-3 overflow-y-auto sm:grid-cols-2">
-                        {shop.items.map((item) => (
-                            <ItemCard
-                                key={item.id}
-                                item={item}
-                                footer={action(item)}
-                            />
-                        ))}
-                    </ul>
-                )}
-            </DialogContent>
-        </Dialog>
+        <RadioDialog
+            open={open}
+            onOpenChange={(next) => !next && onClose()}
+            band={`Shop · ${wallet.balance} coins`}
+            title={copy.shop_title}
+            description={copy.shop_intro}
+            className="sm:max-w-2xl"
+            data-test="shop-panel"
+        >
+            {/* While closed the notice says it all; a refused purchase would only repeat it. */}
+            {shop?.open !== false && result}
+            {shop && !shop.open && (
+                <SignalCard data-test="shop-closed">
+                    {copy.shop_closed}
+                </SignalCard>
+            )}
+            {shop === null ? (
+                <p className="text-bakelite/60">Opening…</p>
+            ) : (
+                <ul className="grid max-h-[60vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                    {shop.items.map((item) => (
+                        <ItemCard
+                            key={item.id}
+                            item={item}
+                            footer={action(item)}
+                        />
+                    ))}
+                </ul>
+            )}
+        </RadioDialog>
     );
 }

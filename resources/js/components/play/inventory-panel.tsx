@@ -1,11 +1,5 @@
 import ItemCard from '@/components/play/item-card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import RadioDialog from '@/components/radio/radio-dialog';
 import type { Copy, Wallet } from '@/game';
 
 export default function InventoryPanel({
@@ -20,26 +14,23 @@ export default function InventoryPanel({
     onClose: () => void;
 }) {
     return (
-        <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent className="sm:max-w-2xl" data-test="inventory-panel">
-                <DialogHeader>
-                    <DialogTitle>{copy.inventory_title}</DialogTitle>
-                    <DialogDescription>
-                        {wallet.balance} coins
-                    </DialogDescription>
-                </DialogHeader>
-                {wallet.inventory.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        {copy.inventory_empty}
-                    </p>
-                ) : (
-                    <ul className="grid max-h-[60vh] gap-3 overflow-y-auto sm:grid-cols-2">
-                        {wallet.inventory.map((item) => (
-                            <ItemCard key={item.id} item={item} />
-                        ))}
-                    </ul>
-                )}
-            </DialogContent>
-        </Dialog>
+        <RadioDialog
+            open={open}
+            onOpenChange={(next) => !next && onClose()}
+            band={`Belongings · ${wallet.balance} coins`}
+            title={copy.inventory_title}
+            className="sm:max-w-2xl"
+            data-test="inventory-panel"
+        >
+            {wallet.inventory.length === 0 ? (
+                <p className="text-bakelite/60">{copy.inventory_empty}</p>
+            ) : (
+                <ul className="grid max-h-[60vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                    {wallet.inventory.map((item) => (
+                        <ItemCard key={item.id} item={item} />
+                    ))}
+                </ul>
+            )}
+        </RadioDialog>
     );
 }

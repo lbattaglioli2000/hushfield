@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { OnTray } from '@/components/play/signal-tray';
+import SignalCard from '@/components/radio/signal-card';
 import type { ConnectionState, EventBus } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
@@ -32,14 +34,20 @@ export default function ConnectionBanner({ bus }: { bus: EventBus }) {
 
     if (!message) return null;
 
+    const online = state === 'online';
+
     return (
-        <div
-            role="status"
-            className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#fbf7ee] px-4 py-1.5 text-sm text-[#1d2330] shadow-lg"
-            data-test="connection-banner"
-            data-state={state}
-        >
-            {message}
-        </div>
+        <OnTray>
+            <SignalCard
+                role="status"
+                tone={online ? 'amber' : 'red'}
+                level={online ? 4 : 1}
+                className="pointer-events-none"
+                data-test="connection-banner"
+                data-state={state}
+            >
+                {message}
+            </SignalCard>
+        </OnTray>
     );
 }

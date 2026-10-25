@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import InventoryPanel from '@/components/play/inventory-panel';
 import ShopPanel from '@/components/play/shop-panel';
-import { Button } from '@/components/ui/button';
+import { OnTray } from '@/components/play/signal-tray';
+import AmberReadout from '@/components/radio/amber-readout';
+import RadioKey from '@/components/radio/radio-key';
+import SignalCard from '@/components/radio/signal-card';
 import type { Copy, EventBus, GameEvents, Wallet } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
 const RESULT_MS = 5000;
 
 /**
- * Coins, the daily stipend, and the buttons that open the shop and inventory.
- * Hidden until the game has loaded the wallet.
+ * The coin readout, the Shop and Belongings keys, and the daily stipend.
+ * Renders into the set's key grid; hidden until the game has loaded the wallet.
  */
 export default function EconomyHud({
     bus,
@@ -51,69 +54,61 @@ export default function EconomyHud({
     };
 
     const resultLine = result && (
-        <p
+        <SignalCard
             role="status"
-            className={`rounded-md px-3 py-2 text-sm ${result.ok ? 'bg-emerald-950/80' : 'bg-red-950/80'}`}
+            tone={result.ok ? 'amber' : 'red'}
             data-test="economy-result"
         >
             {result.message}
-        </p>
+        </SignalCard>
     );
 
     return (
         <>
-            <div className="absolute top-3 right-3 flex max-w-xs flex-col items-end gap-2">
-                <div className="flex items-center gap-2">
-                    <span
-                        className="rounded-full bg-black/45 px-3 py-1 text-sm font-medium tabular-nums backdrop-blur"
-                        data-test="coin-balance"
-                    >
-                        <span aria-hidden className="mr-1 text-amber-300">
-                            ●
-                        </span>
-                        {wallet.balance}
-                        <span className="sr-only"> coins</span>
-                    </span>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                            setPanel('shop');
-                            bus.emit('load-shop', {});
-                        }}
-                        data-test="open-shop"
-                    >
-                        Shop
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setPanel('inventory')}
-                        data-test="open-inventory"
-                    >
-                        Belongings
-                    </Button>
-                </div>
+            <AmberReadout
+                label="Coins"
+                className="col-span-2 text-lg"
+                data-test="coin-balance"
+            >
+                {wallet.balance}
+            </AmberReadout>
+            <RadioKey
+                onClick={() => {
+                    setPanel('shop');
+                    bus.emit('load-shop', {});
+                }}
+                data-test="open-shop"
+            >
+                Shop
+            </RadioKey>
+            <RadioKey
+                onClick={() => setPanel('inventory')}
+                data-test="open-inventory"
+            >
+                Belongings
+            </RadioKey>
 
+            <OnTray>
                 {wallet.stipend.available && (
-                    <div
-                        className="flex flex-col gap-2 rounded-md bg-black/60 p-3 text-sm backdrop-blur"
+                    <SignalCard
+                        tone="amber"
+                        className="grid gap-2"
                         data-test="stipend-offer"
                     >
                         <p>{copy.stipend_offer}</p>
-                        <Button
+                        <RadioKey
                             size="sm"
+                            className="justify-self-start"
                             disabled={busy}
                             onClick={() => request('claim-stipend', {})}
                             data-test="claim-stipend"
                         >
                             Accept {wallet.stipend.amount} coins
-                        </Button>
-                    </div>
+                        </RadioKey>
+                    </SignalCard>
                 )}
-
                 {panel === null && resultLine}
-            </div>
+            </OnTray>
 
             <ShopPanel
                 bus={bus}

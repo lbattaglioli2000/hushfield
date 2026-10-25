@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { OnTray } from '@/components/play/signal-tray';
+import SignalCard from '@/components/radio/signal-card';
 import type { EventBus } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
@@ -24,13 +26,15 @@ export default function Notices({ bus }: { bus: EventBus }) {
     if (!notice) return null;
 
     return (
-        <div
-            key={notice.key}
-            role="status"
-            className="pointer-events-none absolute top-14 left-1/2 max-w-[90vw] -translate-x-1/2 rounded-md bg-black/60 px-4 py-2 text-center text-sm backdrop-blur"
-            data-test="notice"
-        >
-            {notice.text}
-        </div>
+        <OnTray>
+            <SignalCard
+                key={notice.key}
+                role="status"
+                className="pointer-events-none"
+                data-test="notice"
+            >
+                {notice.text}
+            </SignalCard>
+        </OnTray>
     );
 }
