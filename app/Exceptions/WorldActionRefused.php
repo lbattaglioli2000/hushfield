@@ -86,4 +86,34 @@ final class WorldActionRefused extends RuntimeException
             'message' => $this->getMessage(),
         ], $this->status);
     }
+
+    public static function insufficientCoins(): self
+    {
+        return new self('insufficient_coins', 422);
+    }
+
+    public static function itemOwned(): self
+    {
+        return new self('item_owned', 409);
+    }
+
+    public static function itemUnavailable(): self
+    {
+        return new self('item_unavailable', 422);
+    }
+
+    public static function itemMembersOnly(): self
+    {
+        return new self('item_members_only', 403);
+    }
+
+    public static function stipendClaimed(): self
+    {
+        return new self('stipend_claimed', 409);
+    }
+
+    public static function shopTooFast(): self
+    {
+        return new self('shop_too_fast', 429);
+    }
 }

@@ -12,7 +12,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call(BlockedTermSeeder::class);
+        $this->call([BlockedTermSeeder::class, ItemSeeder::class]);
 
         $room = (string) config('hushfield.world.default_room');
 

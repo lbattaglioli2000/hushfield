@@ -57,6 +57,11 @@ return [
         'bubble_seconds' => 6,
     ],
 
+    'economy' => [
+        // Coins Hearthmore Group pays each resident once per Hushfield day.
+        'daily_stipend' => 25,
+    ],
+
     'maps' => [
         'path' => resource_path('maps'),
     ],

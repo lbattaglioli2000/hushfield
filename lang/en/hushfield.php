@@ -36,6 +36,22 @@ return [
     'report_too_many' => "You've sent several reports recently. Moderators will review them. Please try again later.",
     'report_self' => "You can't report yourself.",
 
+    // Coins and items
+    'shop_title' => 'The Shop on Lantern Street',
+    'shop_intro' => 'Everything here is for sale. Some of it is also for you.',
+    'inventory_title' => 'Your belongings',
+    'inventory_empty' => 'You own nothing yet. This is not a criticism.',
+    'stipend_offer' => 'Hearthmore Group has set aside a stipend for you today.',
+    'members_only' => 'Members only',
+    'insufficient_coins' => "You don't have enough coins for that. Hearthmore Group has noted your interest.",
+    'item_owned' => 'You already own this. Owning it twice would be noticed.',
+    'item_unavailable' => "That isn't for sale. Perhaps it never was.",
+    'item_members_only' => 'This is reserved for members. Membership is not yet offered. It will be.',
+    'shop_too_fast' => 'The till needs a moment to compose itself. Please try again shortly.',
+    'purchase_complete' => "It's yours now. Please treat it gently.",
+    'stipend_granted' => 'Hearthmore Group has deposited your daily stipend. Please do not ask where it came from.',
+    'stipend_claimed' => 'Hearthmore Group has already been generous today. Generosity resumes at midnight.',
+
     // Accounts
     'underage' => "Hushfield isn't open to you yet. It will wait.",
     'username_taken' => 'That name already belongs to a resident.',

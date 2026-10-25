@@ -1,0 +1,84 @@
+<?php
+
+namespace App\Models;
+
+use App\Domain\Items\ItemRarity;
+use App\Domain\Items\ItemSlot;
+use Database\Factories\ItemFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+
+/**
+ * A catalog entry: what an item is, not who owns it (see InventoryItem).
+ *
+ * @property int $id
+ * @property string $slug
+ * @property string $name
+ * @property string|null $description
+ * @property ItemSlot $slot
+ * @property ItemRarity $rarity
+ * @property int $price
+ * @property list<string> $sprite_layers
+ * @property bool $in_shop
+ * @property bool $members_only
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ */
+#[Fillable(['slug', 'name', 'description', 'slot', 'rarity', 'price', 'sprite_layers', 'in_shop', 'members_only'])]
+class Item extends Model
+{
+    /** @use HasFactory<ItemFactory> */
+    use HasFactory;
+
+    protected function casts(): array
+    {
+        return [
+            'slot' => ItemSlot::class,
+            'rarity' => ItemRarity::class,
+            'price' => 'integer',
+            'sprite_layers' => 'array',
+            'in_shop' => 'boolean',
+            'members_only' => 'boolean',
+        ];
+    }
+
+    /** @return HasMany<InventoryItem, $this> */
+    public function owners(): HasMany
+    {
+        return $this->hasMany(InventoryItem::class);
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function inShop(Builder $query): void
+    {
+        $query->where('in_shop', true);
+    }
+
+    /**
+     * What the client is told about an item.
+     *
+     * @return array{id: int, slug: string, name: string, description: string|null, slot: string, rarity: string, price: int, sprite_layers: list<string>, members_only: bool}
+     */
+    public function toPayload(): array
+    {
+        return [
+            'id' => $this->id,
+            'slug' => $this->slug,
+            'name' => $this->name,
+            'description' => $this->description,
+            'slot' => $this->slot->value,
+            'rarity' => $this->rarity->value,
+            'price' => $this->price,
+            'sprite_layers' => $this->sprite_layers,
+            'members_only' => $this->members_only,
+        ];
+    }
+}

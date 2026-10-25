@@ -104,6 +104,18 @@ class User extends Authenticatable implements FilamentUser, HasName, MustVerifyE
         return $this->hasMany(Sanction::class);
     }
 
+    /** @return HasMany<LedgerEntry, $this> */
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(LedgerEntry::class);
+    }
+
+    /** @return HasMany<InventoryItem, $this> */
+    public function inventory(): HasMany
+    {
+        return $this->hasMany(InventoryItem::class);
+    }
+
     /** @return HasMany<ChatMessage, $this> */
     public function chatMessages(): HasMany
     {

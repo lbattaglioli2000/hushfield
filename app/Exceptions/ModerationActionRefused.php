@@ -5,7 +5,7 @@ namespace App\Exceptions;
 use RuntimeException;
 
 /**
- * A staff moderation action the server refuses. The message is for staff, not players.
+ * A staff action (moderation, roles, coins, items) the server refuses. The message is for staff, not players.
  */
 final class ModerationActionRefused extends RuntimeException
 {
@@ -17,5 +17,20 @@ final class ModerationActionRefused extends RuntimeException
     public static function reportNotOpen(): self
     {
         return new self('This report has already been resolved.');
+    }
+
+    public static function zeroAdjustment(): self
+    {
+        return new self('Enter an amount other than zero.');
+    }
+
+    public static function insufficientCoins(int $balance): self
+    {
+        return new self("That would take the balance below zero. It is {$balance}.");
+    }
+
+    public static function alreadyOwned(): self
+    {
+        return new self('This resident already owns that item.');
     }
 }

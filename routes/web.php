@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Economy\ClaimStipendController;
+use App\Http\Controllers\Economy\PurchaseItemController;
+use App\Http\Controllers\Economy\ShopController;
+use App\Http\Controllers\Economy\WalletController;
 use App\Http\Controllers\Identity\AgeGateController;
 use App\Http\Controllers\World\AssetManifestController;
 use App\Http\Controllers\World\ChatController;
@@ -38,6 +42,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('instances/{instance}/move', MoveController::class)->middleware('throttle:move')->name('instances.move');
             Route::post('instances/{instance}/chat', ChatController::class)->middleware('throttle:chat')->name('instances.chat');
             Route::post('reports', ReportController::class)->middleware('throttle:report')->name('reports.store');
+
+            Route::get('wallet', WalletController::class)->name('wallet');
+            Route::post('stipend', ClaimStipendController::class)->middleware('throttle:economy')->name('stipend.claim');
+            Route::get('shop', ShopController::class)->name('shop');
+            Route::post('shop/{item}/purchase', PurchaseItemController::class)->middleware('throttle:economy')->name('shop.purchase');
         });
     });
 });
