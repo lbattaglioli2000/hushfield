@@ -251,4 +251,24 @@ return [
         'http_middleware' => env('OCTANE_ROADRUNNER_HTTP_MIDDLEWARE', 'static'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | FrankenPHP Caddy Environment
+    |--------------------------------------------------------------------------
+    |
+    | Setting OCTANE_REVERB_PROXY (for example "127.0.0.1:8080") makes the app
+    | origin proxy Reverb's websocket path, so browsers behind a single proxy
+    | (a local portal or tunnel) connect to the page's own host. Production
+    | uses Laravel Cloud's managed Reverb host instead and leaves this unset.
+    |
+    */
+
+    'caddy' => [
+        'env' => array_filter([
+            'CADDY_SERVER_EXTRA_DIRECTIVES' => env('OCTANE_REVERB_PROXY')
+                ? 'reverse_proxy /app/* '.env('OCTANE_REVERB_PROXY')
+                : null,
+        ]),
+    ],
+
 ];
