@@ -17,6 +17,12 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    # Booting the app registers broadcast channels, which needs Reverb credentials (never used to connect).
+    env:
+      REVERB_APP_ID: ci
+      REVERB_APP_KEY: ci-key
+      REVERB_APP_SECRET: ci-secret
+
     # Matches tests/TestCase.php and phpunit.xml: Postgres hushfield_test, Redis DBs 13–15.
     services:
       postgres:
