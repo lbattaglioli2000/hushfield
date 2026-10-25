@@ -82,7 +82,7 @@ test('rooms without an imported map cannot be joined', function () {
         ->toThrow(InvalidMapException::class, 'has no imported map');
 });
 
-test('every committed map imports with its own place on the town map, and every door leads to a real room, lands on an arrival and can be walked to', function () {
+test('every committed map imports with its own place on the town map, every door leads to a real room, lands on an arrival and can be walked to, and every building lets players back out of its front door', function () {
     config(['hushfield.maps.path' => resource_path('maps')]);
     $this->artisan('hushfield:import-map')->assertSuccessful();
 
@@ -112,6 +112,13 @@ test('every committed map imports with its own place on the town map, and every 
                 expect(app(Pathfinder::class)->find($map->grid, $spawn, [$exit->x, $exit->y], $maxSteps))
                     ->not->toBeNull("{$door} cannot be walked to from the spawn at ({$spawn[0]}, {$spawn[1]})");
             }
+        }
+
+        foreach ($map->buildings as $building) {
+            $inside = $maps[$building->door->to]->grid;
+            $wayOut = collect($inside->exits)->filter(fn ($exit) => $exit->to === $slug)->map(fn ($exit) => $map->grid->arrivals[(string) $exit->arrive] ?? null)->values()->all();
+
+            expect($wayOut)->toBe([$building->doorstep()], "{$slug} → {$building->name}: the way out does not land just outside the front door");
         }
     }
 });
