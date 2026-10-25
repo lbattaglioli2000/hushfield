@@ -82,7 +82,7 @@ test('rooms without an imported map cannot be joined', function () {
         ->toThrow(InvalidMapException::class, 'has no imported map');
 });
 
-test('every committed map imports, and every door leads to a real room, lands on an arrival and can be walked to', function () {
+test('every committed map imports with its own place on the town map, and every door leads to a real room, lands on an arrival and can be walked to', function () {
     config(['hushfield.maps.path' => resource_path('maps')]);
     $this->artisan('hushfield:import-map')->assertSuccessful();
 
@@ -93,6 +93,11 @@ test('every committed map imports, and every door leads to a real room, lands on
 
     expect(Room::query()->pluck('slug')->sort()->values()->all())->toBe(collect(array_keys($maps))->sort()->values()->all())
         ->and(Room::query()->where('slug', 'hearthmore-residences')->sole()->only('frequency', 'home_frequency'))->toBe(['frequency' => 104.8, 'home_frequency' => 88.3]);
+
+    $cells = collect($maps)->map(fn (ImportedMap $map): ?string => $map->townPosition === null ? null : implode(',', $map->townPosition));
+
+    expect($cells->filter()->unique()->count())->toBe(count($maps), 'every room has its own square on the town map')
+        ->and(Room::query()->where('slug', 'whsh')->sole()->only('town_x', 'town_y'))->toBe(['town_x' => 5, 'town_y' => 3]);
 
     foreach ($maps as $slug => $map) {
         expect($map->frequency)->not->toBeNull("{$slug} has no frequency on the dial");

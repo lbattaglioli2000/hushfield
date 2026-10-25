@@ -18,8 +18,9 @@ use JsonException;
  * points players can use (custom property "kind": "shop" for a shop
  * counter), and map properties "name", "kind"
  * (public or residence), "capacity", "frequency" (the room's place on the
- * radio's tuning dial, in MHz) and "home_frequency" (where a residence room's
- * homes sit on the dial).
+ * radio's tuning dial, in MHz), "home_frequency" (where a residence room's
+ * homes sit on the dial) and "town_x" and "town_y" (the room's square on the
+ * town map, in whole grid cells; a room without them is off the map).
  */
 final class TiledMapParser
 {
@@ -89,7 +90,28 @@ final class TiledMapParser
             capacity: $capacity,
             frequency: $this->frequency($properties, 'frequency'),
             homeFrequency: $this->frequency($properties, 'home_frequency'),
+            townPosition: $this->townPosition($properties),
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $properties
+     * @return array{int, int}|null
+     */
+    private function townPosition(array $properties): ?array
+    {
+        $x = $properties['town_x'] ?? null;
+        $y = $properties['town_y'] ?? null;
+
+        if ($x === null && $y === null) {
+            return null;
+        }
+
+        if (! is_int($x) || ! is_int($y) || $x < 0 || $y < 0) {
+            throw new InvalidMapException('The map properties "town_x" and "town_y" must both be whole numbers, 0 or more.');
+        }
+
+        return [$x, $y];
     }
 
     /**

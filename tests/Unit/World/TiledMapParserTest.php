@@ -71,11 +71,14 @@ it('reads doors, arrival points and room properties', function () {
     expect($map->name)->toBe('Test Residences')
         ->and($map->kind)->toBe(RoomKind::Residence)
         ->and($map->capacity)->toBe(3)
+        ->and($map->townPosition)->toBe([1, 1])
         ->and($map->grid->exits['door']->toArray())->toBe(['name' => 'door', 'x' => 2, 'y' => 4, 'to' => 'test-lane', 'arrive' => 'home'])
         ->and($map->grid->arrivals)->toBe(['door' => [2, 3]])
         ->and($map->grid->entryPoint('door'))->toBe([2, 3])
         ->and($map->grid->entryPoint('cellar'))->toBe([2, 2])
-        ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->kind)->toBe(RoomKind::Public);
+        ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->kind)->toBe(RoomKind::Public)
+        // A map without town_x and town_y is off the town map's grid, not refused.
+        ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->townPosition)->toBeNull();
 });
 
 it('rejects doors and arrival points that would trap or bounce players', function (callable $mutate, string $message) {
@@ -139,4 +142,6 @@ it('rejects room properties it does not understand', function (array $property, 
     'frequency above the band' => [['name' => 'frequency', 'type' => 'float', 'value' => 108.6], '"frequency" must be an FM frequency'],
     'frequency between channels' => [['name' => 'frequency', 'type' => 'float', 'value' => 94.25], '"frequency" must be an FM frequency'],
     'frequency as text' => [['name' => 'home_frequency', 'type' => 'string', 'value' => '88.3'], '"home_frequency" must be an FM frequency'],
+    'town_x without town_y' => [['name' => 'town_x', 'type' => 'int', 'value' => 2], '"town_x" and "town_y" must both be whole numbers'],
+    'negative town_y' => [['name' => 'town_y', 'type' => 'int', 'value' => -1], '"town_x" and "town_y" must both be whole numbers'],
 ]);
