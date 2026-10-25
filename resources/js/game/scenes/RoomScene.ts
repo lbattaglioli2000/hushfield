@@ -14,7 +14,7 @@ import type {
     Tile,
 } from '../protocol/types';
 import { pathState } from '../protocol/types';
-import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
+import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
 import { FurnitureLayer } from '../world/FurnitureLayer';
@@ -103,7 +103,7 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         const { images } = this.options.manifest;
         this.load.spritesheet(TILES_TEXTURE, images.tiles, {
             frameWidth: TILE_WIDTH,
-            frameHeight: TILE_HEIGHT,
+            frameHeight: TILE_IMAGE_HEIGHT,
         });
         this.load.image(AVATAR_TEXTURE, images.resident);
         this.load.image('marker', images.marker);

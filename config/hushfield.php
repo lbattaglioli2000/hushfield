@@ -87,7 +87,7 @@ return [
     'assets' => [
         // Point at a CDN later; the client only ever reads URLs from the manifest.
         'base_url' => env('HUSHFIELD_ASSET_URL'),
-        'version' => env('HUSHFIELD_ASSET_VERSION', '1'),
+        'version' => env('HUSHFIELD_ASSET_VERSION', '2'),
         // Manifest key => file name under {base_url}/v{version}/.
         'images' => [
             'tiles' => 'tiles.png',

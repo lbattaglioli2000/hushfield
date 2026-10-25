@@ -4,7 +4,9 @@ import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
 import {
     screenToTile,
+    TILE_FACE_TOP,
     TILE_HEIGHT,
+    TILE_IMAGE_HEIGHT,
     TILE_WIDTH,
     tileToScreen,
 } from '../shared/iso';
@@ -44,7 +46,14 @@ export class IsoMap {
 
     constructor(scene: Phaser.Scene, key: string) {
         const map = scene.make.tilemap({ key });
-        const tileset = map.addTilesetImage(MAP_LAYERS.tileset, TILES_TEXTURE);
+        const tileset = map.addTilesetImage(
+            MAP_LAYERS.tileset,
+            TILES_TEXTURE,
+            TILE_WIDTH,
+            TILE_IMAGE_HEIGHT,
+        );
+        // Lift each block so its top face, not its image, lines up with the grid.
+        tileset?.tileOffset.set(0, TILE_FACE_TOP);
         this.key = key;
         this.originX = map.height * (TILE_WIDTH / 2);
 
