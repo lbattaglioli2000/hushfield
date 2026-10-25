@@ -90,8 +90,11 @@ jobs:
       - name: Type check
         run: npm run types:check
 
+      # Vitest loads vite.config.ts, whose Laravel plugin refuses to run under CI=true; no dev server starts here.
       - name: Client tests
         run: npm run test
+        env:
+          LARAVEL_BYPASS_ENV_CHECK: 1
 
       - name: Pest
         run: php artisan test
