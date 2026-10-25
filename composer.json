@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "aws/aws-sdk-php": "^3.402",
         "filament/filament": "^5.10",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/chisel": "^0.1.0",
@@ -19,6 +20,7 @@
         "laravel/reverb": "^1.12",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
+        "league/flysystem-aws-s3-v3": "^3.35",
         "sentry/sentry-laravel": "^4.29",
         "spatie/laravel-activitylog": "^5.1"
     },
