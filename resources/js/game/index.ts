@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus } from './bus';
 import type { Copy } from './copy';
+import { connectEconomy } from './economy';
 import { userMessage } from './net/http';
 import type { RealtimeConfig } from './net/realtime';
 import { WorldNet } from './net/WorldNet';
@@ -14,6 +15,7 @@ export type { ConnectionState, FatalKind, GameEvents } from './bus';
 export type { Copy } from './copy';
 export type { RealtimeConfig } from './net/realtime';
 export { PROTOCOL } from './protocol/types';
+export type { Item, ItemSlot, Wallet } from './protocol/types';
 
 export type ReportReasonOption = { value: string; label: string };
 
@@ -136,6 +138,9 @@ export function startGame(
         }),
     );
 
+    const economy = connectEconomy(net, bus, config.copy);
+    cleanups.push(() => economy.dispose());
+
     void (async () => {
         const response = await fetch(config.manifestUrl);
 
@@ -162,6 +167,8 @@ export function startGame(
         game.scene.add(RoomScene.KEY, scene, true);
 
         await net.start();
+
+        if (!destroyed) economy.loadWallet();
     })().catch((error: unknown) => {
         // Boot failures are not reconnects: show them, so the player isn't left waiting.
         if (!destroyed) net.abort(error);

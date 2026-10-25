@@ -30,6 +30,12 @@ final class PlayController extends Controller
         'warned',
         'instance_closed',
         'not_in_room',
+        'shop_title',
+        'shop_intro',
+        'inventory_title',
+        'inventory_empty',
+        'stipend_offer',
+        'members_only',
     ];
 
     public function __invoke(): Response

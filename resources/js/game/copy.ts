@@ -14,6 +14,12 @@ export type CopyKey =
     | 'banned_action'
     | 'warned'
     | 'instance_closed'
-    | 'not_in_room';
+    | 'not_in_room'
+    | 'shop_title'
+    | 'shop_intro'
+    | 'inventory_title'
+    | 'inventory_empty'
+    | 'stipend_offer'
+    | 'members_only';
 
 export type Copy = Record<CopyKey, string>;

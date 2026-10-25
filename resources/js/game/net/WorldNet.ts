@@ -10,12 +10,14 @@ import type {
     ChatMessageSentEvent,
     IdleWhisper,
     InstanceReassignedEvent,
+    Item,
     PathState,
     PlayerJoinedEvent,
     PlayerLeftEvent,
     PlayerMovedEvent,
     Snapshot,
     Tile,
+    Wallet,
 } from '../protocol/types';
 import { pathState, PROTOCOL } from '../protocol/types';
 import { isTransient, retryWhileTransient } from './backoff';
@@ -31,6 +33,9 @@ export type NetConfig = {
     realtime: RealtimeConfig;
     copy: Copy;
 };
+
+/** The answer to anything that changes a wallet. */
+export type WalletUpdate = { message: string; wallet: Wallet };
 
 /** What the scene implements so the network layer can drive it. */
 export type WorldListener = {
@@ -166,6 +171,35 @@ export class WorldNet {
         );
 
         return body.message;
+    }
+
+    async wallet(): Promise<Wallet> {
+        const body = await this.request<{ wallet: Wallet }>(
+            'GET',
+            '/world/wallet',
+        );
+
+        return body.wallet;
+    }
+
+    async shop(): Promise<Item[]> {
+        const body = await this.request<{ items: Item[] }>(
+            'GET',
+            '/world/shop',
+        );
+
+        return body.items;
+    }
+
+    purchase(itemId: number): Promise<WalletUpdate> {
+        return this.request<WalletUpdate>(
+            'POST',
+            `/world/shop/${itemId}/purchase`,
+        );
+    }
+
+    claimStipend(): Promise<WalletUpdate> {
+        return this.request<WalletUpdate>('POST', '/world/stipend');
     }
 
     /** Cosmetic only: tells others to dim this avatar. Nothing on the server changes. */

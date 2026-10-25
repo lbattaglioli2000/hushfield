@@ -54,3 +54,34 @@ export type AssetManifest = {
     version: string;
     images: Record<'tiles' | 'resident' | 'marker' | 'hover', string>;
 };
+
+export type ItemSlot =
+    | 'head'
+    | 'face'
+    | 'body'
+    | 'feet'
+    | 'hand'
+    | 'pin'
+    | 'background';
+
+export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'peculiar';
+
+/** A catalog item, as the shop and the inventory show it. */
+export type Item = {
+    id: number;
+    slug: string;
+    name: string;
+    description: string | null;
+    slot: ItemSlot;
+    rarity: ItemRarity;
+    price: number;
+    sprite_layers: string[];
+    members_only: boolean;
+};
+
+/** A resident's coins, stipend status and inventory, as every economy response carries them. */
+export type Wallet = {
+    balance: number;
+    stipend: { amount: number; available: boolean; next_at: string };
+    inventory: Item[];
+};

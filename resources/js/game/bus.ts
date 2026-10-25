@@ -1,3 +1,5 @@
+import type { Item, Wallet } from './protocol/types';
+
 /**
  * The only bridge between the game and whatever UI hosts it. React subscribes
  * and emits here; it never touches Phaser objects, and game state never lives in React.
@@ -26,6 +28,12 @@ export type GameEvents = {
     };
     /** The answer to a 'send-report'. */
     'report-result': { ok: boolean; message: string };
+    /** After entering the world and after every purchase or stipend claim. */
+    wallet: Wallet;
+    /** The answer to a 'load-shop'. */
+    shop: { items: Item[] };
+    /** The answer to a 'purchase-item' or 'claim-stipend', and failures of 'load-shop'. */
+    'economy-result': { ok: boolean; message: string };
 
     // UI → Game
     'send-chat': { body: string };
@@ -34,6 +42,9 @@ export type GameEvents = {
         messageId: number | null;
         reason: string;
     };
+    'load-shop': Record<string, never>;
+    'purchase-item': { itemId: number };
+    'claim-stipend': Record<string, never>;
     /** No payload: any input that keeps the player from being shown as away. */
     'input-activity': Record<string, never>;
 };

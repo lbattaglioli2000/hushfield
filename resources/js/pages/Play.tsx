@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import ChatBar from '@/components/play/chat-bar';
 import ConnectionBanner from '@/components/play/connection-banner';
+import EconomyHud from '@/components/play/economy-hud';
 import FatalScreen from '@/components/play/fatal-screen';
 import InstanceLabel from '@/components/play/instance-label';
 import Notices from '@/components/play/notices';
@@ -40,6 +41,7 @@ export default function Play({ game }: PlayProps) {
             <main className="fixed inset-0 overflow-hidden bg-[#1d2330] text-[#f4efe4] select-none">
                 <div ref={parent} className="absolute inset-0 touch-none" />
                 <InstanceLabel bus={bus} />
+                <EconomyHud bus={bus} copy={game.copy} />
                 <ConnectionBanner bus={bus} />
                 <Notices bus={bus} />
                 <ChatBar bus={bus} maxLength={game.chatMaxLength} />
