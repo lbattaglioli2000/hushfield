@@ -7,6 +7,7 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Domain\Identity\AgeGateCookie;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -44,6 +45,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
+            'copy' => Arr::only((array) __('hushfield'), ['launcher_login_title', 'launcher_login_intro', 'launcher_login_hint']),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
@@ -67,6 +69,7 @@ class FortifyServiceProvider extends ServiceProvider
             'underageMessage' => __('hushfield.underage'),
             'usernameMin' => (int) config('hushfield.accounts.username.min'),
             'usernameMax' => (int) config('hushfield.accounts.username.max'),
+            'switchHint' => __('hushfield.launcher_register_hint'),
         ]));
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/two-factor-challenge'));

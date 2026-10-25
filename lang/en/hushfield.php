@@ -113,6 +113,20 @@ return [
         'This has been Augustin Moss. I will be here. I am always here. Keep it low.',
     ],
 
+    // The landing page
+    'landing_tagline' => 'A small town on a quiet frequency.',
+    'landing_intro' => 'Hushfield is a town you visit by radio. Walk the square, keep a home, and talk with your neighbors in low voices. The lamps on Lantern Street are always lit. Nobody remembers lighting them.',
+    'landing_walk' => 'Walk Town Square and Lantern Street. Other streets will be announced when they are ready to be found.',
+    'landing_home' => 'Keep a home in Hearthmore Residences. One has been set aside for you, whether or not you asked.',
+    'landing_talk' => 'Make friends. They will know where to find you, and so, in fairness, will you.',
+    'landing_sign_off' => 'Hushfield is free to visit. Membership is not yet offered. It will be.',
+
+    // The launcher: logging in and registering
+    'launcher_login_title' => 'Switch on. Keep it low.',
+    'launcher_login_intro' => 'Your set remembers you. Your password helps.',
+    'launcher_login_hint' => 'Flip to enter Hushfield. The set warms up in about four seconds.',
+    'launcher_register_hint' => 'Flip to become a resident. Hearthmore Group will take it from there.',
+
     // Accounts
     'underage' => "Hushfield isn't open to you yet. It will wait.",
     'username_taken' => 'That name already belongs to a resident.',

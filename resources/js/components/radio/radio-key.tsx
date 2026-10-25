@@ -3,7 +3,7 @@ import type { VariantProps } from 'class-variance-authority';
 import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
-const keyVariants = cva(
+export const keyVariants = cva(
     'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-sans font-semibold tracking-[0.14em] whitespace-nowrap uppercase transition-[transform,box-shadow,background-color] duration-75 outline-none select-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-not-allowed disabled:opacity-55 [&_svg]:size-4 [&_svg]:shrink-0',
     {
         variants: {

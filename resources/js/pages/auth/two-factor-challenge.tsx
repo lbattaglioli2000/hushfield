@@ -2,7 +2,8 @@ import { Form, Head, setLayoutProps } from '@inertiajs/react';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
+import { glassField } from '@/components/radio/glass-input';
+import RadioKey from '@/components/radio/radio-key';
 import { Input } from '@/components/ui/input';
 import {
     InputOTP,
@@ -70,9 +71,12 @@ export default function TwoFactorChallenge() {
                                         placeholder="Enter recovery code"
                                         autoFocus={showRecoveryInput}
                                         required
+                                        className={glassField}
+                                        aria-invalid={!!errors.recovery_code}
                                     />
                                     <InputError
                                         message={errors.recovery_code}
+                                        className="font-mono text-xs text-record"
                                     />
                                 </>
                             ) : (
@@ -100,23 +104,27 @@ export default function TwoFactorChallenge() {
                                             </InputOTPGroup>
                                         </InputOTP>
                                     </div>
-                                    <InputError message={errors.code} />
+                                    <InputError
+                                        message={errors.code}
+                                        className="font-mono text-xs text-record"
+                                    />
                                 </div>
                             )}
 
-                            <Button
+                            <RadioKey
                                 type="submit"
+                                variant="walnut"
                                 className="w-full"
                                 disabled={processing}
                             >
                                 Continue
-                            </Button>
+                            </RadioKey>
 
-                            <div className="text-center text-sm text-muted-foreground">
+                            <div className="text-center text-sm text-ink/70">
                                 <span>or you can </span>
                                 <button
                                     type="button"
-                                    className="cursor-pointer text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                    className="cursor-pointer text-ink underline decoration-ink/30 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
                                     onClick={() =>
                                         toggleRecoveryMode(clearErrors)
                                     }

@@ -1,10 +1,23 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Redis\RedisManager;
 use Illuminate\Support\Facades\Redis;
+use Inertia\Testing\AssertableInertia;
 
-test('the home page renders', function () {
-    $this->get(route('home'))->assertOk();
+test('the home page renders for visitors, with its lines from the lang file', function () {
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('welcome')
+            ->where('copy.landing_intro', __('hushfield.landing_intro'))
+            ->missing('copy.on_air'));
+});
+
+test('the home page sends signed-in residents to the town', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('home'))
+        ->assertRedirect(route('play'));
 });
 
 test('GET /up is healthy when the database, Redis, and the queue answer', function () {

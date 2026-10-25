@@ -10,6 +10,7 @@ use App\Http\Controllers\Housing\PlaceFurnitureController;
 use App\Http\Controllers\Housing\PutAwayFurnitureController;
 use App\Http\Controllers\Identity\AgeGateController;
 use App\Http\Controllers\Social\FriendsController;
+use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\World\AssetManifestController;
 use App\Http\Controllers\World\ChatController;
 use App\Http\Controllers\World\EndWorldSessionController;
@@ -25,7 +26,7 @@ use App\Http\Controllers\World\UseExitController;
 use App\Http\Middleware\EnsureWorldSession;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', WelcomeController::class)->name('home');
 
 Route::post('register/age', AgeGateController::class)->middleware(['guest', 'throttle:20,1'])->name('register.age');
 

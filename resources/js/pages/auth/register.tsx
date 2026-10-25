@@ -1,10 +1,13 @@
 import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
+import LauncherSubmit from '@/components/launcher-submit';
 import PasswordInput from '@/components/password-input';
+import Field from '@/components/radio/field';
+import { glassField } from '@/components/radio/glass-input';
+import RadioKey from '@/components/radio/radio-key';
+import SignalCard from '@/components/radio/signal-card';
 import TextLink from '@/components/text-link';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
 import { age, store } from '@/routes/register';
@@ -16,6 +19,7 @@ type Props = {
     underageMessage: string;
     usernameMin: number;
     usernameMax: number;
+    switchHint: string;
 };
 
 const monthName = new Intl.DateTimeFormat('en', { month: 'long' });
@@ -27,8 +31,7 @@ const MONTHS = Array.from({ length: 12 }, (_, i) =>
 const thisYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 101 }, (_, i) => thisYear - i);
 
-const selectClass =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
+const selectClass = `${glassField} [color-scheme:dark]`;
 
 export default function Register({
     passwordRules,
@@ -37,14 +40,15 @@ export default function Register({
     underageMessage,
     usernameMin,
     usernameMax,
+    switchHint,
 }: Props) {
     if (refused) {
         return (
             <>
                 <Head title="Register" />
-                <p className="text-center text-sm" data-test="underage-message">
-                    {underageMessage}
-                </p>
+                <SignalCard>
+                    <p data-test="underage-message">{underageMessage}</p>
+                </SignalCard>
             </>
         );
     }
@@ -56,16 +60,17 @@ export default function Register({
                 <Form
                     {...age.form()}
                     disableWhileProcessing
-                    className="flex flex-col gap-6"
+                    className="grid gap-6"
                 >
                     {({ processing, errors }) => (
-                        <div className="grid gap-6">
-                            <p className="text-sm text-muted-foreground">
-                                When were you born?
-                            </p>
+                        <>
+                            <p className="text-ink/70">When were you born?</p>
                             <div className="grid grid-cols-2 gap-3">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="birth_month">Month</Label>
+                                <Field
+                                    label="Month"
+                                    htmlFor="birth_month"
+                                    error={errors.birth_month}
+                                >
                                     <select
                                         id="birth_month"
                                         name="birth_month"
@@ -82,10 +87,12 @@ export default function Register({
                                             </option>
                                         ))}
                                     </select>
-                                    <InputError message={errors.birth_month} />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="birth_year">Year</Label>
+                                </Field>
+                                <Field
+                                    label="Year"
+                                    htmlFor="birth_year"
+                                    error={errors.birth_year}
+                                >
                                     <select
                                         id="birth_year"
                                         name="birth_year"
@@ -102,23 +109,26 @@ export default function Register({
                                             </option>
                                         ))}
                                     </select>
-                                    <InputError message={errors.birth_year} />
-                                </div>
+                                </Field>
                             </div>
-                            <InputError message={errors.underage} />
-                            <Button
+                            <InputError
+                                message={errors.underage}
+                                className="font-mono text-xs text-record"
+                            />
+                            <RadioKey
                                 type="submit"
+                                variant="walnut"
                                 className="w-full"
                                 data-test="age-continue-button"
                             >
                                 {processing && <Spinner />}
                                 Continue
-                            </Button>
-                            <div className="text-center text-sm text-muted-foreground">
+                            </RadioKey>
+                            <p className="text-center text-sm text-ink/70">
                                 Already have an account?{' '}
                                 <TextLink href={login()}>Log in</TextLink>
-                            </div>
-                        </div>
+                            </p>
+                        </>
                     )}
                 </Form>
             </>
@@ -132,7 +142,7 @@ export default function Register({
                 {...store.form()}
                 resetOnSuccess={['password', 'password_confirmation']}
                 disableWhileProcessing
-                className="flex flex-col gap-6"
+                className="grid gap-5"
             >
                 {({ processing, errors }) => (
                     <>
@@ -146,88 +156,98 @@ export default function Register({
                             name="birth_year"
                             value={birth.birth_year}
                         />
-                        <div className="grid gap-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="username">Username</Label>
-                                <Input
-                                    id="username"
-                                    type="text"
-                                    required
-                                    autoFocus
-                                    autoComplete="username"
-                                    name="username"
-                                    minLength={usernameMin}
-                                    maxLength={usernameMax}
-                                    placeholder={`${usernameMin}–${usernameMax} letters, numbers, or _`}
-                                />
-                                <InputError message={errors.username} />
-                            </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    required
-                                    autoComplete="email"
-                                    name="email"
-                                    placeholder="email@example.com"
-                                />
-                                <InputError message={errors.email} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="password">Password</Label>
-                                <PasswordInput
-                                    id="password"
-                                    required
-                                    autoComplete="new-password"
-                                    name="password"
-                                    placeholder="Password"
-                                    passwordrules={passwordRules}
-                                />
-                                <InputError message={errors.password} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="password_confirmation">
-                                    Confirm password
-                                </Label>
-                                <PasswordInput
-                                    id="password_confirmation"
-                                    required
-                                    autoComplete="new-password"
-                                    name="password_confirmation"
-                                    placeholder="Confirm password"
-                                    passwordrules={passwordRules}
-                                />
-                                <InputError
-                                    message={errors.password_confirmation}
-                                />
-                            </div>
-
-                            <InputError
-                                message={
-                                    errors.underage ??
-                                    errors.birth_month ??
-                                    errors.birth_year
-                                }
+                        <Field
+                            label="Resident name"
+                            htmlFor="username"
+                            error={errors.username}
+                        >
+                            <Input
+                                id="username"
+                                type="text"
+                                required
+                                autoFocus
+                                autoComplete="username"
+                                name="username"
+                                minLength={usernameMin}
+                                maxLength={usernameMax}
+                                placeholder={`${usernameMin}–${usernameMax} letters, numbers, or _`}
+                                className={glassField}
+                                aria-invalid={!!errors.username}
                             />
+                        </Field>
 
-                            <Button
-                                type="submit"
-                                className="mt-2 w-full"
-                                data-test="register-user-button"
-                            >
-                                {processing && <Spinner />}
-                                Create account
-                            </Button>
-                        </div>
+                        <Field
+                            label="Email address"
+                            htmlFor="email"
+                            error={errors.email}
+                        >
+                            <Input
+                                id="email"
+                                type="email"
+                                required
+                                autoComplete="email"
+                                name="email"
+                                placeholder="wren@hushfield.town"
+                                className={glassField}
+                                aria-invalid={!!errors.email}
+                            />
+                        </Field>
 
-                        <div className="text-center text-sm text-muted-foreground">
+                        <Field
+                            label="Password"
+                            htmlFor="password"
+                            error={errors.password}
+                        >
+                            <PasswordInput
+                                id="password"
+                                required
+                                autoComplete="new-password"
+                                name="password"
+                                placeholder="••••••••"
+                                passwordrules={passwordRules}
+                                className={`${glassField} pr-12`}
+                                aria-invalid={!!errors.password}
+                            />
+                        </Field>
+
+                        <Field
+                            label="Confirm password"
+                            htmlFor="password_confirmation"
+                            error={errors.password_confirmation}
+                        >
+                            <PasswordInput
+                                id="password_confirmation"
+                                required
+                                autoComplete="new-password"
+                                name="password_confirmation"
+                                placeholder="••••••••"
+                                passwordrules={passwordRules}
+                                className={`${glassField} pr-12`}
+                                aria-invalid={!!errors.password_confirmation}
+                            />
+                        </Field>
+
+                        <InputError
+                            message={
+                                errors.underage ??
+                                errors.birth_month ??
+                                errors.birth_year
+                            }
+                            className="font-mono text-xs text-record"
+                        />
+
+                        <LauncherSubmit
+                            processing={processing}
+                            label="Create account"
+                            hint={switchHint}
+                            data-test="register-user-button"
+                        />
+
+                        <p className="text-center text-sm text-ink/70">
                             Already have an account?{' '}
                             <TextLink href={login()}>Log in</TextLink>
-                        </div>
+                        </p>
                     </>
                 )}
             </Form>
