@@ -80,3 +80,23 @@ export const CAMERA = {
     /** Lets the camera scroll this far past the map edges. */
     boundsPadding: 200,
 } as const;
+
+/** The rod, line and bobber, drawn as shapes until fishing has art. */
+export const FISHING = {
+    rodColor: 0x24160d,
+    lineColor: 0xf4efe4,
+    bobberColor: 0xc8372d,
+    rippleColor: 0x9fb4c8,
+    /** Matches the set's amber, so a bite reads like the signal cards. */
+    biteColor: 0xf2b84b,
+    catchColor: 0xc9d1d9,
+    /** How high above the feet the rod is held, and how long it is, in pixels. */
+    handY: 22,
+    rodLength: 18,
+    /** How far the bobber is pulled under while something bites. */
+    biteDip: 4,
+    /** How long reeling in takes to play out. */
+    endMs: 650,
+    /** How far out over the water the bobber lands, in tiles. */
+    reachTiles: 1.6,
+} as const;

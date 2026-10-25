@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import type { EventBus } from '../bus';
+import type { EventBus, FishingPhase } from '../bus';
+import type { FishingView } from '../fishing';
 import type { WorldListener } from '../net/WorldNet';
 import type {
     AssetManifest,
@@ -15,9 +16,11 @@ import type {
 } from '../protocol/types';
 import { pathState } from '../protocol/types';
 import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
-import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
+import { positionOf } from '../shared/pathClock';
+import { CAMERA, COLORS, DEPTH, FISHING, TRAVEL } from '../theme';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
 import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
+import { FishingLine } from '../world/FishingLine';
 import { FurnitureLayer } from '../world/FurnitureLayer';
 import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
@@ -57,7 +60,10 @@ const NIGHT_RGB = (() => {
  * is evaluated from server-confirmed paths through PathClock each frame; the scene
  * never invents positions of its own beyond the player's own predicted walk.
  */
-export class RoomScene extends Phaser.Scene implements WorldListener {
+export class RoomScene
+    extends Phaser.Scene
+    implements WorldListener, FishingView
+{
     static readonly KEY = 'room';
 
     private readonly avatars = new Map<number, AvatarView>();
@@ -76,6 +82,7 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
     private doorTriedFor: PathState | null = null;
     /** Likewise for fixtures: each walk onto one uses it once. */
     private fixtureUsedFor: PathState | null = null;
+    private fishingLine: FishingLine | null = null;
     private hover!: Phaser.GameObjects.Image;
     private marker!: Phaser.GameObjects.Image;
     /** A snapshot that arrived before create(), or while its map was loading. */
@@ -130,6 +137,8 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             .setVisible(false)
             .setDepth(DEPTH.marker);
 
+        this.fishingLine = new FishingLine(this);
+
         this.input.on('pointermove', (pointer: Phaser.Input.Pointer) =>
             this.onHover(pointer),
         );
@@ -179,7 +188,15 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             const pos = avatar.update(now, delta, this.map);
             positions.push(pos);
 
-            if (avatar.id !== this.selfId || !pos.finished) continue;
+            if (avatar.id !== this.selfId) continue;
+
+            // Walking off with a line in the water abandons it.
+            if (!pos.finished && this.fishingLine?.active) {
+                this.fishingLine.reset();
+                this.bus.emit('fishing-interrupted', {});
+            }
+
+            if (!pos.finished) continue;
 
             if (this.marker.visible) this.marker.setVisible(false);
 
@@ -205,6 +222,13 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             self ? { box: self.bounds, depthY: self.target.y } : null,
             delta,
         );
+
+        this.fishingLine?.update(time, self?.target ?? null);
+    }
+
+    /** Game → scene: where the player's line is. The bobber lands on the water beside them. */
+    showFishing(phase: FishingPhase, landed?: boolean): void {
+        this.fishingLine?.set(phase, this.time.now, this.waterBeside(), landed);
     }
 
     /**
@@ -255,6 +279,7 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             this.furniture?.destroy();
             this.buildings?.destroy();
             this.map?.destroy();
+            this.fishingLine?.reset();
             this.map = new IsoMap(this, key);
             this.furniture = new FurnitureLayer(this, this.map);
             this.buildings = new BuildingLayer(this, this.map);
@@ -448,6 +473,39 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
 
         return this.buildings?.at(world.x, world.y) ?? null;
+    }
+
+    /**
+     * A point out over the water from the fishing spot nearest the player: past
+     * the spot's first unwalkable neighbouring tile, preferring the far side.
+     */
+    private waterBeside(): { x: number; y: number } | null {
+        const self = this.avatars.get(this.selfId);
+
+        if (!self || !this.map) return null;
+
+        const [px, py] = positionOf(self.state, this.port.serverNow()).tile;
+        const distance = ([x, y]: Tile) =>
+            Math.max(Math.abs(x - px), Math.abs(y - py));
+        const spot = this.map.fixtures
+            .filter((fixture) => fixture.kind === 'fishing')
+            .map((fixture) => fixture.tile)
+            .sort((a, b) => distance(a) - distance(b))[0] ?? [px, py];
+        const [x, y] = spot;
+        const map = this.map;
+        const [dx, dy] = (
+            [
+                [0, 1],
+                [1, 0],
+                [-1, 0],
+                [0, -1],
+            ] as const
+        ).find(([dx, dy]) => !map.isWalkable([x + dx, y + dy])) ?? [0, 1];
+
+        return map.toWorld(
+            x + dx * FISHING.reachTiles,
+            y + dy * FISHING.reachTiles,
+        );
     }
 
     private showMarker(tile: Tile): void {

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { EventBus } from './bus';
 import type { Copy } from './copy';
 import { connectEconomy } from './economy';
+import { connectFishing } from './fishing';
 import { connectHousing } from './housing';
 import { connectSocial } from './social';
 import { userMessage } from './net/http';
@@ -13,11 +14,17 @@ import { RoomScene } from './scenes/RoomScene';
 import { COLORS } from './theme';
 
 export { EventBus } from './bus';
-export type { ConnectionState, FatalKind, GameEvents } from './bus';
+export type {
+    ConnectionState,
+    FatalKind,
+    FishingPhase,
+    GameEvents,
+} from './bus';
 export type { Copy } from './copy';
 export type { RealtimeConfig } from './net/realtime';
 export { PROTOCOL } from './protocol/types';
 export type {
+    FishingCatch,
     Friend,
     FriendsList,
     HomeInfo,
@@ -173,6 +180,7 @@ export function startGame(
     const economy = connectEconomy(net, bus, config.copy);
     cleanups.push(() => economy.dispose());
     cleanups.push(connectHousing(net, bus, config.copy, () => scene));
+    cleanups.push(connectFishing(net, bus, config.copy, () => scene));
     const social = connectSocial(net, bus, config.copy);
     cleanups.push(() => social.dispose());
 

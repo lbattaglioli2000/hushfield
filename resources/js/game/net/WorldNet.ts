@@ -8,6 +8,7 @@ import {
 } from '../protocol/channels';
 import type {
     ChatMessageSentEvent,
+    FishingCast,
     FriendsList,
     FriendsUpdate,
     FriendsUpdatedEvent,
@@ -22,6 +23,8 @@ import type {
     PlayerLeftEvent,
     PlayerMovedEvent,
     PlacedFurniture,
+    RareCatchLandedEvent,
+    ReelResult,
     Snapshot,
     Tile,
     TownMap,
@@ -215,6 +218,21 @@ export class WorldNet {
 
     claimStipend(): Promise<WalletUpdate> {
         return this.request<WalletUpdate>('POST', '/world/stipend');
+    }
+
+    async castLine(): Promise<FishingCast> {
+        return (
+            await this.request<{ cast: FishingCast }>(
+                'POST',
+                '/world/fishing/cast',
+            )
+        ).cast;
+    }
+
+    reelIn(castId: string): Promise<WalletUpdate & { reel: ReelResult }> {
+        return this.request('POST', '/world/fishing/reel', {
+            cast_id: castId,
+        });
     }
 
     town(): Promise<TownMap> {
@@ -563,6 +581,12 @@ export class WorldNet {
                 ROOM_EVENTS.furnitureChanged,
                 guardProtocol((e: FurnitureChangedEvent) =>
                     this.showFurniture(e.furniture),
+                ),
+            )
+            .listen(
+                ROOM_EVENTS.rareCatchLanded,
+                guardProtocol((e: RareCatchLandedEvent) =>
+                    this.bus.emit('notice', { message: e.message }),
                 ),
             )
             .listenForWhisper(WHISPERS.idle, (e: IdleWhisper) =>

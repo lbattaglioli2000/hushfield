@@ -22,6 +22,7 @@ export const ROOM_EVENTS = {
     playerMoved: '.PlayerMoved',
     chatMessageSent: '.ChatMessageSent',
     furnitureChanged: '.FurnitureChanged',
+    rareCatchLanded: '.RareCatchLanded',
 } as const;
 
 /** Client-to-client whispers on the presence channel; the server never sees them. */

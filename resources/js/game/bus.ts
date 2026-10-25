@@ -1,4 +1,5 @@
 import type {
+    FishingCatch,
     FriendsList,
     HomeInfo,
     HomeVisitors,
@@ -14,6 +15,9 @@ import type {
  * and emits here; it never touches Phaser objects, and game state never lives in React.
  */
 export type ConnectionState = 'connecting' | 'online' | 'reconnecting';
+
+/** Idle, asking to cast, line in and waiting, something biting, asking to reel. */
+export type FishingPhase = 'idle' | 'casting' | 'waiting' | 'bite' | 'reeling';
 
 /** Why the game stopped for good. 'unavailable' covers boot failures and lost rooms. */
 export type FatalKind =
@@ -70,6 +74,17 @@ export type GameEvents = {
     shop: { items: Item[]; open: boolean };
     /** The answer to a 'purchase-item' or 'claim-stipend', and failures of 'load-shop'. */
     'economy-result': { ok: boolean; message: string };
+    /** Where the player's line is: see FishingPhase. */
+    fishing: { phase: FishingPhase };
+    /** How a reel went (a landed catch, or one that got away), or why a cast or reel was refused. */
+    'fishing-result': {
+        ok: boolean;
+        message: string;
+        catch: FishingCatch | null;
+        paid: number;
+    };
+    /** The player walked off while their line was in the water; it is abandoned. */
+    'fishing-interrupted': Record<string, never>;
 
     // UI → Game
     'send-chat': { body: string };
@@ -81,6 +96,9 @@ export type GameEvents = {
     'load-shop': Record<string, never>;
     'purchase-item': { itemId: number };
     'claim-stipend': Record<string, never>;
+    /** Put a line in the water, or reel the one that is in. The server judges both. */
+    'cast-line': Record<string, never>;
+    'reel-in': Record<string, never>;
     /** Go to a room: the residence with no instance is the player's own home. */
     travel: { slug: string; instanceId: number | null };
     'load-homes': Record<string, never>;

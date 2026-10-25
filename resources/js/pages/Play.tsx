@@ -4,6 +4,7 @@ import ChatBar from '@/components/play/chat-bar';
 import ConnectionBanner from '@/components/play/connection-banner';
 import EconomyHud from '@/components/play/economy-hud';
 import FatalScreen from '@/components/play/fatal-screen';
+import Fishing from '@/components/play/fishing';
 import Friends from '@/components/play/friends';
 import InstanceLabel from '@/components/play/instance-label';
 import Notices from '@/components/play/notices';
@@ -147,6 +148,7 @@ export default function Play({ game }: PlayProps) {
                                     <Friends bus={bus} copy={game.copy} />
                                     <TownMap bus={bus} copy={game.copy} />
                                     <Residences bus={bus} copy={game.copy} />
+                                    <Fishing bus={bus} copy={game.copy} />
                                 </div>
                             </div>
                         </div>

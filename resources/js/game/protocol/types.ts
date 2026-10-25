@@ -172,3 +172,31 @@ export type FriendsList = {
 export type FriendsUpdate = { message: string | null; friends: FriendsList };
 
 export type FriendsUpdatedEvent = Stamped & { message: string | null };
+
+/** A line in the water: when it bites, and until when a reel lands it, in server time. The catch stays on the server. */
+export type FishingCast = {
+    id: string;
+    bite_at_ms: number;
+    reel_by_ms: number;
+};
+
+export type FishingCatch = {
+    key: string;
+    name: string;
+    description: string;
+    rarity: ItemRarity;
+    coins: number;
+};
+
+/** How a reel went, as the server judged it. `paid` is 0 past the daily cap. */
+export type ReelResult = {
+    outcome: 'landed' | 'early' | 'late';
+    catch: FishingCatch | null;
+    paid: number;
+};
+
+/** Someone else in the room landed something rare; `message` is the line to show. */
+export type RareCatchLandedEvent = Stamped & {
+    user_id: number;
+    message: string;
+};
