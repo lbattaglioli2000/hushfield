@@ -45,6 +45,21 @@ test('walking through a door puts the resident at the arrival point of the room 
     Event::assertDispatched(PlayerLeft::class, fn (PlayerLeft $event): bool => $event->instanceId === $this->instance->id);
 });
 
+test('a building is walled off, and its door takes the resident inside', function () {
+    ['token' => $this->token, 'instance' => $this->instance] = enterWorld($this->resident, importRoom('test-street'));
+    $move = fn (int $x, int $y) => asResident($this->resident, $this->token)
+        ->postJson(route('world.instances.move', $this->instance), ['x' => $x, 'y' => $y]);
+
+    // The shed covers x 2–5, y 0–2, with its door at (3, 2).
+    $move(4, 1)->assertStatus(422)->assertJsonPath('reason', 'unreachable');
+    $move(3, 2)->assertOk();
+    standAt($this->resident, 3, 2);
+
+    useExit('shed')->assertOk()
+        ->assertJsonPath('snapshot.room.slug', 'test-home')
+        ->assertJsonPath('snapshot.players.0.path', [[2, 3]]);
+});
+
 test('a door one step away still opens, so a client a moment ahead of the server is not refused', function () {
     // Walking from (3, 3) to the door at (5, 3): one tile in, one to go.
     app(PositionStore::class)->put($this->resident->id, new StoredPath([[3, 3], [4, 3], [5, 3]], (int) now()->getTimestampMs() - 250, 4.0));

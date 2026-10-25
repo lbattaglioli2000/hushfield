@@ -16,7 +16,8 @@ use JsonException;
  * in the target map), an object layer named "arrivals" of named points where
  * players come in through a door, an object layer named "fixtures" of named
  * points players can use (custom property "kind": "shop" for a shop
- * counter), and map properties "name", "kind"
+ * counter), an object layer named "buildings" of tile-aligned rectangles
+ * (see resources/maps/README.md), and map properties "name", "kind"
  * (public or residence), "capacity", "frequency" (the room's place on the
  * radio's tuning dial, in MHz), "home_frequency" (where a residence room's
  * homes sit on the dial) and "town_x" and "town_y" (the room's square on the
@@ -73,6 +74,19 @@ final class TiledMapParser
             }
         }
 
+        $buildings = $this->buildings($this->optionalLayer($layers, 'buildings'), $tileHeight, new WalkabilityGrid($width, $height, $cells, $spawns, $exits, $arrivals, $fixtures));
+
+        // Walls block walking; only the door lets players onto a building's footprint.
+        foreach ($buildings as $building) {
+            for ($y = $building->y; $y < $building->y + $building->deep; $y++) {
+                for ($x = $building->x; $x < $building->x + $building->wide; $x++) {
+                    if ($x !== $building->door->x || $y !== $building->door->y) {
+                        $cells[$y * $width + $x] = '0';
+                    }
+                }
+            }
+        }
+
         $properties = $this->properties($map);
         $kind = RoomKind::tryFrom((string) ($properties['kind'] ?? RoomKind::Public->value))
             ?? throw new InvalidMapException('The map property "kind" must be "public" or "residence".');
@@ -91,6 +105,7 @@ final class TiledMapParser
             frequency: $this->frequency($properties, 'frequency'),
             homeFrequency: $this->frequency($properties, 'home_frequency'),
             townPosition: $this->townPosition($properties),
+            buildings: array_values($buildings),
         );
     }
 
@@ -206,6 +221,102 @@ final class TiledMapParser
         }
 
         return $fixtures;
+    }
+
+    /**
+     * @param  array<mixed>  $layer
+     * @return array<string, MapBuilding>
+     */
+    private function buildings(array $layer, int $tileHeight, WalkabilityGrid $grid): array
+    {
+        $objects = is_array($layer['objects'] ?? null) ? $layer['objects'] : [];
+        $buildings = [];
+
+        foreach ($objects as $object) {
+            $name = is_array($object) ? ($object['name'] ?? null) : null;
+
+            if (! is_array($object) || ! is_string($name) || ! preg_match('/^[a-z0-9-]+$/', $name)) {
+                throw new InvalidMapException('Every building needs a name: a slug such as "library", which also names its art.');
+            }
+
+            if (isset($buildings[$name])) {
+                throw new InvalidMapException("Two buildings are named \"{$name}\".");
+            }
+
+            // Rectangles on isometric maps are measured in tile-height pixels on both axes, like points.
+            $box = [];
+
+            foreach (['x', 'y', 'width', 'height'] as $key) {
+                $value = $object[$key] ?? null;
+
+                if (! is_numeric($value) || fmod((float) $value, $tileHeight) !== 0.0 || ($object['point'] ?? false) === true || isset($object['polygon']) || isset($object['ellipse'])) {
+                    throw new InvalidMapException("Building \"{$name}\" must be a rectangle snapped to whole tiles.");
+                }
+
+                $box[$key] = intdiv((int) $value, $tileHeight);
+            }
+
+            if ($box['width'] < 1 || $box['height'] < 1 || $box['x'] < 0 || $box['y'] < 0
+                || $grid->width < $box['x'] + $box['width'] || $grid->height < $box['y'] + $box['height']) {
+                throw new InvalidMapException("Building \"{$name}\" runs off the map.");
+            }
+
+            $properties = $this->properties($object);
+            $height = $properties['height'] ?? null;
+
+            if (! is_int($height) || $height < 1) {
+                throw new InvalidMapException("Building \"{$name}\" needs a \"height\" property: how tall it stands, in pixels.");
+            }
+
+            $door = $grid->exits[is_string($properties['door'] ?? null) ? $properties['door'] : ''] ?? null;
+
+            if ($door === null) {
+                throw new InvalidMapException("Building \"{$name}\" needs a \"door\" property naming one of the map's exits.");
+            }
+
+            $building = new MapBuilding($name, $box['x'], $box['y'], $box['width'], $box['height'], $height, $door);
+            $this->ensureClear($building, $grid, $buildings);
+
+            // Only the two faces nearest the viewer are drawn, so a door anywhere else could not be seen.
+            if (! $building->covers($door->x, $door->y)
+                || ($door->x !== $building->x + $building->wide - 1 && $door->y !== $building->y + $building->deep - 1)) {
+                throw new InvalidMapException("Building \"{$name}\"'s door \"{$door->name}\" must be on its front edge, the last row or column of its footprint.");
+            }
+
+            $buildings[$name] = $building;
+        }
+
+        return $buildings;
+    }
+
+    /**
+     * A footprint may not cover anything players need to stand on, nor another building.
+     *
+     * @param  array<string, MapBuilding>  $others
+     */
+    private function ensureClear(MapBuilding $building, WalkabilityGrid $grid, array $others): void
+    {
+        $points = [
+            ...array_map(fn (array $tile): array => ['a spawn', ...$tile], $grid->spawns),
+            ...array_map(fn (MapExit $exit): array => ["exit \"{$exit->name}\"", $exit->x, $exit->y], array_filter($grid->exits, fn (MapExit $exit): bool => $exit !== $building->door)),
+            ...array_map(fn (string $name, array $tile): array => ["arrival \"{$name}\"", ...$tile], array_keys($grid->arrivals), $grid->arrivals),
+            ...array_map(fn (MapFixture $fixture): array => ["fixture \"{$fixture->name}\"", $fixture->x, $fixture->y], $grid->fixtures),
+        ];
+
+        foreach ($points as [$what, $x, $y]) {
+            if ($building->covers($x, $y)) {
+                throw new InvalidMapException("Building \"{$building->name}\" stands on {$what} at tile ({$x}, {$y}).");
+            }
+        }
+
+        foreach ($others as $other) {
+            $overlaps = $building->x < $other->x + $other->wide && $other->x < $building->x + $building->wide
+                && $building->y < $other->y + $other->deep && $other->y < $building->y + $building->deep;
+
+            if ($overlaps) {
+                throw new InvalidMapException("Buildings \"{$other->name}\" and \"{$building->name}\" overlap.");
+            }
+        }
     }
 
     /**

@@ -145,3 +145,57 @@ it('rejects room properties it does not understand', function (array $property, 
     'town_x without town_y' => [['name' => 'town_x', 'type' => 'int', 'value' => 2], '"town_x" and "town_y" must both be whole numbers'],
     'negative town_y' => [['name' => 'town_y', 'type' => 'int', 'value' => -1], '"town_x" and "town_y" must both be whole numbers'],
 ]);
+
+it('walls off a building except for its door, which stays an exit', function () {
+    $map = (new TiledMapParser)->parse(fixtureMap('test-street'));
+    [$shed] = $map->buildings;
+    $walkable = fn (int $x, int $y): bool => $map->grid->isWalkable($x, $y);
+
+    expect([$shed->name, $shed->x, $shed->y, $shed->wide, $shed->deep, $shed->height, $shed->door->name])->toBe(['shed', 2, 0, 4, 3, 64, 'shed'])
+        // The shed covers x 2–5, y 0–2: its corners are walls, the tiles just outside it are not.
+        ->and([$walkable(2, 0), $walkable(5, 0), $walkable(2, 2), $walkable(5, 2), $walkable(4, 1)])->each->toBeFalse()
+        ->and([$walkable(1, 0), $walkable(6, 0), $walkable(2, 3), $walkable(6, 2)])->each->toBeTrue()
+        ->and($walkable(3, 2))->toBeTrue()
+        ->and($map->grid->isExit(3, 2))->toBeTrue()
+        ->and($shed->doorstep())->toBe([3, 3]);
+});
+
+it('rejects buildings that run off the map, stand on places players need, or hide their door', function (callable $mutate, string $message) {
+    $map = json_decode(fixtureMap('test-street'), true);
+    $layers = collect($map['layers'])->keyBy('name')->all();
+    $shed = &$layers['buildings']['objects'][0];
+    $mutate($shed, $layers);
+    $map['layers'] = array_values($layers);
+
+    expect(fn () => (new TiledMapParser)->parse(json_encode($map)))
+        ->toThrow(InvalidMapException::class, $message);
+})->with([
+    'off the right edge' => [function (array &$shed) {
+        $shed['x'] = 5 * 32;
+    }, 'Building "shed" runs off the map.'],
+    'off the top edge' => [function (array &$shed) {
+        $shed['y'] = -32;
+    }, 'Building "shed" runs off the map.'],
+    'over an arrival' => [function (array &$shed) {
+        $shed['height'] = 4 * 32;
+    }, 'Building "shed" stands on arrival "shed" at tile (3, 3).'],
+    'over another exit' => [function (array &$shed, array &$layers) {
+        $layers['exits']['objects'][] = ['id' => 9, 'name' => 'side', 'x' => 2 * 32 + 16, 'y' => 16, 'point' => true, 'properties' => [['name' => 'to', 'type' => 'string', 'value' => 'test-lane']]];
+    }, 'Building "shed" stands on exit "side" at tile (2, 0).'],
+    'door on the back wall' => [function (array &$shed, array &$layers) {
+        $layers['exits']['objects'][0]['y'] = 16;
+        $layers['arrivals']['objects'][0]['y'] = 3 * 32 + 16;
+    }, 'door "shed" must be on its front edge'],
+    'door not on the building' => [function (array &$shed) {
+        $shed['height'] = 2 * 32;
+    }, 'door "shed" must be on its front edge'],
+    'no door' => [function (array &$shed) {
+        $shed['properties'] = [['name' => 'height', 'type' => 'int', 'value' => 64]];
+    }, 'Building "shed" needs a "door" property'],
+    'not on whole tiles' => [function (array &$shed) {
+        $shed['width'] = 100;
+    }, 'Building "shed" must be a rectangle snapped to whole tiles.'],
+    'overlapping another building' => [function (array &$shed, array &$layers) {
+        $layers['buildings']['objects'][] = [...$shed, 'id' => 9, 'name' => 'annex', 'x' => 0.0, 'width' => 96.0];
+    }, 'Buildings "shed" and "annex" overlap.'],
+]);
