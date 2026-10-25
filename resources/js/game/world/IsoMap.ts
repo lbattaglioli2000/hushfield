@@ -16,11 +16,20 @@ export const MAP_LAYERS = {
     ground: 'ground',
     walkable: 'walkable',
     exits: 'exits',
+    fixtures: 'fixtures',
 } as const;
 export const TILES_TEXTURE = 'tiles';
 
 /** A door on the map. Walking onto its tile takes the player through it; the server checks. */
 export type MapDoor = { name: string; tile: Tile; label: string | null };
+
+/** Something on the map a player can use, such as the shop counter. Walking onto it or tapping it uses it. */
+export type MapFixture = {
+    name: string;
+    tile: Tile;
+    kind: string;
+    label: string | null;
+};
 
 /** One room's isometric tilemap: the drawn ground layer and doors, the walkable grid, and tile↔world conversion. */
 export class IsoMap {
@@ -29,6 +38,7 @@ export class IsoMap {
     /** World x of tile (0,0)'s top corner. */
     readonly originX: number;
     readonly doors: MapDoor[];
+    readonly fixtures: MapFixture[];
     private readonly layer: Phaser.Tilemaps.TilemapLayer | null = null;
     private readonly decorations: Phaser.GameObjects.GameObject[] = [];
 
@@ -71,7 +81,21 @@ export class IsoMap {
                 label: property(object, 'label'),
             }),
         );
-        this.doors.forEach((door) => this.drawDoor(scene, door));
+        this.fixtures = (
+            map.getObjectLayer(MAP_LAYERS.fixtures)?.objects ?? []
+        ).map((object) => ({
+            name: object.name,
+            tile: [
+                Math.floor((object.x ?? 0) / TILE_HEIGHT),
+                Math.floor((object.y ?? 0) / TILE_HEIGHT),
+            ],
+            kind: property(object, 'kind') ?? '',
+            label: property(object, 'label'),
+        }));
+        // Fixtures are marked like doors: a glowing tile and a name, no art of their own.
+        [...this.doors, ...this.fixtures].forEach((place) =>
+            this.drawDoor(scene, place),
+        );
 
         const widthPx = (map.width + map.height) * (TILE_WIDTH / 2);
         const heightPx = (map.width + map.height) * (TILE_HEIGHT / 2);
@@ -88,6 +112,15 @@ export class IsoMap {
         return (
             this.doors.find(
                 (door) => door.tile[0] === tile[0] && door.tile[1] === tile[1],
+            ) ?? null
+        );
+    }
+
+    fixtureAt(tile: Tile): MapFixture | null {
+        return (
+            this.fixtures.find(
+                (fixture) =>
+                    fixture.tile[0] === tile[0] && fixture.tile[1] === tile[1],
             ) ?? null
         );
     }
@@ -119,7 +152,10 @@ export class IsoMap {
     }
 
     /** A glowing threshold, and the name of where it leads. */
-    private drawDoor(scene: Phaser.Scene, door: MapDoor): void {
+    private drawDoor(
+        scene: Phaser.Scene,
+        door: { tile: Tile; label: string | null },
+    ): void {
         const { x, y } = this.toWorld(door.tile[0], door.tile[1]);
         const glow = scene.add
             .graphics()

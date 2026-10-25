@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Economy\RecordLedgerEntry;
+use App\Actions\World\JoinRoom;
 use App\Domain\Economy\LedgerReason;
 use App\Domain\Economy\Wallet;
 use App\Domain\Items\InventorySource;
@@ -12,8 +13,11 @@ use App\Models\LedgerEntry;
 use App\Models\User;
 
 beforeEach(function () {
+    fakeWorldEvents();
+    // The shop only trades at a counter: test-market has one, test-square does not.
+    $this->market = importRoom('test-market');
     $this->resident = resident();
-    $this->token = startSession($this->resident);
+    ['token' => $this->token] = enterWorld($this->resident, $this->market);
 });
 
 function giveCoins(User $user, int $amount): void
@@ -143,4 +147,35 @@ test('while the shop is switched off nothing can be bought, but the shelves, bel
     WorldFlags::set(ShopEnabled::class, true);
 
     buy($hat)->assertOk()->assertJsonPath('wallet.balance', 85);
+});
+
+test('the shop only lists and sells to residents in a room with a shop counter', function () {
+    giveCoins($this->resident, 100);
+    $hat = Item::factory()->create(['price' => 30]);
+    app(JoinRoom::class)($this->resident, importRoom('test-square'));
+
+    asResident($this->resident, $this->token)->getJson(route('world.shop'))
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'shop_elsewhere')
+        ->assertJsonPath('message', __('hushfield.shop_elsewhere'));
+    buy($hat)->assertStatus(409)->assertJsonPath('reason', 'shop_elsewhere');
+
+    expect(InventoryItem::query()->count())->toBe(0)
+        ->and(app(Wallet::class)->balance($this->resident))->toBe(100);
+
+    // Back at the market counter, the same purchase goes through.
+    app(JoinRoom::class)($this->resident, $this->market);
+
+    asResident($this->resident, $this->token)->getJson(route('world.shop'))->assertOk()->assertJsonCount(1, 'items');
+    buy($hat)->assertOk()->assertJsonPath('wallet.balance', 70);
+});
+
+test('a resident whose session has no room cannot reach the shop', function () {
+    $wanderer = resident();
+    giveCoins($wanderer, 100);
+
+    asResident($wanderer, startSession($wanderer))
+        ->postJson(route('world.shop.purchase', Item::factory()->create(['price' => 30])))
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'shop_elsewhere');
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import InventoryPanel from '@/components/play/inventory-panel';
 import ShopPanel from '@/components/play/shop-panel';
 import { OnTray } from '@/components/play/signal-tray';
@@ -11,8 +11,10 @@ import { useGameBus } from '@/hooks/use-game-bus';
 const RESULT_MS = 5000;
 
 /**
- * The coin readout, the Shop and Belongings keys, and the daily stipend.
- * Renders into the set's key grid; hidden until the game has loaded the wallet.
+ * The coin readout, the Belongings key, the daily stipend, and the shop panel.
+ * The shop is a place: its panel opens at a shop counter on the map, and closes
+ * when the player leaves that room. Renders into the set's key grid; hidden
+ * until the game has loaded the wallet.
  */
 export default function EconomyHud({
     bus,
@@ -28,6 +30,25 @@ export default function EconomyHud({
         null,
     );
 
+    // The room the shop was opened in; leaving it closes the panel.
+    const shopRoom = useRef<string | null>(null);
+    const room = useRef<string | null>(null);
+
+    useGameBus(bus, 'room', (next) => {
+        room.current = next.slug;
+
+        if (shopRoom.current !== null && shopRoom.current !== next.slug) {
+            shopRoom.current = null;
+            setPanel((open) => (open === 'shop' ? null : open));
+        }
+    });
+    useGameBus(bus, 'use-fixture', ({ kind }) => {
+        if (kind !== 'shop') return;
+
+        shopRoom.current = room.current;
+        setPanel('shop');
+        bus.emit('load-shop', {});
+    });
     useGameBus(bus, 'wallet', setWallet);
     useGameBus(bus, 'economy-result', (next) => {
         setBusy(false);
@@ -73,15 +94,6 @@ export default function EconomyHud({
                 {wallet.balance}
             </AmberReadout>
             <RadioKey
-                onClick={() => {
-                    setPanel('shop');
-                    bus.emit('load-shop', {});
-                }}
-                data-test="open-shop"
-            >
-                Shop
-            </RadioKey>
-            <RadioKey
                 onClick={() => setPanel('inventory')}
                 data-test="open-inventory"
             >
@@ -115,7 +127,10 @@ export default function EconomyHud({
                 copy={copy}
                 wallet={wallet}
                 open={panel === 'shop'}
-                onClose={() => setPanel(null)}
+                onClose={() => {
+                    shopRoom.current = null;
+                    setPanel(null);
+                }}
                 busy={busy}
                 onBuy={(item) => request('purchase-item', { itemId: item.id })}
                 result={resultLine}

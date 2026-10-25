@@ -4,6 +4,7 @@ namespace App\Actions\Economy;
 
 use App\Domain\Economy\InsufficientCoins;
 use App\Domain\Economy\LedgerReason;
+use App\Domain\Economy\ShopCounter;
 use App\Domain\Items\InventorySource;
 use App\Exceptions\WorldActionRefused;
 use App\Features\ShopEnabled;
@@ -18,16 +19,23 @@ use Illuminate\Support\Facades\DB;
  * one transaction, so a resident never pays without owning or owns without paying.
  * A resident owns at most one of each item, so the item itself is the
  * idempotency key: a repeated purchase returns what was already bought.
+ * Only players in a room with a shop counter can buy, and only while the shop
+ * kill switch is on.
  */
 final readonly class PurchaseItem
 {
-    public function __construct(private RecordLedgerEntry $recordLedgerEntry) {}
+    public function __construct(
+        private RecordLedgerEntry $recordLedgerEntry,
+        private ShopCounter $counter,
+    ) {}
 
     public function __invoke(User $user, Item $item): InventoryItem
     {
         if (! WorldFlags::active(ShopEnabled::class)) {
             throw WorldActionRefused::shopClosed();
         }
+
+        $this->counter->ensureWithinReach($user);
 
         if (! $item->in_shop) {
             throw WorldActionRefused::itemUnavailable();

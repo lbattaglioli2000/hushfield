@@ -121,6 +121,11 @@ final class WorldActionRefused extends RuntimeException
         return new self('shop_closed', 409);
     }
 
+    public static function shopElsewhere(): self
+    {
+        return new self('shop_elsewhere', 409);
+    }
+
     public static function shopTooFast(): self
     {
         return new self('shop_too_fast', 429);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\World\FixtureKind;
 use App\Domain\World\InvalidMapException;
 use App\Domain\World\RoomKind;
 use App\Domain\World\TiledMapParser;
@@ -109,6 +110,20 @@ it('reads where the room and its homes sit on the dial', function () {
     expect($parsed->frequency)->toBe(104.8)
         ->and($parsed->homeFrequency)->toBe(88.3)
         ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->frequency)->toBeNull();
+});
+
+it('reads fixtures players can use, and rejects ones it does not understand', function () {
+    $map = (new TiledMapParser)->parse(fixtureMap('test-market'));
+
+    expect($map->grid->fixtures['counter']->toArray())->toBe(['name' => 'counter', 'x' => 3, 'y' => 1, 'kind' => 'shop'])
+        ->and($map->grid->hasFixture(FixtureKind::Shop))->toBeTrue()
+        ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->grid->hasFixture(FixtureKind::Shop))->toBeFalse();
+
+    $bad = json_decode(fixtureMap('test-market'), true);
+    $bad['layers'][3]['objects'][0]['properties'][0]['value'] = 'bakery';
+
+    expect(fn () => (new TiledMapParser)->parse(json_encode($bad)))
+        ->toThrow(InvalidMapException::class, 'Fixture "counter" needs a "kind" property: shop.');
 });
 
 it('rejects room properties it does not understand', function (array $property, string $message) {

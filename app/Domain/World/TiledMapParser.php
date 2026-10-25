@@ -14,7 +14,9 @@ use JsonException;
  * Optional: an object layer named "exits" whose points are doors (custom
  * properties "to", the target room slug, and "arrive", an arrival point name
  * in the target map), an object layer named "arrivals" of named points where
- * players come in through a door, and map properties "name", "kind"
+ * players come in through a door, an object layer named "fixtures" of named
+ * points players can use (custom property "kind": "shop" for a shop
+ * counter), and map properties "name", "kind"
  * (public or residence), "capacity", "frequency" (the room's place on the
  * radio's tuning dial, in MHz) and "home_frequency" (where a residence room's
  * homes sit on the dial).
@@ -62,6 +64,7 @@ final class TiledMapParser
         $exits = $this->exits($this->optionalLayer($layers, 'exits'), $tileHeight, $grid);
         $grid = new WalkabilityGrid($width, $height, $cells, $spawns, $exits);
         $arrivals = $this->arrivals($this->optionalLayer($layers, 'arrivals'), $tileHeight, $grid);
+        $fixtures = $this->fixtures($this->optionalLayer($layers, 'fixtures'), $tileHeight, $grid);
 
         foreach ($spawns as [$x, $y]) {
             if ($grid->isExit($x, $y)) {
@@ -80,7 +83,7 @@ final class TiledMapParser
 
         return new ImportedMap(
             version: substr(hash('sha256', $contents), 0, 16),
-            grid: new WalkabilityGrid($width, $height, $cells, $spawns, $exits, $arrivals),
+            grid: new WalkabilityGrid($width, $height, $cells, $spawns, $exits, $arrivals, $fixtures),
             name: is_string($properties['name'] ?? null) ? $properties['name'] : null,
             kind: $kind,
             capacity: $capacity,
@@ -159,6 +162,28 @@ final class TiledMapParser
         }
 
         return $arrivals;
+    }
+
+    /**
+     * @param  array<mixed>  $layer
+     * @return array<string, MapFixture>
+     */
+    private function fixtures(array $layer, int $tileHeight, WalkabilityGrid $grid): array
+    {
+        $fixtures = [];
+
+        foreach ($this->namedPoints($layer, 'fixture', $tileHeight, $grid) as $name => [$tile, $properties]) {
+            $kind = FixtureKind::tryFrom(is_string($properties['kind'] ?? null) ? $properties['kind'] : '')
+                ?? throw new InvalidMapException("Fixture \"{$name}\" needs a \"kind\" property: ".implode(', ', array_column(FixtureKind::cases(), 'value')).'.');
+
+            if ($grid->isExit(...$tile)) {
+                throw new InvalidMapException("Fixture \"{$name}\" is on an exit.");
+            }
+
+            $fixtures[$name] = new MapFixture($name, $tile[0], $tile[1], $kind);
+        }
+
+        return $fixtures;
     }
 
     /**

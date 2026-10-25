@@ -58,7 +58,7 @@ return [
     'report_self' => "You can't report yourself.",
 
     // Coins and items
-    'shop_title' => 'The Shop on Lantern Street',
+    'shop_title' => 'The Shop at the Night Market',
     'shop_intro' => 'Everything here is for sale. Some of it is also for you.',
     'shop_closed' => 'The shop has drawn its shutters. Nobody saw who drew them. Nothing can be bought until it reopens, so please try again later. Your belongings are where you left them.',
     'inventory_title' => 'Your belongings',
@@ -69,6 +69,7 @@ return [
     'item_owned' => 'You already own this. Owning it twice would be noticed.',
     'item_unavailable' => "That isn't for sale. Perhaps it never was.",
     'item_members_only' => 'This is reserved for members. Membership is not yet offered. It will be.',
+    'shop_elsewhere' => 'The shop is in the Night Market, off Lantern Street. Walk up to the counter. It does not make house calls.',
     'shop_too_fast' => 'The till needs a moment to compose itself. Please try again shortly.',
     'purchase_complete' => "It's yours now. Please treat it gently.",
     'stipend_granted' => 'Hearthmore Group has deposited your daily stipend. Please do not ask where it came from.',

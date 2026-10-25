@@ -6,7 +6,7 @@ use InvalidArgumentException;
 
 /**
  * Immutable walkable/blocked grid for one version of one room map, with the
- * points on it the server needs: spawns, exits (doors) and arrival points.
+ * points on it the server needs: spawns, exits (doors), arrival points and fixtures.
  */
 final readonly class WalkabilityGrid
 {
@@ -15,6 +15,7 @@ final readonly class WalkabilityGrid
      * @param  list<array{int, int}>  $spawns
      * @param  array<string, MapExit>  $exits  Keyed by exit name.
      * @param  array<string, array{int, int}>  $arrivals  Keyed by arrival point name.
+     * @param  array<string, MapFixture>  $fixtures  Keyed by fixture name.
      */
     public function __construct(
         public int $width,
@@ -23,6 +24,7 @@ final readonly class WalkabilityGrid
         public array $spawns,
         public array $exits = [],
         public array $arrivals = [],
+        public array $fixtures = [],
     ) {
         if (strlen($cells) !== $width * $height) {
             throw new InvalidArgumentException('Grid cell count does not match its dimensions.');
@@ -46,6 +48,11 @@ final readonly class WalkabilityGrid
         return false;
     }
 
+    public function hasFixture(FixtureKind $kind): bool
+    {
+        return in_array($kind, array_map(fn (MapFixture $fixture): FixtureKind => $fixture->kind, $this->fixtures), true);
+    }
+
     /**
      * Where a player entering this map appears: the named arrival point, or a random spawn.
      *
@@ -57,7 +64,7 @@ final readonly class WalkabilityGrid
     }
 
     /**
-     * @return array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits: list<array{name: string, x: int, y: int, to: string, arrive: string|null}>, arrivals: array<string, array{int, int}>}
+     * @return array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits: list<array{name: string, x: int, y: int, to: string, arrive: string|null}>, arrivals: array<string, array{int, int}>, fixtures: list<array{name: string, x: int, y: int, kind: string}>}
      */
     public function toArray(): array
     {
@@ -68,11 +75,12 @@ final readonly class WalkabilityGrid
             'spawns' => $this->spawns,
             'exits' => array_values(array_map(fn (MapExit $exit): array => $exit->toArray(), $this->exits)),
             'arrivals' => $this->arrivals,
+            'fixtures' => array_values(array_map(fn (MapFixture $fixture): array => $fixture->toArray(), $this->fixtures)),
         ];
     }
 
     /**
-     * @param  array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits?: list<array{name: string, x: int, y: int, to: string, arrive: string|null}>, arrivals?: array<string, array{int, int}>}  $data
+     * @param  array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits?: list<array{name: string, x: int, y: int, to: string, arrive: string|null}>, arrivals?: array<string, array{int, int}>, fixtures?: list<array{name: string, x: int, y: int, kind: string}>}  $data
      */
     public static function fromArray(array $data): self
     {
@@ -82,6 +90,12 @@ final readonly class WalkabilityGrid
             $exits[$exit['name']] = MapExit::fromArray($exit);
         }
 
-        return new self($data['width'], $data['height'], $data['cells'], $data['spawns'], $exits, $data['arrivals'] ?? []);
+        $fixtures = [];
+
+        foreach ($data['fixtures'] ?? [] as $fixture) {
+            $fixtures[$fixture['name']] = MapFixture::fromArray($fixture);
+        }
+
+        return new self($data['width'], $data['height'], $data['cells'], $data['spawns'], $exits, $data['arrivals'] ?? [], $fixtures);
     }
 }

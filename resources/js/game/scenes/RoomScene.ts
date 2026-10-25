@@ -71,6 +71,8 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
     private travelling = false;
     /** The path whose arrival at a door was already acted on, so each walk goes through at most once. */
     private doorTriedFor: PathState | null = null;
+    /** Likewise for fixtures: each walk onto one uses it once. */
+    private fixtureUsedFor: PathState | null = null;
     private hover!: Phaser.GameObjects.Image;
     private marker!: Phaser.GameObjects.Image;
     /** A snapshot that arrived before create(), or while its map was loading. */
@@ -172,6 +174,13 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             if (door && this.doorTriedFor !== avatar.state) {
                 this.doorTriedFor = avatar.state;
                 this.travel(() => this.port.useExit(door.name));
+            }
+
+            const fixture = this.map.fixtureAt(pos.tile);
+
+            if (fixture && this.fixtureUsedFor !== avatar.state) {
+                this.fixtureUsedFor = avatar.state;
+                this.bus.emit('use-fixture', { kind: fixture.kind });
             }
         }
     }
@@ -356,6 +365,10 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         }
 
         const tile = this.pointerTile(pointer);
+        const fixture = tile && this.map?.fixtureAt(tile);
+
+        // Tapping a fixture uses it straight away; the player still walks up to it.
+        if (fixture) this.bus.emit('use-fixture', { kind: fixture.kind });
 
         if (tile) void this.movement.walkTo(tile);
     }
