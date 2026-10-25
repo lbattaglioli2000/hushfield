@@ -1,4 +1,4 @@
-import type { Tile } from './protocol';
+import type { PathState, Tile } from '../protocol/types';
 
 /**
  * TypeScript twin of app/Domain/World/PathClock.php. Both are tested against
@@ -77,4 +77,9 @@ export function positionAt(
         segmentElapsedMs: 0,
         finished: true,
     };
+}
+
+/** positionAt() for a path payload. Kept apart so positionAt's signature stays identical to PathClock.php. */
+export function positionOf(state: PathState, nowMs: number): PathPosition {
+    return positionAt(state.path, state.started_at_ms, state.speed, nowMs);
 }

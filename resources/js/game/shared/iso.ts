@@ -1,3 +1,5 @@
+import type { Tile } from '../protocol/types';
+
 /** Isometric diamond tiles, 64×32. Tile (0,0) is the top corner of the map. */
 export const TILE_WIDTH = 64;
 export const TILE_HEIGHT = 32;
@@ -14,12 +16,8 @@ export function tileToScreen(
     };
 }
 
-/** The tile under a world-pixel point, or fractional coordinates when `round` is false. */
-export function screenToTile(
-    px: number,
-    py: number,
-    originX: number,
-): [number, number] {
+/** The tile under a world-pixel point. */
+export function screenToTile(px: number, py: number, originX: number): Tile {
     const sx = (px - originX) / (TILE_WIDTH / 2);
     const sy = py / (TILE_HEIGHT / 2);
 

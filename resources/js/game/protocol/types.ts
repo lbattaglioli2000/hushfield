@@ -11,6 +11,15 @@ export type PathState = {
     speed: number;
 };
 
+/** Just the path fields, without whatever else the payload carried. */
+export function pathState({
+    path,
+    started_at_ms,
+    speed,
+}: PathState): PathState {
+    return { path, started_at_ms, speed };
+}
+
 export type PlayerState = PathState & {
     id: number;
     username: string;
@@ -35,6 +44,8 @@ export type ChatMessageSentEvent = Stamped & {
     user_id: number;
     body: string;
 };
+export type IdleWhisper = { user_id: number; idle: boolean };
+
 export type InstanceReassignedEvent = Stamped & {
     target_instance_id: number | null;
 };

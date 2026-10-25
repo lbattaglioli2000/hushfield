@@ -1,39 +1,71 @@
 import Phaser from 'phaser';
-import { EventBus } from './bus';
-import type { RealtimeConfig } from './net';
-import { RefusedError, WorldNet } from './net';
-import type { AssetManifest } from './protocol';
-import { TownSquare } from './scenes/TownSquare';
+import type { EventBus } from './bus';
+import type { Copy } from './copy';
+import { userMessage } from './net/http';
+import type { RealtimeConfig } from './net/realtime';
+import { WorldNet } from './net/WorldNet';
+import type { AssetManifest } from './protocol/types';
+import { PROTOCOL } from './protocol/types';
+import { RoomScene } from './scenes/RoomScene';
+import { COLORS } from './theme';
 
 export { EventBus } from './bus';
-export type { GameEvents, ConnectionState } from './bus';
-export { PROTOCOL } from './protocol';
+export type { ConnectionState, FatalKind, GameEvents } from './bus';
+export type { Copy } from './copy';
+export type { RealtimeConfig } from './net/realtime';
+export { PROTOCOL } from './protocol/types';
 
-export type GameConfig = {
-    baseUrl: string;
+export type ReportReasonOption = { value: string; label: string };
+
+/** Exactly what PlayController sends as the `game` prop. */
+export type GameBootProps = {
+    protocol: number;
     roomSlug: string;
-    manifestUrl: string;
-    heartbeatSeconds: number;
-    afkSeconds: number;
-    bubbleSeconds: number;
     maxPathSteps: number;
     realtime: RealtimeConfig;
-    copy: Record<string, string>;
+    heartbeatSeconds: number;
+    afkSeconds: number;
+    chatMaxLength: number;
+    bubbleSeconds: number;
+    manifestUrl: string;
+    reportReasons: ReportReasonOption[];
+    copy: Copy;
 };
 
+/** Boot props plus where the API lives: '' on the web, an absolute origin in a native shell. */
+export type GameConfig = GameBootProps & { baseUrl: string };
+
 export type GameHandle = { destroy(): void };
+
+/** How often to check whether the player has gone quiet long enough to show as away. */
+const AFK_POLL_MS = 5000;
 
 /**
  * Boots the game into `parent`. Framework-free: the host talks to it only
  * through `bus`. The returned destroy() is idempotent and releases everything:
  * the Phaser instance, every Echo channel, the heartbeat, and bus listeners.
  */
-export function startGame(parent: HTMLElement, config: GameConfig, bus: EventBus): GameHandle {
+export function startGame(
+    parent: HTMLElement,
+    config: GameConfig,
+    bus: EventBus,
+): GameHandle {
+    // The page itself came from a newer server than this bundle: no point booting.
+    if (config.protocol > PROTOCOL) {
+        bus.emit('fatal', {
+            kind: 'please_reload',
+            message: config.copy.please_reload,
+        });
+
+        return { destroy: () => undefined };
+    }
+
     let destroyed = false;
     let game: Phaser.Game | null = null;
-    let scene: TownSquare | null = null;
     const cleanups: Array<() => void> = [];
 
+    // Created once the manifest is in; the scene buffers whatever arrives before Phaser boots it.
+    let scene: RoomScene | null = null;
     const net = new WorldNet(
         {
             baseUrl: config.baseUrl,
@@ -69,7 +101,7 @@ export function startGame(parent: HTMLElement, config: GameConfig, bus: EventBus
             idle = true;
             net.whisperIdle(true);
         }
-    }, 5000);
+    }, AFK_POLL_MS);
     cleanups.push(() => clearInterval(afkTimer));
     cleanups.push(bus.on('input-activity', touch));
 
@@ -77,10 +109,13 @@ export function startGame(parent: HTMLElement, config: GameConfig, bus: EventBus
         bus.on('send-chat', ({ body }) => {
             touch();
             net.chat(body)
-                .then((message) => message && scene?.sayOwn(message.id, message.body))
+                .then(
+                    (message) =>
+                        message && scene?.sayOwn(message.id, message.body),
+                )
                 .catch((error: unknown) =>
                     bus.emit('chat-error', {
-                        message: error instanceof Error ? error.message : String(error),
+                        message: userMessage(error, config.copy),
                     }),
                 );
         }),
@@ -89,51 +124,47 @@ export function startGame(parent: HTMLElement, config: GameConfig, bus: EventBus
     cleanups.push(
         bus.on('send-report', ({ userId, messageId, reason }) => {
             net.report(userId, messageId, reason)
-                .then((message) => bus.emit('report-result', { ok: true, message }))
+                .then((message) =>
+                    bus.emit('report-result', { ok: true, message }),
+                )
                 .catch((error: unknown) =>
                     bus.emit('report-result', {
                         ok: false,
-                        message: error instanceof RefusedError ? error.message : String(error),
+                        message: userMessage(error, config.copy),
                     }),
                 );
         }),
     );
 
     void (async () => {
-        const manifest = (await fetch(config.manifestUrl).then((r) => r.json())) as AssetManifest;
+        const response = await fetch(config.manifestUrl);
+
+        if (!response.ok) throw new Error(`Asset manifest ${response.status}`);
+
+        const manifest = (await response.json()) as AssetManifest;
 
         if (destroyed) return;
 
+        scene = new RoomScene(net, bus, {
+            manifest,
+            bubbleSeconds: config.bubbleSeconds,
+            maxPathSteps: config.maxPathSteps,
+        });
         game = new Phaser.Game({
             type: Phaser.AUTO,
             parent,
-            backgroundColor: '#1d2330',
+            backgroundColor: COLORS.night,
             scale: { mode: Phaser.Scale.RESIZE, width: '100%', height: '100%' },
             render: { antialias: true, roundPixels: true },
             input: { activePointers: 2 },
             fps: { target: 60 },
         });
-        // Register an instance we already hold: getScene() returns null until Phaser has booted.
-        scene = new TownSquare();
-        game.scene.add('TownSquare', scene, true, {
-            net,
-            bus,
-            options: {
-                manifest,
-                bubbleSeconds: config.bubbleSeconds,
-                maxPathSteps: config.maxPathSteps,
-                copy: config.copy,
-            },
-        });
+        game.scene.add(RoomScene.KEY, scene, true);
 
         await net.start();
     })().catch((error: unknown) => {
-        if (destroyed) return;
-
-        bus.emit('connection', {
-            state: 'reconnecting',
-            message: error instanceof Error ? error.message : config.copy.reconnecting,
-        });
+        // Boot failures are not reconnects: show them, so the player isn't left waiting.
+        if (!destroyed) net.abort(error);
     });
 
     return {

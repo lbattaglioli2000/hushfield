@@ -4,6 +4,7 @@ namespace App\Http\Controllers\World;
 
 use App\Domain\Moderation\ReportReason;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Arr;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -12,6 +13,25 @@ use Inertia\Response;
  */
 final class PlayController extends Controller
 {
+    /**
+     * The lines from lang/en/hushfield.php the game client shows.
+     * Must match the Copy type in resources/js/game/copy.ts.
+     */
+    public const COPY_KEYS = [
+        'entering',
+        'reconnecting',
+        'reconnected',
+        'please_reload',
+        'please_reload_action',
+        'session_moved',
+        'session_moved_action',
+        'banned',
+        'banned_action',
+        'warned',
+        'instance_closed',
+        'not_in_room',
+    ];
+
     public function __invoke(): Response
     {
         return Inertia::render('Play', [
@@ -23,7 +43,7 @@ final class PlayController extends Controller
                     'key' => (string) config('broadcasting.connections.reverb.key'),
                     'host' => (string) config('hushfield.realtime.host'),
                     'port' => (int) config('hushfield.realtime.port'),
-                    'scheme' => (string) config('hushfield.realtime.scheme'),
+                    'scheme' => config('hushfield.realtime.scheme') === 'https' ? 'https' : 'http',
                 ],
                 'heartbeatSeconds' => (int) config('hushfield.presence.heartbeat_seconds'),
                 'afkSeconds' => (int) config('hushfield.presence.afk_after_seconds'),
@@ -31,7 +51,7 @@ final class PlayController extends Controller
                 'bubbleSeconds' => (int) config('hushfield.chat.bubble_seconds'),
                 'manifestUrl' => route('assets.manifest'),
                 'reportReasons' => collect(ReportReason::cases())->map(fn (ReportReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()])->all(),
-                'copy' => __('hushfield'),
+                'copy' => Arr::only((array) __('hushfield'), self::COPY_KEYS),
             ],
         ]);
     }

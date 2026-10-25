@@ -1,4 +1,4 @@
-import type { Tile } from './protocol';
+import type { Tile } from '../protocol/types';
 
 /**
  * Client-side prediction only; the server's path always wins. Mirrors
@@ -97,10 +97,7 @@ export function findPath(
 ): Tile[] | null {
     const [gx, gy] = goal;
 
-    if (
-        !isWalkable(grid, gx, gy) ||
-        !isWalkable(grid, start[0], start[1])
-    ) {
+    if (!isWalkable(grid, gx, gy) || !isWalkable(grid, start[0], start[1])) {
         return null;
     }
 
@@ -123,7 +120,9 @@ export function findPath(
         if (closed.has(current)) continue;
 
         if (current === goalKey) {
-            const path: Tile[] = [[current % width, Math.floor(current / width)]];
+            const path: Tile[] = [
+                [current % width, Math.floor(current / width)],
+            ];
             let k = current;
 
             while (cameFrom.has(k)) {

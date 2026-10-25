@@ -14,22 +14,14 @@ type Props = {
     birth: { birth_month: number; birth_year: number } | null;
     refused: boolean;
     underageMessage: string;
+    usernameMin: number;
+    usernameMax: number;
 };
 
-const MONTHS = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-];
+const monthName = new Intl.DateTimeFormat('en', { month: 'long' });
+const MONTHS = Array.from({ length: 12 }, (_, i) =>
+    monthName.format(new Date(2000, i, 1)),
+);
 
 // Every year from now back 100 years, with no preselected value, so the list hints at no cutoff.
 const thisYear = new Date().getFullYear();
@@ -43,6 +35,8 @@ export default function Register({
     birth,
     refused,
     underageMessage,
+    usernameMin,
+    usernameMax,
 }: Props) {
     if (refused) {
         return (
@@ -160,12 +154,11 @@ export default function Register({
                                     type="text"
                                     required
                                     autoFocus
-                                    tabIndex={1}
                                     autoComplete="username"
                                     name="username"
-                                    minLength={3}
-                                    maxLength={16}
-                                    placeholder="3–16 letters, numbers, or _"
+                                    minLength={usernameMin}
+                                    maxLength={usernameMax}
+                                    placeholder={`${usernameMin}–${usernameMax} letters, numbers, or _`}
                                 />
                                 <InputError message={errors.username} />
                             </div>
@@ -176,7 +169,6 @@ export default function Register({
                                     id="email"
                                     type="email"
                                     required
-                                    tabIndex={2}
                                     autoComplete="email"
                                     name="email"
                                     placeholder="email@example.com"
@@ -189,7 +181,6 @@ export default function Register({
                                 <PasswordInput
                                     id="password"
                                     required
-                                    tabIndex={3}
                                     autoComplete="new-password"
                                     name="password"
                                     placeholder="Password"
@@ -205,7 +196,6 @@ export default function Register({
                                 <PasswordInput
                                     id="password_confirmation"
                                     required
-                                    tabIndex={4}
                                     autoComplete="new-password"
                                     name="password_confirmation"
                                     placeholder="Confirm password"
@@ -227,7 +217,6 @@ export default function Register({
                             <Button
                                 type="submit"
                                 className="mt-2 w-full"
-                                tabIndex={5}
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
@@ -237,9 +226,7 @@ export default function Register({
 
                         <div className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={6}>
-                                Log in
-                            </TextLink>
+                            <TextLink href={login()}>Log in</TextLink>
                         </div>
                     </>
                 )}

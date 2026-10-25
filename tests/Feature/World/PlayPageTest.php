@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\World\PlayController;
 use App\Models\User;
 use App\Models\WorldSession;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -29,7 +30,12 @@ test('verified residents get the game shell', function () {
             ->where('game.chatMaxLength', 120)
             ->where('game.manifestUrl', route('assets.manifest'))
             ->has('game.reportReasons', 7)
-            ->where('game.copy.filtered_placeholder', '(hushed)'),
+            // Only the lines the client shows (resources/js/game/copy.ts), not the whole lang file.
+            ->where('game.copy', fn ($copy): bool => collect($copy)->keys()->sort()->values()->all() === collect(PlayController::COPY_KEYS)->sort()->values()->all())
+            ->where('game.copy.reconnecting', __('hushfield.reconnecting'))
+            ->where('game.copy.session_moved_action', __('hushfield.session_moved_action'))
+            ->missing('game.copy.filtered_placeholder')
+            ->missing('game.copy.username_taken'),
         );
 });
 

@@ -28,6 +28,10 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
+    test: {
+        include: ['resources/js/**/*.test.ts'],
+        environment: 'node',
+    },
     server: {
         watch: {
             ignored: [
@@ -68,6 +72,9 @@ export default defineConfig({
             'composer.json',
             'resources/js/components/ui/*',
             'resources/views/mail/*',
+            // Tiled exports and shared PHP/TS fixtures keep their own layout.
+            'resources/maps/**',
+            'tests/fixtures/**',
         ],
         sortTailwindcss: {
             functions: ['clsx', 'cn', 'cva'],

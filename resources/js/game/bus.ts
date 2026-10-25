@@ -4,12 +4,19 @@
  */
 export type ConnectionState = 'connecting' | 'online' | 'reconnecting';
 
+/** Why the game stopped for good. 'unavailable' covers boot failures and lost rooms. */
+export type FatalKind =
+    | 'session_moved'
+    | 'please_reload'
+    | 'banned'
+    | 'unavailable';
+
 export type GameEvents = {
     // Game → UI
     connection: { state: ConnectionState; message?: string };
     instance: { label: string; number: number };
     notice: { message: string };
-    fatal: { kind: 'session_moved' | 'please_reload' | 'banned'; message: string };
+    fatal: { kind: FatalKind; message: string };
     'chat-error': { message: string };
     'report-target': {
         userId: number;
@@ -17,6 +24,9 @@ export type GameEvents = {
         messageId: number | null;
         body: string | null;
     };
+    /** The answer to a 'send-report'. */
+    'report-result': { ok: boolean; message: string };
+
     // UI → Game
     'send-chat': { body: string };
     'send-report': {
@@ -24,7 +34,7 @@ export type GameEvents = {
         messageId: number | null;
         reason: string;
     };
-    'report-result': { ok: boolean; message: string };
+    /** No payload: any input that keeps the player from being shown as away. */
     'input-activity': Record<string, never>;
 };
 
@@ -52,7 +62,9 @@ export class EventBus {
     emit<K extends keyof GameEvents>(event: K, payload: GameEvents[K]): void {
         this.handlers
             .get(event)
-            ?.forEach((handler) => (handler as Handler<GameEvents[K]>)(payload));
+            ?.forEach((handler) =>
+                (handler as Handler<GameEvents[K]>)(payload),
+            );
     }
 
     clear(): void {
