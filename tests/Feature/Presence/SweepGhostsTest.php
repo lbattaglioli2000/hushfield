@@ -44,3 +44,26 @@ test('a session seen exactly 60 seconds ago is not yet a ghost', function () {
     expect(app(SweepGhosts::class)())->toBe(0)
         ->and(WorldSession::query()->count())->toBe(1);
 });
+
+test('players left in an instance without a world session are swept, including deleted accounts', function () {
+    $present = resident();
+    $orphan = resident();
+    $deleted = resident();
+    ['instance' => $instance] = enterWorld($present, $this->room);
+    enterWorld($orphan, $this->room);
+    enterWorld($deleted, $this->room);
+
+    // The session row disappears without LeaveRoom running: an interrupted request, or the account being deleted.
+    WorldSession::query()->where('user_id', $orphan->id)->delete();
+    $deletedId = $deleted->id;
+    $deleted->delete();
+
+    expect(app(SweepGhosts::class)())->toBe(2)
+        ->and(app(InstanceMembers::class)->all($instance->id))->toBe([$present->id])
+        ->and(app(PositionStore::class)->get($orphan->id))->toBeNull()
+        ->and(app(PositionStore::class)->get($deletedId))->toBeNull()
+        ->and($orphan->fresh()->last_room_instance_id)->toBeNull();
+
+    Event::assertDispatched(PlayerLeft::class, fn (PlayerLeft $event): bool => $event->userId === $orphan->id);
+    Event::assertDispatched(PlayerLeft::class, fn (PlayerLeft $event): bool => $event->userId === $deletedId);
+});
