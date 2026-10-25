@@ -16,8 +16,8 @@ use JsonException;
  * in the target map), an object layer named "arrivals" of named points where
  * players come in through a door, an object layer named "fixtures" of named
  * points players can use (custom property "kind": "shop" for a shop
- * counter), an object layer named "buildings" of tile-aligned rectangles
- * (see resources/maps/README.md), and map properties "name", "kind"
+ * counter, "fishing" for a fishing spot), an object layer named "buildings" of
+ * tile-aligned rectangles (see resources/maps/README.md), and map properties "name", "kind"
  * (public or residence), "capacity", "frequency" (the room's place on the
  * radio's tuning dial, in MHz), "home_frequency" (where a residence room's
  * homes sit on the dial) and "town_x" and "town_y" (the room's square on the
