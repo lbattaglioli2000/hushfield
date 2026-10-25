@@ -17,7 +17,9 @@ import { pathState } from '../protocol/types';
 import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
+import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
 import { FurnitureLayer } from '../world/FurnitureLayer';
+import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
 import { KeyboardMovement } from '../world/KeyboardMovement';
 import type { MovementPort } from '../world/MovementController';
@@ -64,6 +66,7 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
     private selfId = 0;
     private map: IsoMap | null = null;
     private furniture: FurnitureLayer | null = null;
+    private buildings: BuildingLayer | null = null;
     /** Whether the drawn instance is the player's own home. */
     private ownHome = false;
     private decorating: { armedItemId: number | null } | null = null;
@@ -108,6 +111,12 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         this.load.image(AVATAR_TEXTURE, images.resident);
         this.load.image('marker', images.marker);
         this.load.image('hover', images.hover);
+
+        for (const [slug, url] of Object.entries(
+            this.options.manifest.buildings,
+        )) {
+            this.load.image(buildingTexture(slug), url);
+        }
     }
 
     create(): void {
@@ -161,9 +170,11 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         this.keyboard?.update(time);
 
         const now = this.port.serverNow();
+        const positions: Array<{ x: number; y: number }> = [];
 
         for (const avatar of this.avatars.values()) {
             const pos = avatar.update(now, delta, this.map);
+            positions.push(pos);
 
             if (avatar.id !== this.selfId || !pos.finished) continue;
 
@@ -183,6 +194,14 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
                 this.bus.emit('use-fixture', { kind: fixture.kind });
             }
         }
+
+        this.map.hideLabelsNear(positions);
+
+        const self = this.avatars.get(this.selfId);
+        this.buildings?.update(
+            self ? { box: self.bounds, depthY: self.target.y } : null,
+            delta,
+        );
     }
 
     /**
@@ -231,9 +250,11 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             }
 
             this.furniture?.destroy();
+            this.buildings?.destroy();
             this.map?.destroy();
             this.map = new IsoMap(this, key);
             this.furniture = new FurnitureLayer(this, this.map);
+            this.buildings = new BuildingLayer(this, this.map);
         }
 
         this.furniture?.set(snapshot.furniture);
@@ -309,8 +330,19 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
 
     private onHover(pointer: Phaser.Input.Pointer): void {
         const tile = this.pointerTile(pointer);
+        // Over a building or its door, name the building instead of highlighting a tile.
+        const building =
+            this.pointerBuilding(pointer) ??
+            (tile && this.map?.buildingAt(tile)) ??
+            null;
+        this.buildings?.hover(pointer.wasTouch ? null : building);
+        this.input.setDefaultCursor(building ? 'pointer' : 'default');
+
         const show =
-            tile !== null && this.map !== null && this.map.isWalkable(tile);
+            !building &&
+            tile !== null &&
+            this.map !== null &&
+            this.map.isWalkable(tile);
         this.hover.setVisible(show && !pointer.wasTouch);
 
         if (show && tile && this.map) {
@@ -364,6 +396,15 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             }
         }
 
+        // Tapping a building walks the player in through its door.
+        const building = this.pointerBuilding(pointer);
+
+        if (building) {
+            void this.movement.walkTo(building.door.tile);
+
+            return;
+        }
+
         const tile = this.pointerTile(pointer);
         const fixture = tile && this.map?.fixtureAt(tile);
 
@@ -398,6 +439,12 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
 
         return this.map.tileAt(world.x, world.y);
+    }
+
+    private pointerBuilding(pointer: Phaser.Input.Pointer): MapBuilding | null {
+        const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+
+        return this.buildings?.at(world.x, world.y) ?? null;
     }
 
     private showMarker(tile: Tile): void {

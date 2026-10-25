@@ -38,6 +38,20 @@ export const FURNITURE = {
     shade: [0.8, 0.65],
 } as const;
 
+/** Placeholder buildings, until they have artwork: a tinted block with a door and lit windows. */
+export const BUILDING = {
+    saturation: 0.22,
+    lightness: 0.52,
+    /** The roof is the base colour; the walls are darker, the lit south-west face less so. */
+    shade: [0.85, 0.6],
+    windowColor: 0xffd27a,
+    windowAlpha: 0.7,
+    doorHeightPx: 40,
+    /** How see-through a building turns while it hides the player's own avatar. */
+    fadedAlpha: 0.4,
+    fadeMs: 120,
+} as const;
+
 export const TRAVEL = {
     /** Fade out before leaving a room, and in once the next is drawn. */
     fadeMs: 220,

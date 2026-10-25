@@ -5,6 +5,7 @@ use App\Http\Controllers\World\PlayController;
 use App\Models\Room;
 use App\Models\User;
 use App\Models\WorldSession;
+use Illuminate\Support\Facades\File;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are sent to the login page', function () {
@@ -94,5 +95,27 @@ test('the asset manifest lists versioned asset URLs', function () {
         ->assertHeader('Cache-Control', 'no-cache, private')
         ->assertJsonPath('version', '7')
         ->assertJsonPath('images.tiles', 'https://cdn.example.com/hf/v7/tiles.png')
-        ->assertJsonPath('images.resident', 'https://cdn.example.com/hf/v7/resident.png');
+        ->assertJsonPath('images.resident', 'https://cdn.example.com/hf/v7/resident.png')
+        ->assertJsonPath('buildings', []);
+});
+
+test('the asset manifest lists the art dropped in for each building, by slug', function () {
+    $version = 'test-'.uniqid();
+    $dir = public_path("assets/v{$version}/buildings");
+    File::ensureDirectoryExists($dir);
+    File::put("{$dir}/library.png", '');
+    File::put("{$dir}/notes.txt", '');
+    config(['hushfield.assets.base_url' => 'https://cdn.example.com/hf', 'hushfield.assets.version' => $version]);
+
+    try {
+        $this->getJson(route('assets.manifest'))
+            ->assertOk()
+            ->assertExactJson([
+                'version' => $version,
+                'images' => collect(config('hushfield.assets.images'))->map(fn (string $file) => "https://cdn.example.com/hf/v{$version}/{$file}")->all(),
+                'buildings' => ['library' => "https://cdn.example.com/hf/v{$version}/buildings/library.png"],
+            ]);
+    } finally {
+        File::deleteDirectory(public_path("assets/v{$version}"));
+    }
 });

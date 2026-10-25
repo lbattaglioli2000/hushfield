@@ -86,6 +86,8 @@ export type InstanceReassignedEvent = Stamped & {
 export type AssetManifest = {
     version: string;
     images: Record<'tiles' | 'resident' | 'marker' | 'hover', string>;
+    /** Art for buildings that have it, by building slug. The rest are drawn as placeholders. */
+    buildings: Record<string, string>;
 };
 
 export type ItemSlot =

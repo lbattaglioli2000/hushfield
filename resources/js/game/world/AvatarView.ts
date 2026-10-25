@@ -62,6 +62,11 @@ export class AvatarView {
         this.container = scene.add.container(0, 0, [this.body, label]);
     }
 
+    /** The sprite's box in world pixels, without the name above it. */
+    get bounds(): Phaser.Geom.Rectangle {
+        return this.body.getBounds();
+    }
+
     /** What the camera follows. */
     get target(): Phaser.GameObjects.Container {
         return this.container;

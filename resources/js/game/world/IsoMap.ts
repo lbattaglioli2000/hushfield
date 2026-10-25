@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import type { Tile } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
+import type { Footprint } from '../shared/buildings';
+import { covers } from '../shared/buildings';
 import {
     screenToTile,
     TILE_FACE_TOP,
@@ -19,6 +21,7 @@ export const MAP_LAYERS = {
     walkable: 'walkable',
     exits: 'exits',
     fixtures: 'fixtures',
+    buildings: 'buildings',
 } as const;
 export const TILES_TEXTURE = 'tiles';
 
@@ -33,6 +36,15 @@ export type MapFixture = {
     label: string | null;
 };
 
+/** A building on the map: walls nobody walks through, and a door on its front edge into the room inside. */
+export type MapBuilding = Footprint & {
+    name: string;
+    /** How tall the placeholder block stands, in pixels. */
+    height: number;
+    label: string | null;
+    door: MapDoor;
+};
+
 /** One room's isometric tilemap: the drawn ground layer and doors, the walkable grid, and tile↔world conversion. */
 export class IsoMap {
     readonly key: string;
@@ -41,8 +53,13 @@ export class IsoMap {
     readonly originX: number;
     readonly doors: MapDoor[];
     readonly fixtures: MapFixture[];
+    readonly buildings: MapBuilding[];
     private readonly layer: Phaser.Tilemaps.TilemapLayer | null = null;
     private readonly decorations: Phaser.GameObjects.GameObject[] = [];
+    private readonly labels: Array<{
+        tile: Tile;
+        text: Phaser.GameObjects.Text;
+    }> = [];
 
     constructor(scene: Phaser.Scene, key: string) {
         const map = scene.make.tilemap({ key });
@@ -101,10 +118,51 @@ export class IsoMap {
             kind: property(object, 'kind') ?? '',
             label: property(object, 'label'),
         }));
+        // The server checked the map: every building has a door, which is one of the exits.
+        this.buildings = (
+            map.getObjectLayer(MAP_LAYERS.buildings)?.objects ?? []
+        ).map((object) => {
+            const door = this.doors.find(
+                (d) => d.name === property(object, 'door'),
+            ) as MapDoor;
+
+            return {
+                name: object.name,
+                x: Math.round((object.x ?? 0) / TILE_HEIGHT),
+                y: Math.round((object.y ?? 0) / TILE_HEIGHT),
+                wide: Math.round((object.width ?? 0) / TILE_HEIGHT),
+                deep: Math.round((object.height ?? 0) / TILE_HEIGHT),
+                height: numberProperty(object, 'height') ?? TILE_WIDTH,
+                label: property(object, 'label') ?? door.label,
+                door,
+            };
+        });
+
+        // Walls block walking, as on the server; the door is the way in.
+        for (const building of this.buildings) {
+            for (let y = building.y; y < building.y + building.deep; y++) {
+                for (let x = building.x; x < building.x + building.wide; x++) {
+                    if (
+                        x !== building.door.tile[0] ||
+                        y !== building.door.tile[1]
+                    ) {
+                        cells[y * map.width + x] = 0;
+                    }
+                }
+            }
+        }
+
         // Fixtures are marked like doors: a glowing tile and a name, no art of their own.
-        [...this.doors, ...this.fixtures].forEach((place) =>
-            this.drawDoor(scene, place),
-        );
+        // A building's door is drawn on its wall instead, and named when the building is hovered.
+        [
+            ...this.doors.filter(
+                (door) =>
+                    !this.buildings.some((building) =>
+                        covers(building, door.tile),
+                    ),
+            ),
+            ...this.fixtures,
+        ].forEach((place) => this.drawDoor(scene, place));
 
         const widthPx = (map.width + map.height) * (TILE_WIDTH / 2);
         const heightPx = (map.width + map.height) * (TILE_HEIGHT / 2);
@@ -132,6 +190,33 @@ export class IsoMap {
                     fixture.tile[0] === tile[0] && fixture.tile[1] === tile[1],
             ) ?? null
         );
+    }
+
+    /** The building a door tile belongs to, if any. */
+    buildingAt(tile: Tile): MapBuilding | null {
+        return (
+            this.buildings.find(
+                (building) =>
+                    building.door.tile[0] === tile[0] &&
+                    building.door.tile[1] === tile[1],
+            ) ?? null
+        );
+    }
+
+    /**
+     * Hides door and fixture labels while someone stands within a tile of them,
+     * where the label would sit on top of their name.
+     */
+    hideLabelsNear(positions: Array<{ x: number; y: number }>): void {
+        for (const { tile, text } of this.labels) {
+            text.setVisible(
+                !positions.some(
+                    (p) =>
+                        Math.abs(p.x - tile[0]) < 1.5 &&
+                        Math.abs(p.y - tile[1]) < 1.5,
+                ),
+            );
+        }
     }
 
     isWalkable(tile: Tile): boolean {
@@ -182,29 +267,55 @@ export class IsoMap {
         this.decorations.push(glow);
 
         if (door.label) {
-            this.decorations.push(
-                scene.add
-                    .text(x, y - DOOR.labelGapY, door.label, {
-                        fontFamily: FONT_FAMILY,
-                        fontSize: DOOR.labelFontSize,
-                        color: COLORS.paper,
-                        stroke: COLORS.night,
-                        strokeThickness: DOOR.labelStrokeThickness,
-                    })
-                    .setOrigin(0.5, 1)
-                    .setDepth(DEPTH.labels),
-            );
+            const text = placeLabel(scene, x, y - DOOR.labelGapY, door.label);
+            this.decorations.push(text);
+            this.labels.push({ tile: door.tile, text });
         }
     }
+}
+
+/** A place's name floating over it, in the style doors and buildings share. */
+export function placeLabel(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    label: string,
+): Phaser.GameObjects.Text {
+    return scene.add
+        .text(x, y, label, {
+            fontFamily: FONT_FAMILY,
+            fontSize: DOOR.labelFontSize,
+            color: COLORS.paper,
+            stroke: COLORS.night,
+            strokeThickness: DOOR.labelStrokeThickness,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(DEPTH.labels);
+}
+
+function numberProperty(
+    object: Phaser.Types.Tilemaps.TiledObject,
+    name: string,
+): number | null {
+    const value = rawProperty(object, name);
+
+    return typeof value === 'number' ? value : null;
 }
 
 function property(
     object: Phaser.Types.Tilemaps.TiledObject,
     name: string,
 ): string | null {
-    const found = (
-        (object.properties ?? []) as Array<{ name: string; value: unknown }>
-    ).find((p) => p.name === name);
+    const value = rawProperty(object, name);
 
-    return typeof found?.value === 'string' ? found.value : null;
+    return typeof value === 'string' ? value : null;
+}
+
+function rawProperty(
+    object: Phaser.Types.Tilemaps.TiledObject,
+    name: string,
+): unknown {
+    return (
+        (object.properties ?? []) as Array<{ name: string; value: unknown }>
+    ).find((p) => p.name === name)?.value;
 }

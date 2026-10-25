@@ -50,7 +50,11 @@ export class FurnitureLayer {
         const hw = (TILE_WIDTH / 2) * FURNITURE.footprint;
         const hh = (TILE_HEIGHT / 2) * FURNITURE.footprint;
         const lift = FURNITURE.heightPx;
-        const top = colourFor(item.slug);
+        const top = colourFor(
+            item.slug,
+            FURNITURE.saturation,
+            FURNITURE.lightness,
+        );
         const shaded = (factor: number) =>
             Phaser.Display.Color.GetColor(
                 top.red * factor,
@@ -99,15 +103,19 @@ export class FurnitureLayer {
     }
 }
 
-/** A stable colour per item, so the same piece always looks the same. */
-function colourFor(slug: string): Phaser.Display.Color {
+/** A stable colour per slug, so the same piece or building always looks the same. */
+export function colourFor(
+    slug: string,
+    saturation: number,
+    lightness: number,
+): Phaser.Display.Color {
     let hash = 0;
 
     for (const char of slug) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
 
     return Phaser.Display.Color.HSLToColor(
         (hash % 360) / 360,
-        FURNITURE.saturation,
-        FURNITURE.lightness,
+        saturation,
+        lightness,
     );
 }
