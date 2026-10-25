@@ -6,6 +6,8 @@ use App\Domain\Economy\InsufficientCoins;
 use App\Domain\Economy\LedgerReason;
 use App\Domain\Items\InventorySource;
 use App\Exceptions\WorldActionRefused;
+use App\Features\ShopEnabled;
+use App\Features\WorldFlags;
 use App\Models\InventoryItem;
 use App\Models\Item;
 use App\Models\User;
@@ -23,6 +25,10 @@ final readonly class PurchaseItem
 
     public function __invoke(User $user, Item $item): InventoryItem
     {
+        if (! WorldFlags::active(ShopEnabled::class)) {
+            throw WorldActionRefused::shopClosed();
+        }
+
         if (! $item->in_shop) {
             throw WorldActionRefused::itemUnavailable();
         }

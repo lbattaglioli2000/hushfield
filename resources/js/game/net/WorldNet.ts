@@ -197,13 +197,12 @@ export class WorldNet {
         return body.wallet;
     }
 
-    async shop(): Promise<Item[]> {
-        const body = await this.request<{ items: Item[] }>(
+    /** The shelves, and whether anything can be bought (false while staff have the shop switched off). */
+    shop(): Promise<{ items: Item[]; open: boolean }> {
+        return this.request<{ items: Item[]; open: boolean }>(
             'GET',
             '/world/shop',
         );
-
-        return body.items;
     }
 
     purchase(itemId: number): Promise<WalletUpdate> {

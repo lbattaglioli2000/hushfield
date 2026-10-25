@@ -60,7 +60,7 @@ export type GameEvents = {
     /** After entering the world and after every purchase or stipend claim. */
     wallet: Wallet;
     /** The answer to a 'load-shop'. */
-    shop: { items: Item[] };
+    shop: { items: Item[]; open: boolean };
     /** The answer to a 'purchase-item' or 'claim-stipend', and failures of 'load-shop'. */
     'economy-result': { ok: boolean; message: string };
 

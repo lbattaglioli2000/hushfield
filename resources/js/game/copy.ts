@@ -16,6 +16,7 @@ export type CopyKey =
     | 'not_in_room'
     | 'shop_title'
     | 'shop_intro'
+    | 'shop_closed'
     | 'inventory_title'
     | 'inventory_empty'
     | 'stipend_offer'

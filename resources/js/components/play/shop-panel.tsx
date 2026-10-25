@@ -9,7 +9,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { Copy, EventBus, Item, Wallet } from '@/game';
+import type { Copy, EventBus, GameEvents, Item, Wallet } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
 export default function ShopPanel({
@@ -32,9 +32,9 @@ export default function ShopPanel({
     /** The outcome of the last purchase, shown above the shelves. */
     result: ReactNode;
 }) {
-    const [items, setItems] = useState<Item[] | null>(null);
+    const [shop, setShop] = useState<GameEvents['shop'] | null>(null);
 
-    useGameBus(bus, 'shop', ({ items }) => setItems(items));
+    useGameBus(bus, 'shop', setShop);
 
     const owned = new Set(wallet.inventory.map((item) => item.id));
 
@@ -65,6 +65,19 @@ export default function ShopPanel({
             );
         }
 
+        if (!shop?.open) {
+            return (
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled
+                    className="w-full"
+                >
+                    Closed
+                </Button>
+            );
+        }
+
         return (
             <Button
                 size="sm"
@@ -87,12 +100,21 @@ export default function ShopPanel({
                         {copy.shop_intro} You have {wallet.balance} coins.
                     </DialogDescription>
                 </DialogHeader>
-                {result}
-                {items === null ? (
+                {/* While closed the notice says it all; a refused purchase would only repeat it. */}
+                {shop?.open !== false && result}
+                {shop && !shop.open && (
+                    <p
+                        className="rounded-md bg-muted px-3 py-2 text-sm"
+                        data-test="shop-closed"
+                    >
+                        {copy.shop_closed}
+                    </p>
+                )}
+                {shop === null ? (
                     <p className="text-sm text-muted-foreground">Opening…</p>
                 ) : (
                     <ul className="grid max-h-[60vh] gap-3 overflow-y-auto sm:grid-cols-2">
-                        {items.map((item) => (
+                        {shop.items.map((item) => (
                             <ItemCard
                                 key={item.id}
                                 item={item}

@@ -4,6 +4,8 @@ use App\Actions\Economy\RecordLedgerEntry;
 use App\Domain\Economy\LedgerReason;
 use App\Domain\Economy\Wallet;
 use App\Domain\Items\InventorySource;
+use App\Features\ShopEnabled;
+use App\Features\WorldFlags;
 use App\Models\InventoryItem;
 use App\Models\Item;
 use App\Models\LedgerEntry;
@@ -32,6 +34,7 @@ test('the shop lists only items on sale', function () {
     asResident($this->resident, $this->token)->getJson(route('world.shop'))
         ->assertOk()
         ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('open', true)
         ->assertJsonPath('items.*.id', [$locked->id, $hat->id])
         ->assertJsonPath('items.1.name', 'Moth Hat')
         ->assertJsonPath('items.0.members_only', true);
@@ -107,3 +110,37 @@ test('items off the shelf or for members only cannot be bought', function (Closu
     'not in the shop' => [fn () => Item::factory()->notInShop()->create(), 422, 'item_unavailable'],
     'members only' => [fn () => Item::factory()->membersOnly()->create(), 403, 'item_members_only'],
 ]);
+
+test('while the shop is switched off nothing can be bought, but the shelves, belongings and stipend remain', function () {
+    giveCoins($this->resident, 100);
+    $owned = Item::factory()->create(['price' => 10]);
+    $hat = Item::factory()->create(['price' => 30]);
+    buy($owned)->assertOk();
+
+    WorldFlags::set(ShopEnabled::class, false);
+
+    buy($hat)
+        ->assertStatus(409)
+        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('reason', 'shop_closed')
+        ->assertJsonPath('message', __('hushfield.shop_closed'));
+
+    // A replay of a purchase that already went through is refused too, and still charges nothing.
+    buy($owned)->assertStatus(409)->assertJsonPath('reason', 'shop_closed');
+
+    asResident($this->resident, $this->token)->getJson(route('world.shop'))
+        ->assertOk()
+        ->assertJsonPath('open', false)
+        ->assertJsonCount(2, 'items');
+
+    asResident($this->resident, $this->token)->getJson(route('world.wallet'))
+        ->assertOk()
+        ->assertJsonPath('wallet.balance', 90)
+        ->assertJsonPath('wallet.inventory.*.id', [$owned->id]);
+
+    asResident($this->resident, $this->token)->postJson(route('world.stipend.claim'))->assertCreated();
+
+    WorldFlags::set(ShopEnabled::class, true);
+
+    buy($hat)->assertOk()->assertJsonPath('wallet.balance', 85);
+});

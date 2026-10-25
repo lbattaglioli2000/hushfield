@@ -1,8 +1,10 @@
 <?php
 
 use App\Domain\Identity\StaffRole;
+use App\Features\ShopEnabled;
 use App\Features\WorldFlag;
 use App\Filament\Pages\FeatureFlags;
+use App\Models\Item;
 use App\Models\User;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
@@ -56,4 +58,27 @@ test('unknown flags are not found', function () {
     Livewire::test(FeatureFlags::class)
         ->call('mountAction', 'toggle', ['flag' => 'App\\Models\\User', 'active' => false])
         ->assertNotFound();
+});
+
+test('an admin closes the shop from the Feature flags page, audited, and purchases stop', function () {
+    Livewire::test(FeatureFlags::class)
+        ->assertSee('Shop')
+        ->callAction('toggle', data: ['reason' => 'Price bug'], arguments: ['flag' => WorldFlag::Shop->value, 'active' => false])
+        ->assertHasNoActionErrors()
+        ->assertNotified('Shop is off');
+
+    $entry = Activity::query()->sole();
+
+    expect(WorldFlag::Shop->isActive())->toBeFalse()
+        ->and(WorldFlag::Chat->isActive())->toBeTrue()
+        ->and($entry->event)->toBe('flag.disabled')
+        ->and($entry->causer_id)->toBe($this->admin->id)
+        ->and($entry->properties->all())->toBe(['flag' => ShopEnabled::class, 'active' => false, 'reason' => 'Price bug']);
+
+    $resident = resident();
+    $item = Item::factory()->create(['price' => 0]);
+
+    asResident($resident, startSession($resident))->postJson(route('world.shop.purchase', $item))
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'shop_closed');
 });

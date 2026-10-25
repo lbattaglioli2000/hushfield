@@ -112,6 +112,15 @@ final class WorldActionRefused extends RuntimeException
         return new self('stipend_claimed', 409);
     }
 
+    /**
+     * 409 rather than 503 like the other kill switches: the client shows a refusal's
+     * own words only below 500, and players should read why the till is shut.
+     */
+    public static function shopClosed(): self
+    {
+        return new self('shop_closed', 409);
+    }
+
     public static function shopTooFast(): self
     {
         return new self('shop_too_fast', 429);

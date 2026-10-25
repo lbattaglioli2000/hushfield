@@ -1,6 +1,6 @@
 import type { EventBus } from './bus';
 import type { Copy } from './copy';
-import { userMessage } from './net/http';
+import { RefusedError, userMessage } from './net/http';
 import type { WalletUpdate, WorldNet } from './net/WorldNet';
 
 /**
@@ -24,14 +24,28 @@ export function connectEconomy(
         bus.emit('economy-result', { ok: true, message });
     };
 
+    const loadShop = () => {
+        net.shop()
+            .then(({ items, open }) => bus.emit('shop', { items, open }))
+            .catch(fail);
+    };
+
     const cleanups = [
-        bus.on('load-shop', () => {
-            net.shop()
-                .then((items) => bus.emit('shop', { items }))
-                .catch(fail);
-        }),
+        bus.on('load-shop', loadShop),
         bus.on('purchase-item', ({ itemId }) => {
-            net.purchase(itemId).then(applied).catch(fail);
+            net.purchase(itemId)
+                .then(applied)
+                .catch((error: unknown) => {
+                    fail(error);
+
+                    // Closed while the panel was open: refresh it so every Buy button says so.
+                    if (
+                        error instanceof RefusedError &&
+                        error.reason === 'shop_closed'
+                    ) {
+                        loadShop();
+                    }
+                });
         }),
         bus.on('claim-stipend', () => {
             net.claimStipend().then(applied).catch(fail);

@@ -60,6 +60,7 @@ return [
     // Coins and items
     'shop_title' => 'The Shop on Lantern Street',
     'shop_intro' => 'Everything here is for sale. Some of it is also for you.',
+    'shop_closed' => 'The shop has drawn its shutters. Nobody saw who drew them. Nothing can be bought until it reopens, so please try again later. Your belongings are where you left them.',
     'inventory_title' => 'Your belongings',
     'inventory_empty' => 'You own nothing yet. This is not a criticism.',
     'stipend_offer' => 'Hearthmore Group has set aside a stipend for you today.',
