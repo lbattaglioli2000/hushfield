@@ -6,7 +6,8 @@ use App\Models\User;
 use App\Policies\Concerns\DeniesPanelWrites;
 
 /**
- * Staff (admins and moderators) moderate players. Only admins change staff roles.
+ * Staff (admins and moderators) moderate players. Only admins change staff
+ * roles and grant coins or items.
  * Accounts are never created, edited, or deleted from the admin panel.
  */
 final class UserPolicy
@@ -32,6 +33,14 @@ final class UserPolicy
     }
 
     public function manageRole(User $staff, User $user): bool
+    {
+        return $staff->isAdmin() && $staff->isNot($user);
+    }
+
+    /**
+     * Grant or remove coins, or grant items. Admins only, never to themselves.
+     */
+    public function manageEconomy(User $staff, User $user): bool
     {
         return $staff->isAdmin() && $staff->isNot($user);
     }

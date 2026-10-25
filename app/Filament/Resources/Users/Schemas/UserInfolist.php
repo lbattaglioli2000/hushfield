@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Domain\Economy\Wallet;
 use App\Models\ChatMessage;
 use App\Models\User;
 use Filament\Infolists\Components\IconEntry;
@@ -58,6 +59,10 @@ class UserInfolist
                         TextEntry::make('created_at')
                             ->label('Joined')
                             ->dateTime(),
+                        TextEntry::make('coins')
+                            ->label('Coins')
+                            ->numeric()
+                            ->state(fn (User $record): int => app(Wallet::class)->balance($record)),
                     ]),
                 Section::make('Recent chat')
                     ->description('The '.self::RECENT_MESSAGES.' most recent messages, newest first.')

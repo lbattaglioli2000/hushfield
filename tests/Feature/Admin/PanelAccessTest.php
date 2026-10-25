@@ -6,7 +6,10 @@ use App\Filament\Pages\LiveRooms;
 use App\Filament\Resources\Activities\ActivityResource;
 use App\Filament\Resources\BlockedTerms\BlockedTermResource;
 use App\Filament\Resources\ChatReports\ChatReportResource;
+use App\Filament\Resources\Items\ItemResource;
+use App\Filament\Resources\LedgerEntries\LedgerEntryResource;
 use App\Filament\Resources\Users\UserResource;
+use App\Models\Item;
 use App\Models\User;
 
 test('moderators cannot reach admin-only pages', function (Closure $url) {
@@ -16,6 +19,8 @@ test('moderators cannot reach admin-only pages', function (Closure $url) {
 })->with([
     'blocked terms' => fn (): string => BlockedTermResource::getUrl('index'),
     'feature flags' => fn (): string => FeatureFlags::getUrl(),
+    'item catalog' => fn (): string => ItemResource::getUrl('index'),
+    'coin ledger' => fn (): string => LedgerEntryResource::getUrl('index'),
 ]);
 
 test('every page renders for an admin', function (Closure $url) {
@@ -33,6 +38,9 @@ test('every page renders for an admin', function (Closure $url) {
     'blocked terms' => fn (): string => BlockedTermResource::getUrl('index'),
     'feature flags' => fn (): string => FeatureFlags::getUrl(),
     'audit log' => fn (): string => ActivityResource::getUrl('index'),
+    'item catalog' => fn (): string => ItemResource::getUrl('index'),
+    'an item' => fn (): string => ItemResource::getUrl('edit', ['record' => Item::factory()->create()]),
+    'coin ledger' => fn (): string => LedgerEntryResource::getUrl('index'),
 ]);
 
 test('players cannot reach the panel', function () {

@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Users;
 
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Pages\ViewUser;
+use App\Filament\Resources\Users\RelationManagers\InventoryRelationManager;
+use App\Filament\Resources\Users\RelationManagers\LedgerEntriesRelationManager;
 use App\Filament\Resources\Users\RelationManagers\SanctionsRelationManager;
 use App\Filament\Resources\Users\Schemas\UserInfolist;
 use App\Filament\Resources\Users\Tables\UsersTable;
@@ -49,6 +51,8 @@ class UserResource extends Resource
     {
         return [
             SanctionsRelationManager::class,
+            InventoryRelationManager::class,
+            LedgerEntriesRelationManager::class,
         ];
     }
 
