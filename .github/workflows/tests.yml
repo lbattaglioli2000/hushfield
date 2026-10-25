@@ -9,9 +9,34 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
+
+    # Matches tests/TestCase.php and phpunit.xml: Postgres hushfield_test, Redis DBs 13–15.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: hushfield
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: hushfield_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hushfield"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
 
     steps:
       - name: Checkout code
@@ -22,17 +47,45 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
+          extensions: pgsql, pdo_pgsql, redis, intl, bcmath, pcntl
           tools: composer:v2
           coverage: none
 
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version: '24'
+          cache: npm
 
-      - name: Setup Application
-        run: composer setup
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          npm ci
 
-      - name: Run CI Checks
-        run: composer ci:check
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Wayfinder generates resources/js/routes during the build, which type checks need.
+      - name: Build assets
+        run: npm run build
+
+      - name: Pint
+        run: ./vendor/bin/pint --test
+
+      - name: Larastan
+        run: ./vendor/bin/phpstan analyse --no-progress
+
+      - name: Lint and format
+        run: npm run check
+
+      - name: Type check
+        run: npm run types:check
+
+      - name: Client tests
+        run: npm run test
+
+      - name: Pest
+        run: php artisan test
