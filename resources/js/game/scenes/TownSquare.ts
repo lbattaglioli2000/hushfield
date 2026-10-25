@@ -176,14 +176,21 @@ export class TownSquare extends Phaser.Scene implements WorldListener {
     }
 
     joined(event: PlayerJoinedEvent): void {
+        // Before create() the pending snapshot is the state to draw; it is replaced on the next resync anyway.
+        if (!this.ready) return;
+
         this.upsert(event.player);
     }
 
     left(event: PlayerLeftEvent): void {
+        if (!this.ready) return;
+
         if (event.user_id !== this.selfId) this.remove(event.user_id);
     }
 
     moved(event: PlayerMovedEvent): void {
+        if (!this.ready) return;
+
         const avatar = this.avatars.get(event.user_id);
 
         if (avatar) {
@@ -192,10 +199,14 @@ export class TownSquare extends Phaser.Scene implements WorldListener {
     }
 
     chat(event: ChatMessageSentEvent): void {
+        if (!this.ready) return;
+
         this.say(event.user_id, event.id, event.body);
     }
 
     idle(userId: number, idle: boolean): void {
+        if (!this.ready) return;
+
         this.avatars.get(userId)?.container.setAlpha(idle ? 0.45 : 1);
     }
 

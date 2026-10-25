@@ -40,26 +40,28 @@ final readonly class IssueSanction
             return $sanction;
         });
 
-        $token = $target->worldSession()->value('session_token');
-
-        if ($type === SanctionType::Ban) {
-            if ($token !== null) {
-                broadcast(new WorldAccessRevoked($token));
-            }
-
-            ($this->endWorldSession)($target->refresh());
-        }
-
-        if ($type === SanctionType::Warning && $token !== null) {
-            broadcast(new PlayerWarned($token));
-        }
-
         activity('moderation')
             ->performedOn($target)
             ->causedBy($staff)
             ->withProperties(['type' => $type->value, 'reason' => $reason, 'ends_at' => $endsAt?->toIso8601String(), 'report_id' => $report?->id])
             ->event("sanction.{$type->value}")
             ->log("Issued {$type->value}");
+
+        $token = $target->worldSession()->value('session_token');
+
+        // The durable state is final before anything is broadcast; a websocket
+        // outage only delays the client notice (the session token is already dead).
+        if ($type === SanctionType::Ban) {
+            ($this->endWorldSession)($target->refresh());
+
+            if ($token !== null) {
+                rescue(fn () => broadcast(new WorldAccessRevoked($token)));
+            }
+        }
+
+        if ($type === SanctionType::Warning && $token !== null) {
+            rescue(fn () => broadcast(new PlayerWarned($token)));
+        }
 
         return $sanction;
     }

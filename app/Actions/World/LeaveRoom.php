@@ -30,8 +30,9 @@ final readonly class LeaveRoom
             $instance->forceFill(['empty_since' => $instance->empty_since ?? now()])->save();
         }
 
+        // Redis and Postgres are already updated; a websocket outage must not undo a leave.
         if ($wasMember) {
-            broadcast(new PlayerLeft($instance->id, $user->id));
+            rescue(fn () => broadcast(new PlayerLeft($instance->id, $user->id)));
         }
     }
 }

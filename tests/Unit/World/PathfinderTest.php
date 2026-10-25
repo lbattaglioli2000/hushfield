@@ -1,7 +1,7 @@
 <?php
 
-use App\Domain\World\Pathfinder;
 use App\Domain\World\PathClock;
+use App\Domain\World\Pathfinder;
 use App\Domain\World\WalkabilityGrid;
 
 /**

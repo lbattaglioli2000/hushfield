@@ -134,3 +134,37 @@ test('emails are unique regardless of case', function () {
 
     expect(User::query()->count())->toBe(1);
 });
+
+test('the age step remembers a passing birth date and returns to the form', function () {
+    $this->post(route('register.age'), ['birth_month' => 3, 'birth_year' => 1995])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('register'))
+        ->assertSessionHas('registration.birth', ['birth_month' => 3, 'birth_year' => 1995]);
+});
+
+test('the age step refuses under 13s and sets the age gate cookie', function () {
+    $this->post(route('register.age'), ['birth_month' => 11, 'birth_year' => 2013])
+        ->assertSessionHasErrors('underage')
+        ->assertSessionMissing('registration.birth')
+        ->assertCookie('hf_age_gate', '1');
+});
+
+test('the age step is blocked by the age gate cookie', function () {
+    $this->withCookie('hf_age_gate', '1')
+        ->post(route('register.age'), ['birth_month' => 3, 'birth_year' => 1995])
+        ->assertSessionHasErrors('underage')
+        ->assertSessionMissing('registration.birth');
+});
+
+test('registrations are limited to 5 an hour per address', function () {
+    foreach (range(1, 5) as $attempt) {
+        $this->post(route('register.store'), registration(['username' => "Pebble_{$attempt}", 'email' => "pebble{$attempt}@example.com"]))
+            ->assertSessionHasNoErrors();
+        $this->post(route('logout'));
+    }
+
+    $this->post(route('register.store'), registration(['username' => 'Pebble_6', 'email' => 'pebble6@example.com']))
+        ->assertTooManyRequests();
+
+    expect(User::query()->count())->toBe(5);
+});

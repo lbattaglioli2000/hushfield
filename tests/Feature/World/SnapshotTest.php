@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Presence\StartWorldSession;
 use App\Actions\World\MovePlayer;
 use Carbon\CarbonImmutable;
 
@@ -51,7 +52,7 @@ test('the snapshot describes the instance and every player in it', function () {
 
 test('the snapshot is only for members of the instance', function () {
     $outsider = resident();
-    $token = app(\App\Actions\Presence\StartWorldSession::class)($outsider)->session_token;
+    $token = app(StartWorldSession::class)($outsider)->session_token;
     ['instance' => $instance] = enterWorld(resident(), $this->room);
 
     $this->actingAs($outsider)->withHeaders(worldHeaders($token))

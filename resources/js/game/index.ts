@@ -113,7 +113,9 @@ export function startGame(parent: HTMLElement, config: GameConfig, bus: EventBus
             input: { activePointers: 2 },
             fps: { target: 60 },
         });
-        game.scene.add('TownSquare', TownSquare, true, {
+        // Register an instance we already hold: getScene() returns null until Phaser has booted.
+        scene = new TownSquare();
+        game.scene.add('TownSquare', scene, true, {
             net,
             bus,
             options: {
@@ -123,7 +125,6 @@ export function startGame(parent: HTMLElement, config: GameConfig, bus: EventBus
                 copy: config.copy,
             },
         });
-        scene = game.scene.getScene('TownSquare') as TownSquare;
 
         await net.start();
     })().catch((error: unknown) => {
