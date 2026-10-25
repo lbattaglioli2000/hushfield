@@ -6,6 +6,7 @@ use App\Actions\World\JoinRoom;
 use App\Domain\Chat\BlockedTermMatchType;
 use App\Domain\Chat\BlockedTermSeverity;
 use App\Events\Chat\ChatMessageSent;
+use App\Events\Fishing\RareCatchLanded;
 use App\Events\Moderation\PlayerWarned;
 use App\Events\Moderation\WorldAccessRevoked;
 use App\Events\Presence\InstanceReassigned;
@@ -59,6 +60,7 @@ const WORLD_EVENTS = [
     PlayerWarned::class,
     FurnitureChanged::class,
     FriendsUpdated::class,
+    RareCatchLanded::class,
 ];
 
 function fakeWorldEvents(): void

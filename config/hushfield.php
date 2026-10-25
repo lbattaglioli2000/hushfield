@@ -70,6 +70,35 @@ return [
         'daily_stipend' => 25,
     ],
 
+    /*
+     * Fishing off the end of The Pier. The server rolls the bite and the catch
+     * when the line goes in, and judges the reel against its own clock.
+     */
+    'fishing' => [
+        // How long the line sits before something bites, picked at random between these.
+        'bite_after_ms' => [2000, 7000],
+        // How long after the bite a reel still lands it. Covers reaction time and a round trip.
+        'reel_window_ms' => 1500,
+        // Coins fishing may pay one resident per Hushfield day; past it catches pay nothing.
+        'daily_cap' => 100,
+        /*
+         * What can come up, keyed by the catch's name in lang/en/hushfield.php "catches".
+         * Weight is relative odds; rarity is an ItemRarity value. Rare and peculiar
+         * catches are announced to the room.
+         */
+        'catches' => [
+            'herring' => ['weight' => 30, 'rarity' => 'common', 'coins' => 3],
+            'mackerel' => ['weight' => 22, 'rarity' => 'common', 'coins' => 4],
+            'boot' => ['weight' => 15, 'rarity' => 'common', 'coins' => 1],
+            'eel' => ['weight' => 12, 'rarity' => 'uncommon', 'coins' => 8],
+            'flounder' => ['weight' => 10, 'rarity' => 'uncommon', 'coins' => 7],
+            'key' => ['weight' => 5, 'rarity' => 'rare', 'coins' => 20],
+            'letter' => ['weight' => 3, 'rarity' => 'rare', 'coins' => 25],
+            'not_a_fish' => ['weight' => 2, 'rarity' => 'peculiar', 'coins' => 40],
+            'lost_hour' => ['weight' => 1, 'rarity' => 'peculiar', 'coins' => 30],
+        ],
+    ],
+
     'maps' => [
         'path' => resource_path('maps'),
     ],

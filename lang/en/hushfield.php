@@ -80,6 +80,33 @@ return [
     'stipend_granted' => 'Hearthmore Group has deposited your daily stipend. Please do not ask where it came from.',
     'stipend_claimed' => 'Hearthmore Group has already been generous today. Generosity resumes at midnight.',
 
+    // Fishing off the end of The Pier
+    'fishing_hint' => 'The end of the Pier. Press Cast, wait for a bite, then Reel before it changes its mind.',
+    'fishing_waiting' => 'Your line is in the water. The water is in no hurry.',
+    'fishing_bite' => 'Something has taken the line. Reel it in.',
+    'fishing_landed' => '{1} Hearthmore Group buys whatever comes out of the water. It paid :coins coin for this.|[2,*] Hearthmore Group buys whatever comes out of the water. It paid :coins coins for this.',
+    'fishing_cap_reached' => 'That is all it will buy from the water today. Payment resumes at midnight.',
+    'fishing_capped' => 'Hearthmore Group has bought all it will buy from the water today, so this one is yours for nothing. Fish as long as you like. Payment resumes at midnight.',
+    'fishing_early' => 'You reeled in nothing. Nothing had bitten yet. Something below noticed you were in a hurry.',
+    'fishing_late' => 'Something took the bait and left. It was polite about it, which is almost worse.',
+    'fishing_no_line' => 'You have no line in the water. Reeling in the air is not fishing, though it is a start.',
+    'fishing_elsewhere' => 'Fishing is done off the end of The Pier, past Town Square. The water elsewhere is not to be disturbed.',
+    'fishing_too_far' => 'Stand at the very end of the Pier, by the water. The fish will not come to you. Not on purpose.',
+    'fishing_closed' => 'The end of the Pier is closed to fishing for now. Nobody has said what is in the water. Please try again later.',
+    'fishing_too_fast' => 'The water needs a moment to settle. Please try again shortly.',
+    'fishing_rare_landed' => ':name has pulled :catch off the end of the Pier. Everyone nearby has agreed not to mention it.',
+    'catches' => [
+        'herring' => ['name' => 'A herring', 'description' => 'An ordinary herring. It seems relieved to be ordinary.'],
+        'mackerel' => ['name' => 'A mackerel', 'description' => 'Striped, silver, and visibly unimpressed with you.'],
+        'boot' => ['name' => 'A left boot', 'description' => 'Waterlogged. The right one is presumably still out there, looking for it.'],
+        'eel' => ['name' => 'A patient eel', 'description' => 'It was waiting for you specifically. It will not say why.'],
+        'flounder' => ['name' => 'A flounder', 'description' => 'Both of its eyes are on the same side. Both of them are on you.'],
+        'key' => ['name' => 'A key to no door in Hushfield', 'description' => 'Brass, warm, and cut for a lock nobody has built yet. Please do not try it on anything.'],
+        'letter' => ['name' => 'A letter addressed to you, dated tomorrow', 'description' => 'The envelope is perfectly dry. You decide not to open it until tomorrow. That seems fair to everyone.'],
+        'not_a_fish' => ['name' => 'Something that was not a fish', 'description' => 'It asked, very politely, to be put back. You put it back. Hearthmore Group has paid you for your trouble.'],
+        'lost_hour' => ['name' => 'The hour that went missing on Tuesday', 'description' => 'It is smaller than you expected. Please keep it. We have been managing without.'],
+    ],
+
     // Friends
     'friends_title' => 'Neighbors',
     'friends_empty' => 'No friends yet. Everyone starts somewhere, usually here.',

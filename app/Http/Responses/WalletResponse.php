@@ -19,9 +19,13 @@ final readonly class WalletResponse
         private DailyStipend $stipend,
     ) {}
 
-    public function for(User $user, ?string $message = null, int $status = 200): JsonResponse
+    /**
+     * @param  array<string, mixed>  $extra  Whatever else the request answers, such as how a reel went.
+     */
+    public function for(User $user, ?string $message = null, int $status = 200, array $extra = []): JsonResponse
     {
         return WorldResponse::json([
+            ...$extra,
             'message' => $message,
             'wallet' => [
                 'balance' => $this->wallet->balance($user),

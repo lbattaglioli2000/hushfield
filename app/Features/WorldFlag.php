@@ -13,6 +13,7 @@ enum WorldFlag: string implements HasLabel
     case Chat = ChatEnabled::class;
     case Joins = JoinsEnabled::class;
     case Shop = ShopEnabled::class;
+    case Fishing = FishingEnabled::class;
 
     public function getLabel(): string
     {
@@ -20,6 +21,7 @@ enum WorldFlag: string implements HasLabel
             self::Chat => 'Chat',
             self::Joins => 'Room joins',
             self::Shop => 'Shop',
+            self::Fishing => 'Fishing',
         };
     }
 
@@ -29,6 +31,7 @@ enum WorldFlag: string implements HasLabel
             self::Chat => 'Kill switch for chat in every room. When off, nobody can send messages.',
             self::Joins => 'Kill switch for joining rooms. When off, players already in a room stay but nobody new can join.',
             self::Shop => 'Kill switch for shop purchases. When off, nobody can buy; belongings and the stipend still work.',
+            self::Fishing => 'Kill switch for fishing at the Pier. When off, nobody can cast or land a catch, so fishing pays nothing.',
         };
     }
 

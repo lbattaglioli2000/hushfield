@@ -97,6 +97,11 @@ class AppServiceProvider extends ServiceProvider
             ->by('economy:'.$request->user()?->id)
             ->response(fn (): JsonResponse => WorldActionRefused::shopTooFast()->render()));
 
+        // A cast and its reel are two requests; this allows a line every four seconds, with bursts.
+        RateLimiter::for('fishing', fn (Request $request): Limit => Limit::perMinute(30)
+            ->by('fishing:'.$request->user()?->id)
+            ->response(fn (): JsonResponse => WorldActionRefused::fishingTooFast()->render()));
+
         RateLimiter::for('home', fn (Request $request): Limit => Limit::perMinute(60)
             ->by('home:'.$request->user()?->id)
             ->response(fn (): JsonResponse => WorldActionRefused::homeTooFast()->render()));

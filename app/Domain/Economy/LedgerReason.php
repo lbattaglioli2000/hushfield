@@ -16,6 +16,9 @@ enum LedgerReason: string implements HasColor, HasLabel
     /** A shop purchase (always a debit). */
     case Purchase = 'purchase';
 
+    /** A catch landed off the end of The Pier, up to the daily fishing cap. */
+    case Fishing = 'fishing';
+
     /** Coins added or removed by staff, with a reason. */
     case StaffAdjustment = 'staff_adjustment';
 
@@ -24,6 +27,7 @@ enum LedgerReason: string implements HasColor, HasLabel
         return match ($this) {
             self::Stipend => 'Daily stipend',
             self::Purchase => 'Purchase',
+            self::Fishing => 'Fishing',
             self::StaffAdjustment => 'Staff adjustment',
         };
     }
@@ -33,6 +37,7 @@ enum LedgerReason: string implements HasColor, HasLabel
         return match ($this) {
             self::Stipend => 'success',
             self::Purchase => 'info',
+            self::Fishing => 'primary',
             self::StaffAdjustment => 'warning',
         };
     }

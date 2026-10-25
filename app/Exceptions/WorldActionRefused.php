@@ -131,6 +131,34 @@ final class WorldActionRefused extends RuntimeException
         return new self('shop_too_fast', 429);
     }
 
+    /**
+     * 409 like the shop's switch, so players read why the Pier is shut.
+     */
+    public static function fishingClosed(): self
+    {
+        return new self('fishing_closed', 409);
+    }
+
+    public static function fishingElsewhere(): self
+    {
+        return new self('fishing_elsewhere', 409);
+    }
+
+    public static function fishingTooFar(): self
+    {
+        return new self('fishing_too_far', 422);
+    }
+
+    public static function fishingNoLine(): self
+    {
+        return new self('fishing_no_line', 409);
+    }
+
+    public static function fishingTooFast(): self
+    {
+        return new self('fishing_too_fast', 429);
+    }
+
     public static function exitTooFar(): self
     {
         return new self('exit_too_far', 422);

@@ -4,6 +4,7 @@ use App\Http\Controllers\Economy\ClaimStipendController;
 use App\Http\Controllers\Economy\PurchaseItemController;
 use App\Http\Controllers\Economy\ShopController;
 use App\Http\Controllers\Economy\WalletController;
+use App\Http\Controllers\Fishing\FishingController;
 use App\Http\Controllers\Housing\HomesController;
 use App\Http\Controllers\Housing\HomeVisitorsController;
 use App\Http\Controllers\Housing\PlaceFurnitureController;
@@ -57,6 +58,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('stipend', ClaimStipendController::class)->middleware('throttle:economy')->name('stipend.claim');
             Route::get('shop', ShopController::class)->name('shop');
             Route::post('shop/{item}/purchase', PurchaseItemController::class)->middleware('throttle:economy')->name('shop.purchase');
+
+            Route::middleware('throttle:fishing')->group(function () {
+                Route::post('fishing/cast', [FishingController::class, 'cast'])->name('fishing.cast');
+                Route::post('fishing/reel', [FishingController::class, 'reel'])->name('fishing.reel');
+            });
 
             Route::get('friends', [FriendsController::class, 'index'])->name('friends');
             Route::middleware('throttle:friends')->group(function () {
