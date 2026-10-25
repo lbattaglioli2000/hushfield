@@ -149,9 +149,12 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
                 this.travelling || (this.decorating !== null && this.ownHome),
             activity: () => this.bus.emit('input-activity', {}),
         });
-        this.events.once(Phaser.Scenes.Events.DESTROY, () =>
-            this.keyboard?.destroy(),
-        );
+        const fitCamera = () => this.map?.fitCamera(this.cameras.main);
+        this.scale.on(Phaser.Scale.Events.RESIZE, fitCamera);
+        this.events.once(Phaser.Scenes.Events.DESTROY, () => {
+            this.keyboard?.destroy();
+            this.scale.off(Phaser.Scale.Events.RESIZE, fitCamera);
+        });
 
         this.ready = true;
 

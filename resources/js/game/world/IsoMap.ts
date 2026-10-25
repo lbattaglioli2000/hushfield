@@ -54,6 +54,8 @@ export class IsoMap {
     readonly doors: MapDoor[];
     readonly fixtures: MapFixture[];
     readonly buildings: MapBuilding[];
+    /** The map's diamond, from world (0, 0). */
+    private readonly sizePx: { width: number; height: number };
     private readonly layer: Phaser.Tilemaps.TilemapLayer | null = null;
     private readonly decorations: Phaser.GameObjects.GameObject[] = [];
     private readonly labels: Array<{
@@ -164,14 +166,29 @@ export class IsoMap {
             ...this.fixtures,
         ].forEach((place) => this.drawDoor(scene, place));
 
-        const widthPx = (map.width + map.height) * (TILE_WIDTH / 2);
-        const heightPx = (map.width + map.height) * (TILE_HEIGHT / 2);
-        const pad = CAMERA.boundsPadding;
-        scene.cameras.main.setBounds(
-            -pad,
-            -pad,
-            widthPx + pad * 2,
-            heightPx + pad * 2,
+        this.sizePx = {
+            width: (map.width + map.height) * (TILE_WIDTH / 2),
+            height: (map.width + map.height) * (TILE_HEIGHT / 2),
+        };
+        this.fitCamera(scene.cameras.main);
+    }
+
+    /**
+     * A map that fits in the view stays centred in it; a bigger one scrolls
+     * with the player, a little past its edges. Phaser pins a view larger than
+     * its bounds to their top-left corner, so a fitting map gets bounds the
+     * size of the view, centred on the map.
+     */
+    fitCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
+        const span = (map: number, view: number) =>
+            map <= view ? view : map + CAMERA.boundsPadding * 2;
+        const width = span(this.sizePx.width, camera.displayWidth);
+        const height = span(this.sizePx.height, camera.displayHeight);
+        camera.setBounds(
+            (this.sizePx.width - width) / 2,
+            (this.sizePx.height - height) / 2,
+            width,
+            height,
         );
     }
 
