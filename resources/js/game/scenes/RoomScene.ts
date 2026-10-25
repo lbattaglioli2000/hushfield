@@ -19,6 +19,7 @@ import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
 import { FurnitureLayer } from '../world/FurnitureLayer';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
+import { KeyboardMovement } from '../world/KeyboardMovement';
 import type { MovementPort } from '../world/MovementController';
 import { MovementController } from '../world/MovementController';
 
@@ -59,6 +60,7 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
 
     private readonly avatars = new Map<number, AvatarView>();
     private readonly movement: MovementController;
+    private keyboard: KeyboardMovement | null = null;
     private selfId = 0;
     private map: IsoMap | null = null;
     private furniture: FurnitureLayer | null = null;
@@ -128,6 +130,18 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
             ) => this.onTap(pointer, over),
         );
 
+        this.keyboard = new KeyboardMovement({
+            movement: this.movement,
+            maxPathSteps: this.options.maxPathSteps,
+            grid: () => this.map?.grid ?? null,
+            blocked: () =>
+                this.travelling || (this.decorating !== null && this.ownHome),
+            activity: () => this.bus.emit('input-activity', {}),
+        });
+        this.events.once(Phaser.Scenes.Events.DESTROY, () =>
+            this.keyboard?.destroy(),
+        );
+
         this.ready = true;
 
         if (this.pendingSnapshot) {
@@ -139,8 +153,10 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
         }
     }
 
-    update(_time: number, delta: number): void {
+    update(time: number, delta: number): void {
         if (!this.map) return;
+
+        this.keyboard?.update(time);
 
         const now = this.port.serverNow();
 

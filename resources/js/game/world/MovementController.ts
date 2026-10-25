@@ -38,6 +38,27 @@ export class MovementController {
         this.confirmed = state;
     }
 
+    /**
+     * Where the player's own avatar is headed: `next` is the tile a new path starts
+     * from (the end of the step under way, as in predict()), `end` the last tile of
+     * its current path. Null before the avatar exists.
+     */
+    heading(): { next: Tile; end: Tile; moving: boolean } | null {
+        const avatar = this.deps.self();
+
+        if (!avatar) return null;
+
+        const pos = positionOf(avatar.state, this.deps.port.serverNow());
+        const midStep = !pos.finished && pos.progress > 0;
+        const path = avatar.state.path;
+
+        return {
+            next: midStep ? pos.to : pos.tile,
+            end: path[path.length - 1],
+            moving: !pos.finished,
+        };
+    }
+
     async walkTo(target: Tile): Promise<void> {
         const { port, self } = this.deps;
         const avatar = self();
