@@ -97,9 +97,14 @@ return [
     // Station labels on the dial, by room slug. Frequencies live in each room's map.
     'stations' => [
         'home' => 'Home',
+        'bus-stop' => 'Bus Stop',
+        'pier' => 'The Pier',
         'town-square' => 'Town Square',
+        'library' => 'Library',
         'lantern-street' => 'Lantern Street',
+        'night-market' => 'Night Market',
         'hearthmore-residences' => 'Hearthmore',
+        'whsh' => 'WHSH',
     ],
     'chat_placeholder' => 'Press TALK or Enter, and say something kind…',
     'on_air_host' => 'Augustin Moss',
@@ -113,6 +118,13 @@ return [
         'The moths have asked for quiet in the square after dusk. We are inclined to give it to them.',
         'Every door in Hearthmore Residences opens inward. Some of them open further.',
         'Traffic: none. There has never been traffic. We report it anyway, for morale.',
+        'The 11:40 is running late. It has been running late since it was built.',
+        'The road past the Bus Stop goes in both directions. Neither direction has agreed to say where.',
+        'The Pier is a little longer tonight than it was this morning. Please do not walk to the end. There is always more end.',
+        'Hushfield Public Library asks that you keep your voice down. It can hear your thoughts too, but it is more forgiving about those.',
+        'Late returns at the Library are forgiven. Early returns are looked into.',
+        'The Night Market opens at dusk and closes when it decides to. Bring coins. Leave your questions at home.',
+        'You are listening to WHSH, 106.1, from the booth at the end of the Night Market. If you can see the booth, please wave. I cannot see you, but I would like to know.',
         'This has been Augustin Moss. I will be here. I am always here. Keep it low.',
     ],
 

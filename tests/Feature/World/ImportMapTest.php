@@ -1,6 +1,10 @@
 <?php
 
+use App\Domain\World\ImportedMap;
 use App\Domain\World\InvalidMapException;
+use App\Domain\World\MapFiles;
+use App\Domain\World\Pathfinder;
+use App\Domain\World\TiledMapParser;
 use App\Domain\World\WalkabilityGridRepository;
 use App\Models\Room;
 use Illuminate\Support\Facades\File;
@@ -76,4 +80,33 @@ test('rooms without an imported map cannot be joined', function () {
 
     expect(fn () => app(WalkabilityGridRepository::class)->forRoom($room))
         ->toThrow(InvalidMapException::class, 'has no imported map');
+});
+
+test('every committed map imports, and every door leads to a real room, lands on an arrival and can be walked to', function () {
+    config(['hushfield.maps.path' => resource_path('maps')]);
+    $this->artisan('hushfield:import-map')->assertSuccessful();
+
+    $files = app(MapFiles::class);
+    /** @var array<string, ImportedMap> $maps */
+    $maps = collect($files->slugs())->mapWithKeys(fn (string $slug) => [$slug => (new TiledMapParser)->parse($files->read($slug))])->all();
+    $maxSteps = (int) config('hushfield.movement.max_path_steps');
+
+    expect(Room::query()->pluck('slug')->sort()->values()->all())->toBe(collect(array_keys($maps))->sort()->values()->all())
+        ->and(Room::query()->where('slug', 'hearthmore-residences')->sole()->only('frequency', 'home_frequency'))->toBe(['frequency' => 104.8, 'home_frequency' => 88.3]);
+
+    foreach ($maps as $slug => $map) {
+        expect($map->frequency)->not->toBeNull("{$slug} has no frequency on the dial");
+
+        foreach ($map->grid->exits as $exit) {
+            $door = "{$slug} → {$exit->name}";
+
+            expect(isset($maps[$exit->to]))->toBeTrue("{$door} leads to a room with no map")
+                ->and(isset($maps[$exit->to]->grid->arrivals[(string) $exit->arrive]))->toBeTrue("{$door} lands on no arrival");
+
+            foreach ($map->grid->spawns as $spawn) {
+                expect(app(Pathfinder::class)->find($map->grid, $spawn, [$exit->x, $exit->y], $maxSteps))
+                    ->not->toBeNull("{$door} cannot be walked to from the spawn at ({$spawn[0]}, {$spawn[1]})");
+            }
+        }
+    }
 });
