@@ -1,0 +1,122 @@
+[
+    {
+        "name": "before start stands on the first tile",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 400,
+        "expected": {"tile": [0, 0], "offset": [0, 0], "segment": 0, "finished": false}
+    },
+    {
+        "name": "at start stands on the first tile",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 1000,
+        "expected": {"tile": [0, 0], "offset": [0, 0], "segment": 0, "finished": false}
+    },
+    {
+        "name": "mid orthogonal step, 100ms at 4 tiles/s is 0.4 tiles",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 1100,
+        "expected": {"tile": [0, 0], "offset": [0.4, 0], "segment": 0, "finished": false}
+    },
+    {
+        "name": "just before halfway keeps the segment start tile",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 1124,
+        "expected": {"tile": [0, 0], "offset": [0.496, 0], "segment": 0, "finished": false}
+    },
+    {
+        "name": "exactly halfway switches to the segment end tile",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 1125,
+        "expected": {"tile": [1, 0], "offset": [-0.5, 0], "segment": 0, "finished": false}
+    },
+    {
+        "name": "exactly at the first step boundary starts the next segment",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 1250,
+        "expected": {"tile": [1, 0], "offset": [0, 0], "segment": 1, "finished": false}
+    },
+    {
+        "name": "walking west past halfway of the second step",
+        "path": [[3, 2], [2, 2], [1, 2]],
+        "started_at_ms": 0,
+        "speed": 4,
+        "now_ms": 400,
+        "expected": {"tile": [1, 2], "offset": [0.4, 0], "segment": 1, "finished": false}
+    },
+    {
+        "name": "exactly at the end is finished on the last tile",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 1500,
+        "expected": {"tile": [2, 0], "offset": [0, 0], "segment": 2, "finished": true}
+    },
+    {
+        "name": "long after the end stays finished on the last tile",
+        "path": [[0, 0], [1, 0], [2, 0]],
+        "started_at_ms": 1000,
+        "speed": 4,
+        "now_ms": 60000,
+        "expected": {"tile": [2, 0], "offset": [0, 0], "segment": 2, "finished": true}
+    },
+    {
+        "name": "mid diagonal step, 0.4 tiles of travel along a sqrt(2) step",
+        "path": [[0, 0], [1, 1]],
+        "started_at_ms": 0,
+        "speed": 4,
+        "now_ms": 100,
+        "expected": {"tile": [0, 0], "offset": [0.282842712474619, 0.282842712474619], "segment": 0, "finished": false}
+    },
+    {
+        "name": "diagonal step past halfway",
+        "path": [[0, 0], [1, 1], [2, 1]],
+        "started_at_ms": 0,
+        "speed": 4,
+        "now_ms": 300,
+        "expected": {"tile": [1, 1], "offset": [-0.151471862576143, -0.151471862576143], "segment": 0, "finished": false}
+    },
+    {
+        "name": "diagonal step is still under way after 1.412 tiles of travel",
+        "path": [[0, 0], [1, 1], [2, 1]],
+        "started_at_ms": 0,
+        "speed": 4,
+        "now_ms": 353,
+        "expected": {"tile": [1, 1], "offset": [-0.001565224964595, -0.001565224964595], "segment": 0, "finished": false}
+    },
+    {
+        "name": "just past the diagonal boundary carries the remainder into the next step",
+        "path": [[0, 0], [1, 1], [2, 1]],
+        "started_at_ms": 0,
+        "speed": 4,
+        "now_ms": 354,
+        "expected": {"tile": [1, 1], "offset": [0.001786437626905, 0], "segment": 1, "finished": false}
+    },
+    {
+        "name": "slower speed, halfway through the second step heading south",
+        "path": [[0, 0], [0, 1], [0, 2]],
+        "started_at_ms": 500,
+        "speed": 2,
+        "now_ms": 1250,
+        "expected": {"tile": [0, 2], "offset": [0, -0.5], "segment": 1, "finished": false}
+    },
+    {
+        "name": "single tile path is already finished",
+        "path": [[4, 3]],
+        "started_at_ms": 5000,
+        "speed": 4,
+        "now_ms": 5000,
+        "expected": {"tile": [4, 3], "offset": [0, 0], "segment": 0, "finished": true}
+    }
+]
