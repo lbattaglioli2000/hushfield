@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -11,27 +11,30 @@ import {
 import type { EventBus, GameEvents, ReportReasonOption } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
+export type ReportTarget = GameEvents['player-selected'];
+
 export default function ReportDialog({
     bus,
     reasons,
+    target,
+    onClose,
 }: {
     bus: EventBus;
     reasons: ReportReasonOption[];
+    /** Who is being reported; the dialog is open while set. */
+    target: ReportTarget | null;
+    onClose: () => void;
 }) {
-    const [target, setTarget] = useState<GameEvents['report-target'] | null>(
-        null,
-    );
     const [reason, setReason] = useState('');
     const [result, setResult] = useState<GameEvents['report-result'] | null>(
         null,
     );
     const [sending, setSending] = useState(false);
 
-    useGameBus(bus, 'report-target', (next) => {
-        setTarget(next);
+    useEffect(() => {
         setReason('');
         setResult(null);
-    });
+    }, [target]);
     useGameBus(bus, 'report-result', (next) => {
         setSending(false);
         setResult(next);
@@ -40,7 +43,7 @@ export default function ReportDialog({
     return (
         <Dialog
             open={target !== null}
-            onOpenChange={(open) => !open && setTarget(null)}
+            onOpenChange={(open) => !open && onClose()}
         >
             <DialogContent data-test="report-dialog">
                 <DialogHeader>
@@ -90,7 +93,7 @@ export default function ReportDialog({
 
                 <DialogFooter>
                     {result?.ok ? (
-                        <Button onClick={() => setTarget(null)}>Close</Button>
+                        <Button onClick={onClose}>Close</Button>
                     ) : (
                         <Button
                             disabled={!reason || sending}

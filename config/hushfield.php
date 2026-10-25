@@ -57,6 +57,14 @@ return [
         'bubble_seconds' => 6,
     ],
 
+    'friends' => [
+        'max_friends' => 200,
+        // Requests a resident may have waiting for an answer at once.
+        'max_pending_requests' => 50,
+        // Only residents in the same age bracket (13–17, 18+) can become friends.
+        'same_age_bracket_only' => true,
+    ],
+
     'economy' => [
         // Coins Hearthmore Group pays each resident once per Hushfield day.
         'daily_stipend' => 25,

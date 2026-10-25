@@ -156,4 +156,47 @@ final class WorldActionRefused extends RuntimeException
     {
         return new self('home_too_fast', 429);
     }
+
+    public static function friendUnknown(): self
+    {
+        return new self('friend_unknown', 404);
+    }
+
+    public static function friendSelf(): self
+    {
+        return new self('friend_self', 422);
+    }
+
+    public static function friendAlready(): self
+    {
+        return new self('friend_already', 409);
+    }
+
+    /**
+     * The resident has requests turned off, or is in another age bracket; the two read the same.
+     */
+    public static function friendRequestsClosed(): self
+    {
+        return new self('friend_requests_closed', 403);
+    }
+
+    public static function friendRequestGone(): self
+    {
+        return new self('friend_request_gone', 404);
+    }
+
+    public static function friendTooManyRequests(): self
+    {
+        return new self('friend_too_many_requests', 409);
+    }
+
+    public static function friendListFull(): self
+    {
+        return new self('friend_list_full', 409);
+    }
+
+    public static function friendsTooFast(): self
+    {
+        return new self('friends_too_fast', 429);
+    }
 }

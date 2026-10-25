@@ -61,8 +61,12 @@ class UserInfolist
                             ->dateTime(),
                         TextEntry::make('home')
                             ->label('Residence')
-                            ->state(fn (User $record): ?string => $record->home === null ? null : ($record->home->is_open ? 'Open to visitors' : 'Closed').' · '.$record->home->furniture()->count().' pieces placed')
+                            ->state(fn (User $record): ?string => $record->home === null ? null : $record->home->visitors->getLabel().' · '.$record->home->furniture()->count().' pieces placed')
                             ->placeholder('Not moved in'),
+                        TextEntry::make('friends_count')
+                            ->label('Friends')
+                            ->numeric()
+                            ->state(fn (User $record): int => $record->friends()->count()),
                         TextEntry::make('coins')
                             ->label('Coins')
                             ->numeric()

@@ -9,6 +9,7 @@ use App\Http\Controllers\Housing\HomeVisitorsController;
 use App\Http\Controllers\Housing\PlaceFurnitureController;
 use App\Http\Controllers\Housing\PutAwayFurnitureController;
 use App\Http\Controllers\Identity\AgeGateController;
+use App\Http\Controllers\Social\FriendsController;
 use App\Http\Controllers\World\AssetManifestController;
 use App\Http\Controllers\World\ChatController;
 use App\Http\Controllers\World\EndWorldSessionController;
@@ -53,6 +54,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('stipend', ClaimStipendController::class)->middleware('throttle:economy')->name('stipend.claim');
             Route::get('shop', ShopController::class)->name('shop');
             Route::post('shop/{item}/purchase', PurchaseItemController::class)->middleware('throttle:economy')->name('shop.purchase');
+
+            Route::get('friends', [FriendsController::class, 'index'])->name('friends');
+            Route::middleware('throttle:friends')->group(function () {
+                Route::post('friends/requests', [FriendsController::class, 'send'])->name('friends.requests.send');
+                Route::post('friends/requests/{friendRequest}/accept', [FriendsController::class, 'accept'])->name('friends.requests.accept');
+                Route::delete('friends/requests/{friendRequest}', [FriendsController::class, 'dismiss'])->name('friends.requests.dismiss');
+                Route::delete('friends/{friend}', [FriendsController::class, 'remove'])->name('friends.remove');
+                Route::post('friends/settings', [FriendsController::class, 'settings'])->name('friends.settings');
+            });
 
             Route::get('homes', HomesController::class)->name('homes');
             Route::middleware('throttle:home')->group(function () {

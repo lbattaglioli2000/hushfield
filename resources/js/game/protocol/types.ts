@@ -28,12 +28,14 @@ export type PlayerState = PathState & {
 
 export type RoomKind = 'public' | 'residence';
 
+export type HomeVisitors = 'closed' | 'friends' | 'everyone';
+
 /** The home a snapshot's instance belongs to. */
 export type HomeInfo = {
     id: number;
     owner_id: number;
     owner: string;
-    is_open: boolean;
+    visitors: HomeVisitors;
 };
 
 /** An owned furniture item standing on a tile of a home. */
@@ -119,6 +121,36 @@ export type Wallet = {
 /** The resident's own home, and the homes open to visitors. `residence` is null until the residence map is imported. */
 export type HomesList = {
     residence: string | null;
-    own: { instance_id: number; is_open: boolean } | null;
-    open: Array<{ instance_id: number; owner: string; visitors: number }>;
+    own: { instance_id: number; visitors: HomeVisitors } | null;
+    open: Array<{
+        instance_id: number;
+        owner: string;
+        friends_only: boolean;
+        visitors: number;
+    }>;
 };
+
+export type PlayerRef = { id: number; username: string };
+
+export type Friend = PlayerRef & {
+    online: boolean;
+    /** Where an online friend is; null when offline or between rooms. */
+    location: {
+        room: string;
+        instance_id: number;
+        label: string;
+        can_join: boolean;
+    } | null;
+};
+
+export type FriendsList = {
+    friends: Friend[];
+    incoming: Array<{ id: number; user: PlayerRef }>;
+    outgoing: Array<{ id: number; user: PlayerRef }>;
+    requests_allowed: boolean;
+};
+
+/** The answer to anything that changes a friends list. */
+export type FriendsUpdate = { message: string | null; friends: FriendsList };
+
+export type FriendsUpdatedEvent = Stamped & { message: string | null };

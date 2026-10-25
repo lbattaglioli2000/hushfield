@@ -4,9 +4,10 @@ import ChatBar from '@/components/play/chat-bar';
 import ConnectionBanner from '@/components/play/connection-banner';
 import EconomyHud from '@/components/play/economy-hud';
 import FatalScreen from '@/components/play/fatal-screen';
+import Friends from '@/components/play/friends';
 import InstanceLabel from '@/components/play/instance-label';
 import Notices from '@/components/play/notices';
-import ReportDialog from '@/components/play/report-dialog';
+import PlayerCard from '@/components/play/player-card';
 import Residences from '@/components/play/residences';
 import type { GameBootProps } from '@/game';
 import { EventBus, startGame } from '@/game';
@@ -46,11 +47,14 @@ export default function Play({ game }: PlayProps) {
                 <div ref={parent} className="absolute inset-0 touch-none" />
                 <InstanceLabel bus={bus} />
                 <EconomyHud bus={bus} copy={game.copy} />
-                <Residences bus={bus} copy={game.copy} />
+                <div className="absolute top-12 left-3 flex items-start gap-2">
+                    <Friends bus={bus} copy={game.copy} />
+                    <Residences bus={bus} copy={game.copy} />
+                </div>
                 <ConnectionBanner bus={bus} />
                 <Notices bus={bus} />
                 <ChatBar bus={bus} maxLength={game.chatMaxLength} />
-                <ReportDialog bus={bus} reasons={game.reportReasons} />
+                <PlayerCard bus={bus} reasons={game.reportReasons} />
                 <FatalScreen bus={bus} copy={game.copy} />
             </main>
         </>

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\Housing\HomeVisitors;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -11,25 +12,26 @@ use Illuminate\Support\Carbon;
 
 /**
  * A resident's home: their own instance of the residence room. Closed to
- * visitors unless the owner opens it. Created by App\Domain\Housing\Residences.
+ * visitors unless the owner opens it to friends or to everyone. Created by
+ * App\Domain\Housing\Residences.
  *
  * @property int $id
  * @property int $user_id
  * @property int $room_instance_id
- * @property bool $is_open
+ * @property HomeVisitors $visitors
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User $owner
  * @property-read RoomInstance $instance
  * @property-read Collection<int, HomeFurniture> $furniture
  */
-#[Fillable(['user_id', 'room_instance_id', 'is_open'])]
+#[Fillable(['user_id', 'room_instance_id', 'visitors'])]
 class Home extends Model
 {
     protected function casts(): array
     {
         return [
-            'is_open' => 'boolean',
+            'visitors' => HomeVisitors::class,
         ];
     }
 
@@ -53,13 +55,17 @@ class Home extends Model
 
     public function admits(User $user): bool
     {
-        return $this->is_open || $this->user_id === $user->id;
+        return match ($this->visitors) {
+            HomeVisitors::Everyone => true,
+            HomeVisitors::Friends => $this->user_id === $user->id || $this->owner->isFriendsWith($user),
+            HomeVisitors::Closed => $this->user_id === $user->id,
+        };
     }
 
     /**
      * What clients are told about the home they are standing in.
      *
-     * @return array{id: int, owner_id: int, owner: string, is_open: bool}
+     * @return array{id: int, owner_id: int, owner: string, visitors: string}
      */
     public function toPayload(): array
     {
@@ -67,7 +73,7 @@ class Home extends Model
             'id' => $this->id,
             'owner_id' => $this->user_id,
             'owner' => $this->owner->username,
-            'is_open' => $this->is_open,
+            'visitors' => $this->visitors->value,
         ];
     }
 

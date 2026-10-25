@@ -39,6 +39,8 @@ final class PlayController extends Controller
         'residences_intro',
         'residences_empty',
         'decorate_hint',
+        'friends_title',
+        'friends_empty',
     ];
 
     public function __invoke(): Response

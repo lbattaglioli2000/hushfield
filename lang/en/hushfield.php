@@ -33,6 +33,7 @@ return [
     'home_door_closed' => 'Your host has closed their door. You have been shown back to the square.',
     'residences_closed' => 'Hearthmore Residences is not accepting residents just yet.',
     'home_opened' => 'Your door is open. Visitors may now let themselves in.',
+    'home_friends' => 'Your door is open to friends. Everyone else will have to wonder.',
     'home_shut' => 'Your door is closed. Only you may come in.',
     'not_furniture' => "That isn't furniture. Please don't try to sit on it.",
     'furniture_blocked' => "That spot isn't available. Something, or a doorway, is already there.",
@@ -71,6 +72,25 @@ return [
     'purchase_complete' => "It's yours now. Please treat it gently.",
     'stipend_granted' => 'Hearthmore Group has deposited your daily stipend. Please do not ask where it came from.',
     'stipend_claimed' => 'Hearthmore Group has already been generous today. Generosity resumes at midnight.',
+
+    // Friends
+    'friends_title' => 'Friends',
+    'friends_empty' => 'No friends yet. Everyone starts somewhere, usually here.',
+    'friend_request_sent' => 'Your request has been delivered. It will be considered.',
+    'friend_request_received' => ':name would like to be your friend.',
+    'friendship_started' => ':name is now your friend. Hearthmore Group is pleased for you both.',
+    'friend_removed' => 'You are no longer friends. Nobody else has been told.',
+    'friend_request_dismissed' => 'The request has been set aside.',
+    'friend_requests_on' => 'Residents may now send you friend requests.',
+    'friend_requests_off' => 'You will no longer receive friend requests.',
+    'friend_unknown' => 'No resident goes by that name.',
+    'friend_self' => 'You are already on good terms with yourself.',
+    'friend_already' => "You're already friends.",
+    'friend_requests_closed' => "That resident isn't accepting friend requests.",
+    'friend_request_gone' => 'That request is no longer waiting. Perhaps it was answered.',
+    'friend_too_many_requests' => 'You have many requests waiting for answers. Let some of them land first.',
+    'friend_list_full' => 'That friends list is full. Even Hushfield has limits.',
+    'friends_too_fast' => 'Friendship takes a moment. Please try again shortly.',
 
     // Accounts
     'underage' => "Hushfield isn't open to you yet. It will wait.",

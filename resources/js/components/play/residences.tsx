@@ -12,12 +12,19 @@ import type {
     EventBus,
     GameEvents,
     HomesList,
+    HomeVisitors,
     Item,
     PlacedFurniture,
 } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 
 const RESULT_MS = 5000;
+
+const VISITOR_OPTIONS: Array<{ value: HomeVisitors; label: string }> = [
+    { value: 'closed', label: 'Nobody' },
+    { value: 'friends', label: 'Friends' },
+    { value: 'everyone', label: 'Everyone' },
+];
 
 /**
  * The Residences button and directory, and decorate mode in the player's own
@@ -82,7 +89,7 @@ export default function Residences({
 
     return (
         <>
-            <div className="absolute top-12 left-3 flex flex-col items-start gap-2">
+            <div className="flex flex-col items-start gap-2">
                 <div className="flex gap-2">
                     <Button
                         size="sm"
@@ -196,26 +203,51 @@ export default function Residences({
                                 >
                                     {room.ownHome ? "You're home" : 'Go home'}
                                 </Button>
-                                {homes.own && (
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            bus.emit('set-home-open', {
-                                                open: !homes.own?.is_open,
-                                            })
-                                        }
-                                        data-test="toggle-door"
-                                    >
-                                        {homes.own.is_open
-                                            ? 'Close my door'
-                                            : 'Open my door to visitors'}
-                                    </Button>
-                                )}
                             </div>
+
+                            {homes.own && (
+                                <fieldset
+                                    className="grid gap-2"
+                                    data-test="door-setting"
+                                >
+                                    <legend className="mb-1 text-sm font-medium">
+                                        Who may visit your home
+                                    </legend>
+                                    <div className="flex flex-wrap gap-2">
+                                        {VISITOR_OPTIONS.map(
+                                            ({ value, label }) => (
+                                                <Button
+                                                    key={value}
+                                                    size="sm"
+                                                    variant={
+                                                        homes.own?.visitors ===
+                                                        value
+                                                            ? 'default'
+                                                            : 'outline'
+                                                    }
+                                                    aria-pressed={
+                                                        homes.own?.visitors ===
+                                                        value
+                                                    }
+                                                    onClick={() =>
+                                                        bus.emit(
+                                                            'set-home-visitors',
+                                                            { visitors: value },
+                                                        )
+                                                    }
+                                                    data-test={`door-${value}`}
+                                                >
+                                                    {label}
+                                                </Button>
+                                            ),
+                                        )}
+                                    </div>
+                                </fieldset>
+                            )}
 
                             <div className="grid gap-2">
                                 <p className="text-sm font-medium">
-                                    Open doors
+                                    Doors you may knock on
                                 </p>
                                 {homes.open.length === 0 ? (
                                     <p className="text-sm text-muted-foreground">
@@ -233,6 +265,8 @@ export default function Residences({
                                                     {home.owner}
                                                     <span className="ml-2 text-xs text-muted-foreground">
                                                         {home.visitors} inside
+                                                        {home.friends_only &&
+                                                            ' · friends only'}
                                                     </span>
                                                 </span>
                                                 <Button

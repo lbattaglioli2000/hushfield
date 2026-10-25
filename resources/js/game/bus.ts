@@ -1,5 +1,7 @@
 import type {
+    FriendsList,
     HomeInfo,
+    HomeVisitors,
     HomesList,
     Item,
     PlacedFurniture,
@@ -22,7 +24,7 @@ export type FatalKind =
 export type GameEvents = {
     // Game → UI
     connection: { state: ConnectionState; message?: string };
-    instance: { label: string; number: number };
+    instance: { id: number; label: string; number: number };
     /** After every snapshot: the room the player is in, and whose home it is. */
     room: {
         slug: string;
@@ -37,12 +39,17 @@ export type GameEvents = {
     furniture: { placed: PlacedFurniture[] };
     /** The answer to a 'load-homes' or 'set-home-open'. */
     homes: HomesList;
+    /** After entering the world, after every change to the list, and whenever a friend request arrives. */
+    friends: FriendsList;
+    /** The outcome of anything asked of the friends list. */
+    'friends-result': { ok: boolean; message: string };
     /** The outcome of anything asked of the residences: travel, the door, furniture. */
     'home-result': { ok: boolean; message: string };
     notice: { message: string };
     fatal: { kind: FatalKind; message: string };
     'chat-error': { message: string };
-    'report-target': {
+    /** The player tapped another resident. */
+    'player-selected': {
         userId: number;
         username: string;
         messageId: number | null;
@@ -70,7 +77,13 @@ export type GameEvents = {
     /** Go to a room: the residence with no instance is the player's own home. */
     travel: { slug: string; instanceId: number | null };
     'load-homes': Record<string, never>;
-    'set-home-open': { open: boolean };
+    'set-home-visitors': { visitors: HomeVisitors };
+    /** Fresh locations and requests, for when the friends list opens. */
+    'load-friends': Record<string, never>;
+    'send-friend-request': { username: string };
+    'answer-friend-request': { requestId: number; accept: boolean };
+    'remove-friend': { userId: number };
+    'set-friend-requests': { allowed: boolean };
     /** In decorate mode taps place the armed item, or put away the piece tapped, instead of walking. */
     decorate: { active: boolean; armedItemId: number | null };
     /** No payload: any input that keeps the player from being shown as away. */

@@ -12,6 +12,7 @@ export const SESSION_EVENTS = {
     accessRevoked: '.WorldAccessRevoked',
     warned: '.PlayerWarned',
     instanceReassigned: '.InstanceReassigned',
+    friendsUpdated: '.FriendsUpdated',
 } as const;
 
 /** On a room instance's presence channel. */

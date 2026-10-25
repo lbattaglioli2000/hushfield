@@ -29,8 +29,8 @@ export function connectHousing(
         bus.on('load-homes', () => {
             loadHomes().catch(fail);
         }),
-        bus.on('set-home-open', ({ open }) => {
-            net.setHomeOpen(open)
+        bus.on('set-home-visitors', ({ visitors }) => {
+            net.setHomeVisitors(visitors)
                 .then((message) => {
                     bus.emit('home-result', { ok: true, message });
 

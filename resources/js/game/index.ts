@@ -3,6 +3,7 @@ import type { EventBus } from './bus';
 import type { Copy } from './copy';
 import { connectEconomy } from './economy';
 import { connectHousing } from './housing';
+import { connectSocial } from './social';
 import { userMessage } from './net/http';
 import type { RealtimeConfig } from './net/realtime';
 import { WorldNet } from './net/WorldNet';
@@ -17,7 +18,10 @@ export type { Copy } from './copy';
 export type { RealtimeConfig } from './net/realtime';
 export { PROTOCOL } from './protocol/types';
 export type {
+    Friend,
+    FriendsList,
     HomeInfo,
+    HomeVisitors,
     HomesList,
     Item,
     ItemSlot,
@@ -150,6 +154,8 @@ export function startGame(
     const economy = connectEconomy(net, bus, config.copy);
     cleanups.push(() => economy.dispose());
     cleanups.push(connectHousing(net, bus, config.copy, () => scene));
+    const social = connectSocial(net, bus, config.copy);
+    cleanups.push(() => social.dispose());
 
     void (async () => {
         const response = await fetch(config.manifestUrl);
@@ -182,7 +188,10 @@ export function startGame(
 
         await net.start();
 
-        if (!destroyed) economy.loadWallet();
+        if (!destroyed) {
+            economy.loadWallet();
+            social.loadFriends();
+        }
     })().catch((error: unknown) => {
         // Boot failures are not reconnects: show them, so the player isn't left waiting.
         if (!destroyed) net.abort(error);

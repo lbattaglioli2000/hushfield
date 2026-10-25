@@ -3,6 +3,7 @@
 namespace App\Actions\Housing;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Housing\HomeVisitors;
 use App\Events\World\FurnitureChanged;
 use App\Events\WorldBroadcast;
 use App\Models\Home;
@@ -19,8 +20,8 @@ final readonly class ResetHome
     public function __invoke(Home $home, User $staff, string $reason): void
     {
         $removed = $home->furniture()->delete();
-        $home->forceFill(['is_open' => false])->save();
-        $shownOut = $this->setHomeVisitors->showVisitorsOut($home);
+        $home->forceFill(['visitors' => HomeVisitors::Closed])->save();
+        $shownOut = $this->setHomeVisitors->showOutUnwelcome($home);
 
         WorldBroadcast::send(new FurnitureChanged($home->room_instance_id, []));
 

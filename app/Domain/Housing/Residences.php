@@ -48,7 +48,7 @@ final readonly class Residences
                 'is_open' => true,
             ]);
 
-            return Home::query()->create(['user_id' => $owner->id, 'room_instance_id' => $instance->id, 'is_open' => false]);
+            return Home::query()->create(['user_id' => $owner->id, 'room_instance_id' => $instance->id, 'visitors' => HomeVisitors::Closed]);
         });
 
         $owner->setRelation('home', $home);

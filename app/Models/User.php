@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -103,6 +104,29 @@ class User extends Authenticatable implements FilamentUser, HasName, MustVerifyE
     public function sanctions(): HasMany
     {
         return $this->hasMany(Sanction::class);
+    }
+
+    /** @return BelongsToMany<User, $this> */
+    public function friends(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'friendships', 'user_id', 'friend_id');
+    }
+
+    public function isFriendsWith(User $other): bool
+    {
+        return Friendship::query()->where('user_id', $this->id)->where('friend_id', $other->id)->exists();
+    }
+
+    /** @return HasMany<FriendRequest, $this> */
+    public function incomingFriendRequests(): HasMany
+    {
+        return $this->hasMany(FriendRequest::class, 'recipient_id');
+    }
+
+    /** @return HasMany<FriendRequest, $this> */
+    public function outgoingFriendRequests(): HasMany
+    {
+        return $this->hasMany(FriendRequest::class, 'sender_id');
     }
 
     /** @return HasOne<Home, $this> */

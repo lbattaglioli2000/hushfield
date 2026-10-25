@@ -328,7 +328,7 @@ export class RoomScene extends Phaser.Scene implements WorldListener {
 
             if (userId !== this.selfId) {
                 const avatar = this.avatars.get(userId);
-                this.bus.emit('report-target', {
+                this.bus.emit('player-selected', {
                     userId,
                     username: avatar?.username ?? '',
                     messageId: avatar?.lastMessage?.id ?? null,

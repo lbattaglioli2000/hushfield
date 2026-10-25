@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\World\CloseEmptyInstances;
+use App\Domain\Housing\HomeVisitors;
 use App\Domain\Items\InventorySource;
 use App\Domain\Presence\InstanceMembers;
 use App\Events\Presence\InstanceReassigned;
@@ -43,7 +44,7 @@ test('entering the residence takes a resident to their own home, created once', 
 
     $first = visitHome($visitor, null)->assertOk()
         ->assertJsonPath('snapshot.home.owner_id', $visitor->id)
-        ->assertJsonPath('snapshot.home.is_open', false)
+        ->assertJsonPath('snapshot.home.visitors', 'closed')
         ->assertJsonPath('snapshot.instance.label', "{$visitor->username}'s residence")
         ->assertJsonPath('snapshot.furniture', []);
 
@@ -68,7 +69,7 @@ test('a closed home turns visitors away and leaves them where they were', functi
 });
 
 test('an open home is listed and lets visitors in, up to its capacity', function () {
-    asResident($this->owner, $this->ownerToken)->postJson(route('world.home.visitors'), ['open' => true])
+    asResident($this->owner, $this->ownerToken)->postJson(route('world.home.visitors'), ['visitors' => 'everyone'])
         ->assertOk()
         ->assertJsonPath('message', __('hushfield.home_opened'));
 
@@ -82,6 +83,7 @@ test('an open home is listed and lets visitors in, up to its capacity', function
         ->assertJsonPath('residence', 'test-home')
         ->assertJsonPath('own', null)
         ->assertJsonPath('open.0.owner', 'Wren')
+        ->assertJsonPath('open.0.friends_only', false)
         ->assertJsonPath('open.0.visitors', 2);
 
     // test-home holds 3: the owner, the guest, and one more.
@@ -90,13 +92,13 @@ test('an open home is listed and lets visitors in, up to its capacity', function
 });
 
 test('closing the door shows visitors out to the square and leaves the owner in', function () {
-    $this->home->update(['is_open' => true]);
+    $this->home->update(['visitors' => HomeVisitors::Everyone]);
     $guest = resident();
     visitHome($guest, $this->home->room_instance_id)->assertOk();
 
-    asResident($this->owner, $this->ownerToken)->postJson(route('world.home.visitors'), ['open' => false])
+    asResident($this->owner, $this->ownerToken)->postJson(route('world.home.visitors'), ['visitors' => 'closed'])
         ->assertOk()
-        ->assertJsonPath('own.is_open', false);
+        ->assertJsonPath('own.visitors', 'closed');
 
     expect($this->members->all($this->home->room_instance_id))->toBe([$this->owner->id]);
 

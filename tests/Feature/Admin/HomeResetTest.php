@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Housing\HomeVisitors;
 use App\Domain\Items\InventorySource;
 use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Models\InventoryItem;
@@ -20,7 +21,7 @@ test('a moderator resets a home: furniture is put away, the door is closed, and 
     $owner = resident();
     enterWorld($owner, $this->residence);
     $home = $owner->home()->sole();
-    $home->update(['is_open' => true]);
+    $home->update(['visitors' => HomeVisitors::Everyone]);
     $owned = InventoryItem::query()->create(['user_id' => $owner->id, 'item_id' => Item::factory()->furniture()->create()->id, 'source' => InventorySource::Purchase]);
     $home->furniture()->create(['inventory_item_id' => $owned->id, 'x' => 1, 'y' => 1]);
 
@@ -29,7 +30,7 @@ test('a moderator resets a home: furniture is put away, the door is closed, and 
         ->assertHasNoActionErrors()
         ->assertNotified('Home reset');
 
-    expect($home->fresh()->is_open)->toBeFalse()
+    expect($home->fresh()->visitors)->toBe(HomeVisitors::Closed)
         ->and($home->furniture()->count())->toBe(0)
         ->and($owner->inventory()->count())->toBe(1)
         ->and(Activity::query()->where('event', 'home.reset')->sole()->properties['furniture_removed'])->toBe(1);

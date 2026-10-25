@@ -3,6 +3,7 @@
 namespace App\Actions\Housing;
 
 use App\Actions\World\RelocatePlayer;
+use App\Domain\Housing\HomeVisitors;
 use App\Domain\Housing\Residences;
 use App\Domain\Presence\InstanceMembers;
 use App\Exceptions\WorldActionRefused;
@@ -10,8 +11,8 @@ use App\Models\Home;
 use App\Models\User;
 
 /**
- * Opens or closes a resident's home to visitors. Closing it sends any visitors
- * inside back to the default room; the owner stays.
+ * Sets who may visit a resident's home. Visitors inside who are no longer
+ * welcome are sent back to the default room; the owner stays.
  */
 final readonly class SetHomeVisitors
 {
@@ -21,34 +22,33 @@ final readonly class SetHomeVisitors
         private RelocatePlayer $relocatePlayer,
     ) {}
 
-    public function __invoke(User $owner, bool $open): Home
+    public function __invoke(User $owner, HomeVisitors $visitors): Home
     {
         $residence = $this->residences->room() ?? throw WorldActionRefused::residencesClosed();
         $home = $this->residences->homeOf($owner, $residence);
-        $home->forceFill(['is_open' => $open])->save();
+        $home->forceFill(['visitors' => $visitors])->save();
 
-        if (! $open) {
-            $this->showVisitorsOut($home);
-        }
+        $this->showOutUnwelcome($home);
 
         return $home;
     }
 
     /**
-     * Everyone in the home except its owner leaves for the default room.
+     * Everyone in the home whom it no longer admits leaves for the default room.
      */
-    public function showVisitorsOut(Home $home): int
+    public function showOutUnwelcome(Home $home): int
     {
-        $visitors = User::query()
+        $unwelcome = User::query()
             ->with('worldSession')
             ->whereIn('id', $this->members->all($home->room_instance_id))
             ->whereKeyNot($home->user_id)
-            ->get();
+            ->get()
+            ->reject(fn (User $visitor): bool => $home->admits($visitor));
 
-        foreach ($visitors as $visitor) {
+        foreach ($unwelcome as $visitor) {
             ($this->relocatePlayer)($visitor, $home->instance, (string) __('hushfield.home_door_closed'), roomSlug: (string) config('hushfield.world.default_room'));
         }
 
-        return $visitors->count();
+        return $unwelcome->count();
     }
 }

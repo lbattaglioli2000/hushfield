@@ -8,6 +8,10 @@ import {
 } from '../protocol/channels';
 import type {
     ChatMessageSentEvent,
+    FriendsList,
+    FriendsUpdate,
+    FriendsUpdatedEvent,
+    HomeVisitors,
     FurnitureChangedEvent,
     HomesList,
     IdleWhisper,
@@ -217,14 +221,45 @@ export class WorldNet {
         return this.request<HomesList>('GET', '/world/homes');
     }
 
-    async setHomeOpen(open: boolean): Promise<string> {
+    async setHomeVisitors(visitors: HomeVisitors): Promise<string> {
         const body = await this.request<{ message: string }>(
             'POST',
             '/world/home/visitors',
-            { open },
+            { visitors },
         );
 
         return body.message;
+    }
+
+    async friends(): Promise<FriendsList> {
+        return (await this.request<FriendsUpdate>('GET', '/world/friends'))
+            .friends;
+    }
+
+    sendFriendRequest(username: string): Promise<FriendsUpdate> {
+        return this.request('POST', '/world/friends/requests', { username });
+    }
+
+    answerFriendRequest(
+        requestId: number,
+        accept: boolean,
+    ): Promise<FriendsUpdate> {
+        return accept
+            ? this.request(
+                  'POST',
+                  `/world/friends/requests/${requestId}/accept`,
+              )
+            : this.request('DELETE', `/world/friends/requests/${requestId}`);
+    }
+
+    removeFriend(userId: number): Promise<FriendsUpdate> {
+        return this.request('DELETE', `/world/friends/${userId}`);
+    }
+
+    setFriendRequests(allowed: boolean): Promise<FriendsUpdate> {
+        return this.request('POST', '/world/friends/settings', {
+            requests_allowed: allowed,
+        });
     }
 
     async placeFurniture(itemId: number, tile: Tile): Promise<void> {
@@ -329,6 +364,7 @@ export class WorldNet {
         this.instance = snapshot.instance;
         this.listener.snapshot(snapshot, this.selfId);
         this.bus.emit('instance', {
+            id: snapshot.instance.id,
             label: snapshot.instance.label,
             number: snapshot.instance.number,
         });
@@ -458,6 +494,18 @@ export class WorldNet {
             )
             .listen(SESSION_EVENTS.warned, () =>
                 this.bus.emit('notice', { message: copy.warned }),
+            )
+            .listen(
+                SESSION_EVENTS.friendsUpdated,
+                (event: FriendsUpdatedEvent) => {
+                    if (event.message) {
+                        this.bus.emit('notice', { message: event.message });
+                    }
+
+                    this.friends()
+                        .then((friends) => this.bus.emit('friends', friends))
+                        .catch(() => undefined);
+                },
             )
             .listen(
                 SESSION_EVENTS.instanceReassigned,

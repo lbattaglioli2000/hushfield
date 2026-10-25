@@ -23,6 +23,8 @@ export type CopyKey =
     | 'residences_title'
     | 'residences_intro'
     | 'residences_empty'
-    | 'decorate_hint';
+    | 'decorate_hint'
+    | 'friends_title'
+    | 'friends_empty';
 
 export type Copy = Record<CopyKey, string>;
