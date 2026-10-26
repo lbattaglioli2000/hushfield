@@ -48,7 +48,8 @@ have no walls; hedges or the map's edge close them in.
 To turn walls on, give the map a string property **`walls`** naming a style,
 a slug such as `plaster`. It names the style's art; until there is some, each
 panel is a plain block tinted by the style's name. In use: `plaster` (the
-Library), `acoustic` (WHSH), `tiled` (the Coin Laundry).
+Library), `acoustic` (WHSH), `tiled` (the Coin Laundry), `wallpaper` (every
+house in Hearthmore Residences).
 
 - **Where they stand**: on the back row and column, their faces on those
   tiles' inner edges, where the floor begins, meeting behind the corner tile
