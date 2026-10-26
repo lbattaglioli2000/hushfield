@@ -77,7 +77,15 @@ final readonly class WalkabilityGrid
 
     public function hasFixture(FixtureKind $kind): bool
     {
-        return in_array($kind, array_map(fn (MapFixture $fixture): FixtureKind => $fixture->kind, $this->fixtures), true);
+        return $this->fixtures($kind) !== [];
+    }
+
+    /**
+     * @return list<MapFixture>
+     */
+    public function fixtures(FixtureKind $kind): array
+    {
+        return array_values(array_filter($this->fixtures, fn (MapFixture $fixture): bool => $fixture->kind === $kind));
     }
 
     /**

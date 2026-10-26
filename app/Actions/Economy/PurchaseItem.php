@@ -4,8 +4,9 @@ namespace App\Actions\Economy;
 
 use App\Domain\Economy\InsufficientCoins;
 use App\Domain\Economy\LedgerReason;
-use App\Domain\Economy\ShopCounter;
 use App\Domain\Items\InventorySource;
+use App\Domain\World\FixtureKind;
+use App\Domain\World\FixtureReach;
 use App\Exceptions\WorldActionRefused;
 use App\Features\ShopEnabled;
 use App\Features\WorldFlags;
@@ -26,7 +27,7 @@ final readonly class PurchaseItem
 {
     public function __construct(
         private RecordLedgerEntry $recordLedgerEntry,
-        private ShopCounter $counter,
+        private FixtureReach $fixtures,
     ) {}
 
     public function __invoke(User $user, Item $item): InventoryItem
@@ -35,7 +36,7 @@ final readonly class PurchaseItem
             throw WorldActionRefused::shopClosed();
         }
 
-        $this->counter->ensureWithinReach($user);
+        $this->fixtures->ensureWithin($user, FixtureKind::Shop);
 
         if (! $item->in_shop) {
             throw WorldActionRefused::itemUnavailable();

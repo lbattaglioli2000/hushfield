@@ -2,7 +2,8 @@
 
 namespace App\Http\Controllers\Economy;
 
-use App\Domain\Economy\ShopCounter;
+use App\Domain\World\FixtureKind;
+use App\Domain\World\FixtureReach;
 use App\Features\ShopEnabled;
 use App\Features\WorldFlags;
 use App\Http\Controllers\Controller;
@@ -20,11 +21,11 @@ use Illuminate\Http\Request;
  */
 final class ShopController extends Controller
 {
-    public function __invoke(Request $request, ShopCounter $counter): JsonResponse
+    public function __invoke(Request $request, FixtureReach $fixtures): JsonResponse
     {
         /** @var User $user */
         $user = $request->user();
-        $counter->ensureWithinReach($user);
+        $fixtures->ensureWithin($user, FixtureKind::Shop);
 
         return WorldResponse::json([
             'open' => WorldFlags::active(ShopEnabled::class),

@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Domain\World\FixtureKind;
 use App\Http\Responses\WorldResponse;
 use Illuminate\Http\JsonResponse;
 use RuntimeException;
@@ -121,11 +122,6 @@ final class WorldActionRefused extends RuntimeException
         return new self('shop_closed', 409);
     }
 
-    public static function shopElsewhere(): self
-    {
-        return new self('shop_elsewhere', 409);
-    }
-
     public static function shopTooFast(): self
     {
         return new self('shop_too_fast', 429);
@@ -139,16 +135,6 @@ final class WorldActionRefused extends RuntimeException
         return new self('fishing_closed', 409);
     }
 
-    public static function fishingElsewhere(): self
-    {
-        return new self('fishing_elsewhere', 409);
-    }
-
-    public static function fishingTooFar(): self
-    {
-        return new self('fishing_too_far', 422);
-    }
-
     public static function fishingNoLine(): self
     {
         return new self('fishing_no_line', 409);
@@ -157,6 +143,22 @@ final class WorldActionRefused extends RuntimeException
     public static function fishingTooFast(): self
     {
         return new self('fishing_too_fast', 429);
+    }
+
+    /**
+     * The player's room has no fixture of this kind: "{kind}_elsewhere" says where to find one.
+     */
+    public static function fixtureElsewhere(FixtureKind $kind): self
+    {
+        return new self("{$kind->value}_elsewhere", 409);
+    }
+
+    /**
+     * The room has one, but the player is out of its reach: "{kind}_too_far".
+     */
+    public static function fixtureTooFar(FixtureKind $kind): self
+    {
+        return new self("{$kind->value}_too_far", 422);
     }
 
     public static function exitTooFar(): self

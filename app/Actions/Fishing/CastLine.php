@@ -5,8 +5,9 @@ namespace App\Actions\Fishing;
 use App\Domain\Fishing\Cast;
 use App\Domain\Fishing\CastStore;
 use App\Domain\Fishing\CatchTable;
-use App\Domain\Fishing\FishingSpot;
 use App\Domain\World\Clock;
+use App\Domain\World\FixtureKind;
+use App\Domain\World\FixtureReach;
 use App\Exceptions\WorldActionRefused;
 use App\Features\FishingEnabled;
 use App\Features\WorldFlags;
@@ -21,7 +22,7 @@ use Illuminate\Support\Str;
 final readonly class CastLine
 {
     public function __construct(
-        private FishingSpot $spot,
+        private FixtureReach $fixtures,
         private CatchTable $catches,
         private CastStore $casts,
     ) {}
@@ -32,7 +33,7 @@ final readonly class CastLine
             throw WorldActionRefused::fishingClosed();
         }
 
-        $instance = $this->spot->ensureWithinReach($user);
+        $instance = $this->fixtures->ensureWithin($user, FixtureKind::Fishing);
 
         /** @var array{int, int} $biteAfter */
         $biteAfter = config('hushfield.fishing.bite_after_ms');
