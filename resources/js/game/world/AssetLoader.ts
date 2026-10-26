@@ -49,7 +49,7 @@ export class AssetLoader {
             if (failed.length > 0) {
                 try {
                     this.manifest = await this.refetch();
-                    await this.batch(failed);
+                    await this.batch(failed, true);
                 } catch {
                     // Drawn as placeholders.
                 }
@@ -63,8 +63,14 @@ export class AssetLoader {
         return this.queue;
     }
 
-    /** Loads the files not loaded yet, and resolves with the ones that failed. */
-    private batch(files: AssetFile[]): Promise<AssetFile[]> {
+    /**
+     * Loads the files not loaded yet, and resolves with the ones that failed.
+     * A retry asks for a fresh URL (the bucket ignores the query): an image
+     * first opened without CORS, say as an admin preview or straight in a tab,
+     * is cached without CORS headers, and the game's crossorigin load of the
+     * same URL then fails against that cached copy.
+     */
+    private batch(files: AssetFile[], retry = false): Promise<AssetFile[]> {
         const wanted = files.filter(
             (file) =>
                 !this.scene.textures.exists(file.key) &&
@@ -100,7 +106,9 @@ export class AssetLoader {
             });
 
             for (const file of wanted) {
-                const url = file.url(this.manifest) as string;
+                let url = file.url(this.manifest) as string;
+
+                if (retry) url += url.includes('?') ? '&retry' : '?retry';
 
                 if (file.spritesheet) {
                     loader.spritesheet(file.key, url, file.spritesheet);

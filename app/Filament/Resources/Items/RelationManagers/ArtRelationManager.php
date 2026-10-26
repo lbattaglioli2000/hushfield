@@ -75,7 +75,8 @@ class ArtRelationManager extends RelationManager
                 ImageColumn::make('preview')
                     ->state(fn (ItemArtUpload $record): string => app(ItemArt::class)->url($record->path))
                     ->imageHeight(64)
-                    ->extraImgAttributes(['style' => 'image-rendering: pixelated; background: repeating-conic-gradient(#d4d4d8 0 25%, #fafafa 0 50%) 0 0 / 16px 16px;']),
+                    // Asked for with CORS, as the game asks: an answer without CORS headers would be cached for the game too.
+                    ->extraImgAttributes(['crossorigin' => 'anonymous', 'style' => 'image-rendering: pixelated; background: repeating-conic-gradient(#d4d4d8 0 25%, #fafafa 0 50%) 0 0 / 16px 16px;']),
                 TextColumn::make('facing')
                     ->formatStateUsing(fn (int $state): string => self::FACINGS[$state] ?? (string) $state),
                 TextColumn::make('status')
