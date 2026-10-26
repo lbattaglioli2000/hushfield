@@ -38,11 +38,12 @@ final class UserPolicy
     }
 
     /**
-     * Grant or remove coins, or grant items. Admins only, never to themselves.
+     * Grant or remove coins, or grant items. Admins only, themselves included:
+     * every change is in the ledger and the audit log with a reason.
      */
     public function manageEconomy(User $staff, User $user): bool
     {
-        return $staff->isAdmin() && $staff->isNot($user);
+        return $staff->isAdmin();
     }
 
     /**

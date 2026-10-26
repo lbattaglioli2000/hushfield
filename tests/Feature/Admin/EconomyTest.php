@@ -96,16 +96,25 @@ test('an item the resident owns cannot be granted again', function () {
     expect(InventoryItem::query()->count())->toBe(1);
 });
 
-test('moderators and admins on their own page cannot move coins or items', function (Closure $as, Closure $record) {
-    $this->actingAs($as());
+test('moderators cannot move coins or items', function () {
+    $this->actingAs(User::factory()->staff()->create());
 
-    Livewire::test(ViewUser::class, ['record' => $record()->getRouteKey()])
+    viewPlayer()
         ->assertActionHidden('adjustCoins')
         ->assertActionHidden('grantItem');
-})->with([
-    'moderator' => [fn () => User::factory()->staff()->create(), fn () => test()->player],
-    'admin on themselves' => [fn () => test()->admin, fn () => test()->admin],
-]);
+});
+
+test('an admin grants coins and items to themselves, audited like any other grant', function () {
+    $item = Item::factory()->create();
+    $page = Livewire::test(ViewUser::class, ['record' => $this->admin->getRouteKey()]);
+
+    $page->callAction('adjustCoins', data: ['amount' => 25, 'reason' => 'Testing the shop'])->assertHasNoActionErrors();
+    $page->callAction('grantItem', data: ['item_id' => $item->id, 'reason' => 'Testing furniture'])->assertHasNoActionErrors();
+
+    expect(app(Wallet::class)->balance($this->admin))->toBe(25)
+        ->and($this->admin->inventory()->where('item_id', $item->id)->exists())->toBeTrue()
+        ->and(Activity::query()->where('causer_id', $this->admin->id)->where('subject_id', $this->admin->id)->count())->toBe(2);
+});
 
 test('moderators cannot reach the catalog or the ledger', function () {
     $this->actingAs(User::factory()->staff()->create());
