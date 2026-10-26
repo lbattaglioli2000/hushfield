@@ -24,7 +24,13 @@ const PIECES = [
     '2x2' => [2, 2, null],
     '3x1' => [3, 1, null],
     '3x2' => [3, 2, null],
+    '3x3' => [3, 3, null],
+    '4x1' => [4, 1, null],
+    '4x2' => [4, 2, null],
+    '4x3' => [4, 3, null],
+    '4x4' => [4, 4, null],
     'corner-sofa' => [2, 2, ['##', '#.']],
+    'long-corner-sofa' => [4, 2, ['####', '...#']],
 ];
 
 /** Art pixels of empty canvas above the footprint, as room to draw. */

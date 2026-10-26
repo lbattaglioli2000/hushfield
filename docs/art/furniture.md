@@ -33,14 +33,20 @@ item's page in the admin catalog ("Tiles wide" and "Tiles deep").
 The canvas is **(wide + deep) × 16** pixels across, whichever way the piece
 faces. The height is up to you.
 
-| Piece             | Wide × deep | Canvas width | Templates                             |
-| ----------------- | ----------- | ------------ | ------------------------------------- |
-| Stool, plant      | 1 × 1       | 32           | `1x1-facing-0.png` … `-3.png`         |
-| Love seat, bench  | 2 × 1       | 48           | `2x1-facing-0.png` … `-3.png`         |
-| Bed, square table | 2 × 2       | 64           | `2x2-facing-0.png` … `-3.png`         |
-| Sofa, counter     | 3 × 1       | 64           | `3x1-facing-0.png` … `-3.png`         |
-| Big table         | 3 × 2       | 80           | `3x2-facing-0.png` … `-3.png`         |
-| Corner Sofa       | 2 × 2, an L | 64           | `corner-sofa-facing-0.png` … `-3.png` |
+| Piece             | Wide × deep | Canvas width | Templates                                  |
+| ----------------- | ----------- | ------------ | ------------------------------------------ |
+| Stool, plant      | 1 × 1       | 32           | `1x1-facing-0.png` … `-3.png`              |
+| Love seat, bench  | 2 × 1       | 48           | `2x1-facing-0.png` … `-3.png`              |
+| Bed, square table | 2 × 2       | 64           | `2x2-facing-0.png` … `-3.png`              |
+| Sofa, counter     | 3 × 1       | 64           | `3x1-facing-0.png` … `-3.png`              |
+| Big table         | 3 × 2       | 80           | `3x2-facing-0.png` … `-3.png`              |
+| Square rug        | 3 × 3       | 96           | `3x3-facing-0.png` … `-3.png`              |
+| Long sofa, shelf  | 4 × 1       | 80           | `4x1-facing-0.png` … `-3.png`              |
+| Dining table      | 4 × 2       | 96           | `4x2-facing-0.png` … `-3.png`              |
+| Large rug         | 4 × 3       | 112          | `4x3-facing-0.png` … `-3.png`              |
+| Big rug           | 4 × 4       | 128          | `4x4-facing-0.png` … `-3.png`              |
+| Corner Sofa       | 2 × 2, an L | 64           | `corner-sofa-facing-0.png` … `-3.png`      |
+| Long corner sofa  | 4 × 2, an L | 96           | `long-corner-sofa-facing-0.png` … `-3.png` |
 
 Need a size that isn't here? Ask us. The templates come from a small
 script, so making more takes a minute.
