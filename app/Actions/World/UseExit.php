@@ -14,7 +14,7 @@ use App\Models\User;
 
 /**
  * Takes the player through a door on their map into the room it leads to.
- * They must be heading for the door and within a step of it: the client asks
+ * They must be heading for one of the door's tiles and within a step of it: the client asks
  * as its own avatar arrives, which can be a moment ahead of the server's clock.
  */
 final readonly class UseExit
@@ -35,8 +35,9 @@ final readonly class UseExit
         $path = $this->positions->currentOrSpawn($user->id, $room, Clock::nowMs());
         $position = $path->positionAt(Clock::nowMs());
 
-        if ($path->destination() !== [$exit->x, $exit->y]
-            || max(abs($position->x - $exit->x), abs($position->y - $exit->y)) > 1) {
+        [$x, $y] = $path->destination();
+
+        if (! $exit->covers($x, $y) || max(abs($position->x - $x), abs($position->y - $y)) > 1) {
             throw WorldActionRefused::exitTooFar();
         }
 

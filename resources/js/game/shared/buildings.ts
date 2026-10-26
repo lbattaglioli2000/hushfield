@@ -104,11 +104,11 @@ export function hides(
  * Whether a building should fade to show the player behind it. The door is
  * in the footprint's front row, so a player stepping into it is drawn among
  * the walls beside it; that is walking in, not being hidden, so anywhere
- * within a tile of the door never fades the building.
+ * within a tile of any of the door's tiles never fades the building.
  */
 export function hidesPlayer(
     placement: Placement,
-    door: Tile,
+    door: Footprint,
     player: {
         /** The player's (possibly fractional) tile position. */
         at: { x: number; y: number };
@@ -116,10 +116,12 @@ export function hidesPlayer(
         depthY: number;
     },
 ): boolean {
+    const outside = (at: number, from: number, length: number) =>
+        Math.max(0, from - at, at - (from + length - 1));
     const inDoorway =
         Math.max(
-            Math.abs(player.at.x - door[0]),
-            Math.abs(player.at.y - door[1]),
+            outside(player.at.x, door.x, door.wide),
+            outside(player.at.y, door.y, door.deep),
         ) < 1;
 
     return !inDoorway && hides(placement, player.box, player.depthY);

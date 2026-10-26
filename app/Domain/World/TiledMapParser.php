@@ -11,9 +11,10 @@ use JsonException;
  * tile is walkable) and an object layer named "spawns" with at least one
  * object on a walkable tile.
  *
- * Optional: an object layer named "exits" whose points are doors (custom
- * properties "to", the target room slug, and "arrive", an arrival point name
- * in the target map), an object layer named "arrivals" of named points where
+ * Optional: an object layer named "exits" of doors, each a point (one tile) or
+ * a rectangle snapped to whole tiles (a wide door), with custom properties
+ * "to", the target room slug, and "arrive", an arrival point name in the
+ * target map, an object layer named "arrivals" of named points where
  * players come in through a door, an object layer named "fixtures" of named
  * points players can use (custom property "kind": "shop" for a shop
  * counter, "fishing" for a fishing spot), an object layer named "buildings" of
@@ -80,7 +81,7 @@ final class TiledMapParser
         foreach ($buildings as $building) {
             for ($y = $building->y; $y < $building->y + $building->deep; $y++) {
                 for ($x = $building->x; $x < $building->x + $building->wide; $x++) {
-                    if ($x !== $building->door->x || $y !== $building->door->y) {
+                    if (! $building->door->covers($x, $y)) {
                         $cells[$y * $width + $x] = '0';
                     }
                 }
@@ -168,7 +169,7 @@ final class TiledMapParser
     {
         $exits = [];
 
-        foreach ($this->namedPoints($layer, 'exit', $tileHeight, $grid) as $name => [$tile, $properties]) {
+        foreach ($this->namedPoints($layer, 'exit', $tileHeight, $grid, areas: true) as $name => [$tile, $properties, $size]) {
             $to = $properties['to'] ?? null;
 
             if (! is_string($to) || ! preg_match('/^[a-z0-9-]+$/', $to)) {
@@ -176,7 +177,7 @@ final class TiledMapParser
             }
 
             $arrive = $properties['arrive'] ?? null;
-            $exits[$name] = new MapExit($name, $tile[0], $tile[1], $to, is_string($arrive) && $arrive !== '' ? $arrive : null);
+            $exits[$name] = new MapExit($name, $tile[0], $tile[1], $to, is_string($arrive) && $arrive !== '' ? $arrive : null, $size[0], $size[1]);
         }
 
         return $exits;
@@ -278,9 +279,12 @@ final class TiledMapParser
             $this->ensureClear($building, $grid, $buildings);
 
             // Only the two faces nearest the viewer are drawn, so a door anywhere else could not be seen.
-            if (! $building->covers($door->x, $door->y)
-                || ($door->x !== $building->x + $building->wide - 1 && $door->y !== $building->y + $building->deep - 1)) {
-                throw new InvalidMapException("Building \"{$name}\"'s door \"{$door->name}\" must be on its front edge, the last row or column of its footprint.");
+            $inside = $building->covers($door->x, $door->y) && $building->covers($door->x + $door->wide - 1, $door->y + $door->deep - 1);
+            $onLastRow = $door->deep === 1 && $door->y === $building->y + $building->deep - 1;
+            $onLastColumn = $door->wide === 1 && $door->x === $building->x + $building->wide - 1;
+
+            if (! $inside || (! $onLastRow && ! $onLastColumn)) {
+                throw new InvalidMapException("Building \"{$name}\"'s door \"{$door->name}\" must be on its front edge, along the last row or column of its footprint.");
             }
 
             $buildings[$name] = $building;
@@ -298,10 +302,15 @@ final class TiledMapParser
     {
         $points = [
             ...array_map(fn (array $tile): array => ['a spawn', ...$tile], $grid->spawns),
-            ...array_map(fn (MapExit $exit): array => ["exit \"{$exit->name}\"", $exit->x, $exit->y], array_filter($grid->exits, fn (MapExit $exit): bool => $exit !== $building->door)),
             ...array_map(fn (string $name, array $tile): array => ["arrival \"{$name}\"", ...$tile], array_keys($grid->arrivals), $grid->arrivals),
             ...array_map(fn (MapFixture $fixture): array => ["fixture \"{$fixture->name}\"", $fixture->x, $fixture->y], $grid->fixtures),
         ];
+
+        foreach ($grid->exits as $exit) {
+            if ($exit !== $building->door) {
+                array_push($points, ...array_map(fn (array $tile): array => ["exit \"{$exit->name}\"", ...$tile], $exit->tiles()));
+            }
+        }
 
         foreach ($points as [$what, $x, $y]) {
             if ($building->covers($x, $y)) {
@@ -320,12 +329,15 @@ final class TiledMapParser
     }
 
     /**
-     * Points with unique names, each on a walkable tile.
+     * Points with unique names, each on a walkable tile. With $areas, an object
+     * may instead be a rectangle snapped to whole tiles, every one walkable;
+     * its tile is its back corner and its size how many tiles it runs along x
+     * and y. A point's size is one by one.
      *
      * @param  array<mixed>  $layer
-     * @return array<string, array{array{int, int}, array<string, mixed>}>
+     * @return array<string, array{array{int, int}, array<string, mixed>, array{int, int}}>
      */
-    private function namedPoints(array $layer, string $what, int $tileHeight, WalkabilityGrid $grid): array
+    private function namedPoints(array $layer, string $what, int $tileHeight, WalkabilityGrid $grid, bool $areas = false): array
     {
         $objects = is_array($layer['objects'] ?? null) ? $layer['objects'] : [];
         $points = [];
@@ -342,12 +354,27 @@ final class TiledMapParser
             }
 
             $tile = [(int) floor($object['x'] / $tileHeight), (int) floor($object['y'] / $tileHeight)];
+            $size = [1, 1];
 
-            if (! $grid->isWalkable(...$tile)) {
-                throw new InvalidMapException(ucfirst($what)." \"{$name}\" at tile ({$tile[0]}, {$tile[1]}) is not walkable.");
+            if ($areas && ($object['point'] ?? false) !== true && ((float) ($object['width'] ?? 0) > 0 || (float) ($object['height'] ?? 0) > 0)) {
+                foreach (['x', 'y', 'width', 'height'] as $key) {
+                    if (! is_numeric($object[$key] ?? null) || fmod((float) $object[$key], $tileHeight) !== 0.0 || isset($object['polygon']) || isset($object['ellipse'])) {
+                        throw new InvalidMapException(ucfirst($what)." \"{$name}\" must be a point or a rectangle snapped to whole tiles.");
+                    }
+                }
+
+                $size = [max(1, intdiv((int) $object['width'], $tileHeight)), max(1, intdiv((int) $object['height'], $tileHeight))];
             }
 
-            $points[$name] = [$tile, $this->properties($object)];
+            for ($y = $tile[1]; $y < $tile[1] + $size[1]; $y++) {
+                for ($x = $tile[0]; $x < $tile[0] + $size[0]; $x++) {
+                    if (! $grid->isWalkable($x, $y)) {
+                        throw new InvalidMapException(ucfirst($what)." \"{$name}\" at tile ({$x}, {$y}) is not walkable.");
+                    }
+                }
+            }
+
+            $points[$name] = [$tile, $this->properties($object), $size];
         }
 
         return $points;

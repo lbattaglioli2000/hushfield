@@ -4,7 +4,7 @@ namespace App\Domain\World;
 
 /**
  * A building standing on a map: a block of tiles nobody can walk onto except
- * its door, an exit on its front edge that leads to the room inside.
+ * its door, an exit along its front edge that leads to the room inside.
  *
  * The footprint runs $wide tiles along x and $deep along y from its back
  * corner at ($x, $y). The client draws it $height pixels tall, from the art
@@ -29,15 +29,17 @@ final readonly class MapBuilding
     }
 
     /**
-     * The tile just outside the door, where players stand when they come back out.
+     * The tile just outside the middle of the door, where players stand when they come back out.
      *
      * @return array{int, int}
      */
     public function doorstep(): array
     {
+        [$x, $y] = $this->door->centre();
+
         // A door on the south-west face opens towards +y; on the south-east face, towards +x.
-        return $this->door->y === $this->y + $this->deep - 1
-            ? [$this->door->x, $this->door->y + 1]
-            : [$this->door->x + 1, $this->door->y];
+        return $this->door->deep === 1 && $this->door->y === $this->y + $this->deep - 1
+            ? [$x, $y + 1]
+            : [$x + 1, $y];
     }
 }

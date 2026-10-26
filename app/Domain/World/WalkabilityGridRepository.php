@@ -51,7 +51,7 @@ final class WalkabilityGridRepository
             return null;
         }
 
-        /** @var array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits?: list<array{name: string, x: int, y: int, to: string, arrive: string|null}>, arrivals?: array<string, array{int, int}>, fixtures?: list<array{name: string, x: int, y: int, kind: string}>} $data */
+        /** @var array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits?: list<array{name: string, x: int, y: int, wide?: int, deep?: int, to: string, arrive: string|null}>, arrivals?: array<string, array{int, int}>, fixtures?: list<array{name: string, x: int, y: int, kind: string}>} $data */
         $data = json_decode($cached, true, flags: JSON_THROW_ON_ERROR);
 
         return WalkabilityGrid::fromArray($data);

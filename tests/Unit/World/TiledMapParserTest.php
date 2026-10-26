@@ -4,6 +4,7 @@ use App\Domain\World\FixtureKind;
 use App\Domain\World\InvalidMapException;
 use App\Domain\World\RoomKind;
 use App\Domain\World\TiledMapParser;
+use App\Domain\World\WalkabilityGrid;
 
 function fixtureMap(string $name): string
 {
@@ -72,7 +73,7 @@ it('reads doors, arrival points and room properties', function () {
         ->and($map->kind)->toBe(RoomKind::Residence)
         ->and($map->capacity)->toBe(3)
         ->and($map->townPosition)->toBe([1, 1])
-        ->and($map->grid->exits['door']->toArray())->toBe(['name' => 'door', 'x' => 2, 'y' => 4, 'to' => 'test-lane', 'arrive' => 'home'])
+        ->and($map->grid->exits['door']->toArray())->toBe(['name' => 'door', 'x' => 2, 'y' => 4, 'wide' => 1, 'deep' => 1, 'to' => 'test-lane', 'arrive' => 'home'])
         ->and($map->grid->arrivals)->toBe(['door' => [2, 3]])
         ->and($map->grid->entryPoint('door'))->toBe([2, 3])
         ->and($map->grid->entryPoint('cellar'))->toBe([2, 2])
@@ -102,7 +103,37 @@ it('rejects doors and arrival points that would trap or bounce players', functio
     'two doors with one name' => [function (array &$layers) {
         $layers['exits']['objects'][] = $layers['exits']['objects'][0];
     }, 'Two exits are named "door".'],
+    'arrival on the far end of a wide door' => [function (array &$layers) {
+        $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 0, 'y' => 3 * 32, 'width' => 3 * 32, 'height' => 32, 'point' => false];
+    }, 'Arrival "door" is on an exit'],
+    'wide door off whole tiles' => [function (array &$layers) {
+        $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 1 * 32 + 16, 'y' => 4 * 32, 'width' => 3 * 32, 'height' => 32, 'point' => false];
+    }, 'Exit "door" must be a point or a rectangle snapped to whole tiles.'],
+    'wide door running off the map' => [function (array &$layers) {
+        $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 3 * 32, 'y' => 4 * 32, 'width' => 3 * 32, 'height' => 32, 'point' => false];
+    }, 'Exit "door" at tile (5, 4) is not walkable.'],
 ]);
+
+it('reads a wide door drawn as one rectangle: every tile is the door, and it walks through as one', function () {
+    $map = json_decode(fixtureMap('test-home'), true);
+    $layers = collect($map['layers'])->keyBy('name')->all();
+    // Tiled rectangles on isometric maps are in tile-height pixels: three tiles along x from (1, 4).
+    $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 32.0, 'y' => 128.0, 'width' => 96.0, 'height' => 32.0];
+    unset($layers['exits']['objects'][0]['point']);
+    $map['layers'] = array_values($layers);
+
+    $grid = (new TiledMapParser)->parse(json_encode($map))->grid;
+    $door = $grid->exits['door'];
+
+    expect($grid->exits)->toHaveCount(1)
+        ->and($door->toArray())->toBe(['name' => 'door', 'x' => 1, 'y' => 4, 'wide' => 3, 'deep' => 1, 'to' => 'test-lane', 'arrive' => 'home'])
+        ->and($door->tiles())->toBe([[1, 4], [2, 4], [3, 4]])
+        ->and($door->centre())->toBe([2, 4])
+        ->and([$grid->isExit(1, 4), $grid->isExit(2, 4), $grid->isExit(3, 4)])->each->toBeTrue()
+        ->and([$grid->isExit(0, 4), $grid->isExit(4, 4), $grid->isExit(2, 3)])->each->toBeFalse()
+        // The cached grid keeps the door's size.
+        ->and(WalkabilityGrid::fromArray($grid->toArray())->exits['door']->tiles())->toBe($door->tiles());
+});
 
 it('reads where the room and its homes sit on the dial', function () {
     $map = json_decode(fixtureMap('test-home'), true);
@@ -160,6 +191,22 @@ it('walls off a building except for its door, which stays an exit', function () 
         ->and($shed->doorstep())->toBe([3, 3]);
 });
 
+it('opens every tile of a wide building door, and brings players out in front of its middle', function () {
+    $map = json_decode(fixtureMap('test-street'), true);
+    $layers = collect($map['layers'])->keyBy('name')->all();
+    // Two tiles along the shed's front row, (3, 2) and (4, 2).
+    $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 96.0, 'y' => 64.0, 'width' => 64.0, 'height' => 32.0];
+    unset($layers['exits']['objects'][0]['point']);
+    $map['layers'] = array_values($layers);
+
+    $parsed = (new TiledMapParser)->parse(json_encode($map));
+    [$shed] = $parsed->buildings;
+
+    expect([$parsed->grid->isWalkable(3, 2), $parsed->grid->isWalkable(4, 2)])->each->toBeTrue()
+        ->and([$parsed->grid->isWalkable(2, 2), $parsed->grid->isWalkable(5, 2), $parsed->grid->isWalkable(4, 1)])->each->toBeFalse()
+        ->and($shed->doorstep())->toBe([4, 3]);
+});
+
 it('rejects buildings that run off the map, stand on places players need, or hide their door', function (callable $mutate, string $message) {
     $map = json_decode(fixtureMap('test-street'), true);
     $layers = collect($map['layers'])->keyBy('name')->all();
@@ -185,6 +232,12 @@ it('rejects buildings that run off the map, stand on places players need, or hid
     'door on the back wall' => [function (array &$shed, array &$layers) {
         $layers['exits']['objects'][0]['y'] = 16;
         $layers['arrivals']['objects'][0]['y'] = 3 * 32 + 16;
+    }, 'door "shed" must be on its front edge'],
+    'wide door turning the corner onto the back wall' => [function (array &$shed, array &$layers) {
+        $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 4 * 32, 'y' => 32, 'width' => 64, 'height' => 64, 'point' => false];
+    }, 'door "shed" must be on its front edge'],
+    'wide door running past the building' => [function (array &$shed, array &$layers) {
+        $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 5 * 32, 'y' => 64, 'width' => 64, 'height' => 32, 'point' => false];
     }, 'door "shed" must be on its front edge'],
     'door not on the building' => [function (array &$shed) {
         $shed['height'] = 2 * 32;

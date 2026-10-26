@@ -147,7 +147,7 @@ export class BuildingLayer {
         for (const drawn of this.drawn) {
             drawn.faded =
                 self !== null &&
-                hidesPlayer(drawn.placement, drawn.building.door.tile, self);
+                hidesPlayer(drawn.placement, drawn.building.door.area, self);
             const target = drawn.faded ? BUILDING.fadedAlpha : 1;
 
             if (drawn.alpha === target) continue;
@@ -212,11 +212,15 @@ export class BuildingLayer {
                       at(wide, from, top),
                       at(wide, to, top),
                   ];
-        const doorFace = door.tile[1] === building.y + deep - 1 ? 'sw' : 'se';
-        const doorAlong =
+        const doorFace =
+            door.area.deep === 1 && door.area.y === building.y + deep - 1
+                ? 'sw'
+                : 'se';
+        // Where the door starts along its face, and how many tiles it spans.
+        const [doorAlong, doorSpan] =
             doorFace === 'sw'
-                ? door.tile[0] - building.x
-                : door.tile[1] - building.y;
+                ? [door.area.x - building.x, door.area.wide]
+                : [door.area.y - building.y, door.area.deep];
         const doorTop = Math.min(BUILDING.doorHeightPx, height * 0.8);
 
         const g = this.scene.make.graphics({}, false);
@@ -260,11 +264,23 @@ export class BuildingLayer {
         g.fillStyle(
             Phaser.Display.Color.HexStringToColor(COLORS.night).color,
         ).fillPoints(
-            panel(doorFace, doorAlong + 0.25, doorAlong + 0.75, 0, doorTop),
+            panel(
+                doorFace,
+                doorAlong + 0.25,
+                doorAlong + doorSpan - 0.25,
+                0,
+                doorTop,
+            ),
             true,
         );
         g.lineStyle(2, BUILDING.windowColor, BUILDING.windowAlpha).strokePoints(
-            panel(doorFace, doorAlong + 0.25, doorAlong + 0.75, 0, doorTop),
+            panel(
+                doorFace,
+                doorAlong + 0.25,
+                doorAlong + doorSpan - 0.25,
+                0,
+                doorTop,
+            ),
             true,
         );
 

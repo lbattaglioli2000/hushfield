@@ -96,8 +96,9 @@ describe('hides', () => {
     });
 
     it('never fades a building for a player walking in its door, but still does behind it', () => {
-        // The Library: tiles x 4–10, y 1–5, door (7, 5) in the front row, doorstep (7, 6).
+        // The Library: tiles x 4–10, y 1–5, door x 6–8 in the front row (y 5), doorstep (7, 6).
         const footprint = { x: 4, y: 1, wide: 7, deep: 5 };
+        const door = { x: 6, y: 5, wide: 3, deep: 1 };
         const placement = placeBuilding(footprint, 176, ORIGIN_X);
         const player = (x: number, y: number) => ({
             at: { x, y },
@@ -109,14 +110,20 @@ describe('hides', () => {
             hides(placement, avatarOn(7, 5.25).box, avatarOn(7, 5.25).depthY),
         ).toBe(true);
 
-        for (const y of [6, 5.75, 5.5, 5.25, 5]) {
-            expect(
-                hidesPlayer(placement, [7, 5], player(7, y)),
-                `(7, ${y})`,
-            ).toBe(false);
+        // Into any of the door's tiles, the ends of a wide door as much as its middle.
+        for (const x of [6, 7, 8]) {
+            for (const y of [6, 5.75, 5.5, 5.25, 5]) {
+                expect(
+                    hidesPlayer(placement, door, player(x, y)),
+                    `(${x}, ${y})`,
+                ).toBe(false);
+            }
         }
 
-        expect(hidesPlayer(placement, [7, 5], player(7, 0))).toBe(true);
-        expect(hidesPlayer(placement, [7, 5], player(3, 3))).toBe(true);
+        expect(
+            hides(placement, avatarOn(6, 5.25).box, avatarOn(6, 5.25).depthY),
+        ).toBe(true);
+        expect(hidesPlayer(placement, door, player(7, 0))).toBe(true);
+        expect(hidesPlayer(placement, door, player(3, 3))).toBe(true);
     });
 });

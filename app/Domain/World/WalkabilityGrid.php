@@ -67,7 +67,7 @@ final readonly class WalkabilityGrid
     public function isExit(int $x, int $y): bool
     {
         foreach ($this->exits as $exit) {
-            if ($exit->x === $x && $exit->y === $y) {
+            if ($exit->covers($x, $y)) {
                 return true;
             }
         }
@@ -91,7 +91,7 @@ final readonly class WalkabilityGrid
     }
 
     /**
-     * @return array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits: list<array{name: string, x: int, y: int, to: string, arrive: string|null}>, arrivals: array<string, array{int, int}>, fixtures: list<array{name: string, x: int, y: int, kind: string}>}
+     * @return array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits: list<array{name: string, x: int, y: int, wide: int, deep: int, to: string, arrive: string|null}>, arrivals: array<string, array{int, int}>, fixtures: list<array{name: string, x: int, y: int, kind: string}>}
      */
     public function toArray(): array
     {
@@ -107,7 +107,7 @@ final readonly class WalkabilityGrid
     }
 
     /**
-     * @param  array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits?: list<array{name: string, x: int, y: int, to: string, arrive: string|null}>, arrivals?: array<string, array{int, int}>, fixtures?: list<array{name: string, x: int, y: int, kind: string}>}  $data
+     * @param  array{width: int, height: int, cells: string, spawns: list<array{int, int}>, exits?: list<array{name: string, x: int, y: int, wide?: int, deep?: int, to: string, arrive: string|null}>, arrivals?: array<string, array{int, int}>, fixtures?: list<array{name: string, x: int, y: int, kind: string}>}  $data
      */
     public static function fromArray(array $data): self
     {

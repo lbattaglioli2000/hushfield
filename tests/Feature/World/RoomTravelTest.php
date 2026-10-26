@@ -39,6 +39,13 @@ test('walking through a door puts the resident at the arrival point of the room 
     Event::assertDispatched(PlayerLeft::class, fn (PlayerLeft $event): bool => $event->instanceId === $this->instance->id);
 });
 
+test('any tile of a wide door opens it', function (int $y) {
+    // The lane's door home is a column of two tiles, (5, 2) and (5, 3).
+    standAt($this->resident, 5, $y);
+
+    useExit('home')->assertOk()->assertJsonPath('snapshot.room.slug', 'test-home');
+})->with([2, 3]);
+
 test('a building is walled off, and its door takes the resident inside', function () {
     ['token' => $this->token, 'instance' => $this->instance] = enterWorld($this->resident, importRoom('test-street'));
     $move = fn (int $x, int $y) => asResident($this->resident, $this->token)
