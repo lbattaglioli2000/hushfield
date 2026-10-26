@@ -22,9 +22,10 @@ class ItemSeeder extends Seeder
 
     /**
      * Furniture says how many tiles it covers (wide along x, deep along y), how
-     * tall its placeholder block stands in pixels, and whether it lies flat on the floor like a rug.
+     * tall its placeholder block stands in pixels, whether it lies flat on the floor like a rug,
+     * and, if it is not a plain block, which of those tiles it covers (its shape; see Footprint).
      *
-     * @return list<array{slug: string, name: string, description: string, slot: ItemSlot, rarity: ItemRarity, price: int, in_shop: bool, members_only?: bool, wide?: int, deep?: int, height?: int, floor?: bool}>
+     * @return list<array{slug: string, name: string, description: string, slot: ItemSlot, rarity: ItemRarity, price: int, in_shop: bool, members_only?: bool, wide?: int, deep?: int, height?: int, floor?: bool, shape?: list<string>}>
      */
     private function items(): array
     {
@@ -42,6 +43,7 @@ class ItemSeeder extends Seeder
             ['slug' => 'tall-bookcase', 'name' => 'Tall Bookcase', 'description' => 'The books are all the same book. Nobody minds.', 'slot' => ItemSlot::Furniture, 'rarity' => ItemRarity::Uncommon, 'price' => 70, 'in_shop' => true, 'wide' => 2, 'deep' => 1, 'height' => 64],
             ['slug' => 'radio-cabinet', 'name' => 'Radio Cabinet', 'description' => 'Tuned permanently to Augustin Moss. There is no off switch.', 'slot' => ItemSlot::Furniture, 'rarity' => ItemRarity::Rare, 'price' => 140, 'in_shop' => true, 'wide' => 1, 'deep' => 1, 'height' => 36],
             ['slug' => 'hearthmore-love-seat', 'name' => 'Hearthmore Love Seat', 'description' => 'Seats two. The second seat is reserved, though nobody says for whom.', 'slot' => ItemSlot::Furniture, 'rarity' => ItemRarity::Uncommon, 'price' => 80, 'in_shop' => true, 'wide' => 2, 'deep' => 1, 'height' => 26],
+            ['slug' => 'corner-sofa', 'name' => 'Corner Sofa', 'description' => 'It fits the corner exactly. It was measured for a corner you have not yet been shown.', 'slot' => ItemSlot::Furniture, 'rarity' => ItemRarity::Uncommon, 'price' => 110, 'in_shop' => true, 'wide' => 2, 'deep' => 2, 'height' => 26, 'shape' => ['##', '#.']],
             ['slug' => 'standard-bed', 'name' => 'Standard Bed', 'description' => 'Regulation length. You will fit. You will be made to fit.', 'slot' => ItemSlot::Furniture, 'rarity' => ItemRarity::Uncommon, 'price' => 90, 'in_shop' => true, 'wide' => 2, 'deep' => 2, 'height' => 22],
             ['slug' => 'faded-rug', 'name' => 'Faded Rug', 'description' => 'The pattern was brighter once. It is saving its strength.', 'slot' => ItemSlot::Furniture, 'rarity' => ItemRarity::Common, 'price' => 30, 'in_shop' => true, 'wide' => 2, 'deep' => 2, 'height' => 2, 'floor' => true],
             ['slug' => 'moth-wing-cloak', 'name' => 'Moth-Wing Cloak', 'description' => 'Not sold. Given, occasionally, to those the moths approve of.', 'slot' => ItemSlot::Body, 'rarity' => ItemRarity::Peculiar, 'price' => 0, 'in_shop' => false],
