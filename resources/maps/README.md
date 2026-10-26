@@ -1,7 +1,7 @@
 # Maps, places and art
 
-How to add to Hushfield: a room, a door, a fixture, a building, a piece of
-furniture, and their art. Everything on a map, and every piece of furniture,
+How to add to Hushfield: a room, its walls, a door, a fixture, a building, a
+piece of furniture, and their art. Everything on a map, and every piece of furniture,
 stands on a **footprint**: a block of tiles `wide` along x and `deep` along y
 from its back corner. `App\Domain\World\Footprint` and
 `resources/js/game/shared/footprint.ts` answer "what covers this tile" for all
@@ -23,12 +23,39 @@ it reads:
   optional): see below.
 - **Map properties**: `name`, `kind` (`public` or `residence`), `capacity`,
   `frequency` (the room's station on the tuning dial, in MHz),
-  `home_frequency` (a residence's homes on the dial), and `town_x`, `town_y`
-  (its cell on the town map; without them the room is listed under the map).
+  `home_frequency` (a residence's homes on the dial), `town_x`, `town_y`
+  (its cell on the town map; without them the room is listed under the map),
+  and `walls` (an indoor room's wall style; see below).
   Add the room's dial label to `stations` in `lang/en/hushfield.php`.
 
 Tiled measures objects on isometric maps in tile-height (32 px) units on both
 axes, so a point at (96, 64) is tile (3, 2).
+
+## Walls
+
+An indoor room has back walls, as in Habbo: upright panels along the map's two
+back edges, the top-left (the column x = 0) and the top-right (the row y = 0).
+The two front edges stay open, so players can always see in. Outdoor rooms
+have no walls; hedges or the map's edge close them in.
+
+To turn walls on, give the map a string property **`walls`** naming a style,
+a slug such as `plaster`. It names the style's art; until there is some, each
+panel is a plain block tinted by the style's name. In use: `plaster` (the
+Library), `acoustic` (WHSH), `tiled` (the Coin Laundry).
+
+- **Where they stand**: on the back row and column, their faces on those
+  tiles' inner edges, where the floor begins, meeting behind the corner tile
+  (0, 0). Paint those tiles unwalkable: the import refuses a walkable tile
+  there unless a door covers it. Whatever the `ground` layer draws there is
+  hidden; the walls replace it.
+- **Doorways**: a door on the back row or column opens its panels as a
+  doorway, with its floor showing through. Draw the door on those tiles as
+  usual; nothing else is needed.
+- **Only looks**: walls change nothing about walking, and the server only
+  checks the property. Nothing can stand behind them, so they never fade.
+
+Each panel is one tile, so things hung on walls later (paintings, clocks) can
+name the panel they hang on.
 
 ## Doors
 
@@ -122,6 +149,7 @@ placeholder block, tinted by its slug.
 | --------- | ------------- | ------------------------------------------- |
 | building  | `buildings/`  | `{slug}.png`, the building's name           |
 | furniture | `furniture/`  | `{slug}-{rotation}.png`, or `{slug}.png` for facing 0 |
+| walls     | `walls/`      | `{style}-left.png` and `{style}-right.png`; optionally `{style}-left-door.png`, `{style}-right-door.png` |
 
 A facing without its own furniture image mirrors its mirror image (facing r
 mirrors 3 − r), or borrows the opposite facing; see `facingArt` in
@@ -148,3 +176,30 @@ Deliver one whole image per building or facing. The game slices it into
 vertical strips half a tile wide and sorts each strip on its own, so players
 walking behind a long building are hidden and players in front are drawn over
 it. Rugs lie flat under everything.
+
+### Wall panels
+
+A wall style is two images, one panel each, repeated along the walls: `left`
+for the top-left wall (it runs down the map's left side and faces the
+viewer's lower right) and `right` for the top-right wall (facing the lower
+left).
+
+- **Canvas**: 32 px wide (one tile edge across) and 112 px tall: about three
+  tiles of wall, 96 px, plus the 16 px the floor's edge climbs across it.
+- **Floor edge**: the face stands on the floor's edge, which runs corner to
+  corner across the bottom of the canvas. On `left` it runs from the
+  bottom-left corner up to 16 px above the bottom-right corner; on `right`,
+  from 16 px above the bottom-left corner down to the bottom-right corner.
+  Nothing may hang below it. Panels butt edge to edge, so the art should tile
+  along the wall.
+- **Height**: the top of the face is 96 px above the floor edge at every
+  point; a taller canvas is fine, its bottom edge is what lines up.
+- **Light** from the top left, as for buildings: `right` faces the light and
+  is lit, `left` is in shade.
+- **Pixels**: 1:1, no scaling, no smoothing. **Format**: PNG with a
+  transparent background.
+- **Doorway** (optional): `{style}-{side}-door.png`, the same panel with an
+  opening from the floor up, through which the door's floor tile shows.
+  Without it, a style with art leaves a gap where a door is.
+- **Window** (later): `{style}-{side}-window.png` is reserved for a panel
+  with a window; the game does not draw it yet.

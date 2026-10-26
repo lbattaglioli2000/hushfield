@@ -97,10 +97,11 @@ test('the asset manifest lists versioned asset URLs', function () {
         ->assertJsonPath('images.tiles', 'https://cdn.example.com/hf/v7/tiles.png')
         ->assertJsonPath('images.resident', 'https://cdn.example.com/hf/v7/resident.png')
         ->assertJsonPath('buildings', [])
-        ->assertJsonPath('furniture', []);
+        ->assertJsonPath('furniture', [])
+        ->assertJsonPath('walls', []);
 });
 
-test('the asset manifest lists the art dropped in for each building and piece of furniture', function () {
+test('the asset manifest lists the art dropped in for each building, piece of furniture and wall style', function () {
     $version = 'test-'.uniqid();
     $dir = public_path("assets/v{$version}/buildings");
     File::ensureDirectoryExists($dir);
@@ -109,6 +110,8 @@ test('the asset manifest lists the art dropped in for each building and piece of
     File::ensureDirectoryExists(public_path("assets/v{$version}/furniture"));
     File::put(public_path("assets/v{$version}/furniture/small-table.png"), '');
     File::put(public_path("assets/v{$version}/furniture/standard-bed-1.png"), '');
+    File::ensureDirectoryExists(public_path("assets/v{$version}/walls"));
+    File::put(public_path("assets/v{$version}/walls/plaster-left.png"), '');
     config(['hushfield.assets.base_url' => 'https://cdn.example.com/hf', 'hushfield.assets.version' => $version]);
 
     try {
@@ -122,6 +125,7 @@ test('the asset manifest lists the art dropped in for each building and piece of
                     'small-table' => "https://cdn.example.com/hf/v{$version}/furniture/small-table.png",
                     'standard-bed-1' => "https://cdn.example.com/hf/v{$version}/furniture/standard-bed-1.png",
                 ],
+                'walls' => ['plaster-left' => "https://cdn.example.com/hf/v{$version}/walls/plaster-left.png"],
             ]);
     } finally {
         File::deleteDirectory(public_path("assets/v{$version}"));

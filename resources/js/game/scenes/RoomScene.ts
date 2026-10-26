@@ -28,6 +28,7 @@ import type { DecoratePort } from '../world/DecorateMode';
 import { DecorateMode } from '../world/DecorateMode';
 import { FishingLine, waterBeside } from '../world/FishingLine';
 import { FurnitureLayer, furnitureTexture } from '../world/FurnitureLayer';
+import { WallLayer, wallTexture } from '../world/WallLayer';
 import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
 import { KeyboardMovement } from '../world/KeyboardMovement';
@@ -86,6 +87,7 @@ export class RoomScene
     /** Where players may walk: the map, less the tiles under furniture in a home. */
     private walkGrid: Grid | null = null;
     private buildings: BuildingLayer | null = null;
+    private walls: WallLayer | null = null;
     private readonly decorate: DecorateMode;
     private readonly arrivals: Arrivals;
     /** Between leaving one room and drawing the next: the screen is faded and taps are ignored. */
@@ -142,6 +144,10 @@ export class RoomScene
             this.options.manifest.furniture,
         )) {
             this.load.image(furnitureTexture(name), url);
+        }
+
+        for (const [name, url] of Object.entries(this.options.manifest.walls)) {
+            this.load.image(wallTexture(name), url);
         }
     }
 
@@ -303,11 +309,13 @@ export class RoomScene
 
             this.furniture?.destroy();
             this.buildings?.destroy();
+            this.walls?.destroy();
             this.map?.destroy();
             this.fishingLine?.reset();
             this.map = new IsoMap(this, key);
             this.furniture = new FurnitureLayer(this, this.map);
             this.buildings = new BuildingLayer(this, this.map);
+            this.walls = new WallLayer(this, this.map);
         }
 
         this.setFurniture(snapshot.furniture);

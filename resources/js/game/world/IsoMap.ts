@@ -12,6 +12,7 @@ import {
     TILE_WIDTH,
     tileToScreen,
 } from '../shared/iso';
+import { underWall } from '../shared/walls';
 import { CAMERA, COLORS, DEPTH, DOOR, FONT_FAMILY } from '../theme';
 
 /** Names inside the Tiled map and the texture key its tileset is drawn from. */
@@ -60,6 +61,8 @@ export class IsoMap {
     readonly doors: MapDoor[];
     readonly fixtures: MapFixture[];
     readonly buildings: MapBuilding[];
+    /** The style of the room's back walls (the map's "walls" property), or null for a room without. */
+    readonly walls: string | null;
     /** The map's diamond, from world (0, 0). */
     private readonly sizePx: { width: number; height: number };
     private readonly layer: Phaser.Tilemaps.TilemapLayer | null = null;
@@ -126,6 +129,20 @@ export class IsoMap {
                 door,
             };
         });
+
+        const walls = rawProperty(map, 'walls');
+        this.walls = typeof walls === 'string' ? walls : null;
+
+        // Back walls replace the back row and column: only the floor of a door opening in them is drawn.
+        if (this.walls) {
+            for (let y = 0; y < map.height; y++) {
+                for (let x = 0; x < map.width; x++) {
+                    if (underWall([x, y]) && !this.doorAt([x, y])) {
+                        this.layer?.removeTileAt(x, y);
+                    }
+                }
+            }
+        }
 
         // Walls block walking, as on the server; the door is the way in.
         for (const building of this.buildings) {
@@ -322,10 +339,7 @@ function property(
     return typeof value === 'string' ? value : null;
 }
 
-function rawProperty(
-    object: Phaser.Types.Tilemaps.TiledObject,
-    name: string,
-): unknown {
+function rawProperty(object: { properties?: unknown }, name: string): unknown {
     return (
         (object.properties ?? []) as Array<{ name: string; value: unknown }>
     ).find((p) => p.name === name)?.value;

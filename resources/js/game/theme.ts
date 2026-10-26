@@ -13,6 +13,8 @@ export const FONT_FAMILY = 'Instrument Sans, system-ui, sans-serif';
 export const DEPTH = {
     ground: 0,
     door: 0.5,
+    /** Back walls stand behind everything on the floor, but over the doors that open in them. */
+    walls: 0.6,
     /** Rugs lie on the floor: over doors, under everything that stands. */
     rugs: 0.75,
     hover: 1,
@@ -61,6 +63,24 @@ export const BUILDING = {
     /** How see-through a building turns while it hides the player's own avatar. */
     fadedAlpha: 0.4,
     fadeMs: 120,
+} as const;
+
+/** Placeholder back walls, until a style has artwork: plain tinted panels, one per tile of the back edges. */
+export const WALL = {
+    /** How tall the panels stand above the floor: about three tiles. */
+    heightPx: 96,
+    saturation: 0.25,
+    lightness: 0.6,
+    /** Like buildings' faces: the right wall faces the lower left, as their lit south-west face does; the left wall is in shade. */
+    shade: { right: 0.9, left: 0.7 },
+    /** A paler band along the top and a darker skirting board along the floor. */
+    trimPx: 4,
+    trimLighten: 1.15,
+    skirtingPx: 6,
+    skirtingDarken: 0.7,
+    /** A doorway is open from the floor up to here, between narrow jambs. */
+    doorHeightPx: 64,
+    jambTiles: 0.12,
 } as const;
 
 export const TRAVEL = {

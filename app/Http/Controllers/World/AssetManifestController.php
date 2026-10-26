@@ -7,10 +7,10 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * Every game asset URL comes from here, so assets can move to a CDN by changing HUSHFIELD_ASSET_URL.
- * The images themselves are listed in config/hushfield.php. Building and
- * furniture art is whatever PNGs are under buildings/ and furniture/, by file
- * name (see resources/maps/README.md, "Art"). Anything without art is drawn
- * as a placeholder block.
+ * The images themselves are listed in config/hushfield.php. Building,
+ * furniture and wall art is whatever PNGs are under buildings/, furniture/
+ * and walls/, by file name (see resources/maps/README.md, "Art"). Anything
+ * without art is drawn as a placeholder.
  */
 final class AssetManifestController extends Controller
 {
@@ -37,6 +37,7 @@ final class AssetManifestController extends Controller
             'images' => array_map(fn (string $file): string => "{$base}/{$file}", $images),
             'buildings' => $art('buildings'),
             'furniture' => $art('furniture'),
+            'walls' => $art('walls'),
         ])->header('Cache-Control', 'no-cache');
     }
 }

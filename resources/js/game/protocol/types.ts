@@ -98,6 +98,8 @@ export type AssetManifest = {
     buildings: Record<string, string>;
     /** Art for furniture that has it, by file name: `{slug}` or `{slug}-{rotation}`. */
     furniture: Record<string, string>;
+    /** Art for wall styles that have it, by file name: `{style}-{side}`, or `{style}-{side}-door` for a doorway. */
+    walls: Record<string, string>;
 };
 
 /** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */
