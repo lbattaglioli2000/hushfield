@@ -85,7 +85,6 @@ return [
     'stipend_offer' => 'Hearthmore Group has set aside a stipend for you today.',
     'members_only' => 'Members only',
     'insufficient_coins' => "You don't have enough coins for that. Hearthmore Group has noted your interest.",
-    'item_owned' => 'You already own this. Owning it twice would be noticed.',
     'item_unavailable' => "That isn't for sale. Perhaps it never was.",
     'item_members_only' => 'This is reserved for members. Membership is not yet offered. It will be.',
     'shop_elsewhere' => 'The shop is in the Night Market, off Lantern Street. Walk up to the counter. It does not make house calls.',

@@ -17,8 +17,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Buys an item from the shop: the debit and the inventory row are written in
  * one transaction, so a resident never pays without owning or owns without paying.
- * A resident owns at most one of each item, so the item itself is the
- * idempotency key: a repeated purchase returns what was already bought.
+ * A resident may own several of one item, so each purchase carries the
+ * client's idempotency key: a replayed purchase (a double click, a retry)
+ * returns the piece it already bought instead of buying another.
  * Only players in a room with a shop counter can buy, and only while the shop
  * kill switch is on.
  */
@@ -29,7 +30,7 @@ final readonly class PurchaseItem
         private FixtureReach $fixtures,
     ) {}
 
-    public function __invoke(User $user, Item $item): InventoryItem
+    public function __invoke(User $user, Item $item, string $key): InventoryItem
     {
         WorldFlag::Shop->ensureActive();
 
@@ -44,23 +45,16 @@ final readonly class PurchaseItem
             throw WorldActionRefused::itemMembersOnly();
         }
 
-        return DB::transaction(function () use ($user, $item): InventoryItem {
+        return DB::transaction(function () use ($user, $item, $key): InventoryItem {
             try {
-                $entry = ($this->recordLedgerEntry)($user, -$item->price, LedgerReason::Purchase, "purchase:{$user->id}:{$item->id}", $item);
+                $entry = ($this->recordLedgerEntry)($user, -$item->price, LedgerReason::Purchase, "purchase:{$user->id}:{$key}", $item);
             } catch (InsufficientCoins) {
                 throw WorldActionRefused::insufficientCoins();
             }
 
-            $owned = InventoryItem::query()->where('user_id', $user->id)->where('item_id', $item->id)->first();
-
             if (! $entry->wasRecentlyCreated) {
                 // A replay of a purchase that already went through.
-                return $owned ?? throw WorldActionRefused::itemOwned();
-            }
-
-            if ($owned !== null) {
-                // Owned some other way (a staff grant): the debit is rolled back with the transaction.
-                throw WorldActionRefused::itemOwned();
+                return InventoryItem::query()->where('ledger_entry_id', $entry->id)->sole();
             }
 
             return InventoryItem::query()->create([

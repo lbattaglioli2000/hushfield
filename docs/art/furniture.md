@@ -182,6 +182,35 @@ block if there is none.
 
 Players see new art the next time they enter a room where the piece stands.
 
+## Colour variants
+
+Some pieces come in more than one colour, such as the Hearthmore Love Seat in
+Rose, Moss and Slate. In the shop they're one entry, and players pick the
+colour from a row of swatches. Behind the scenes each colour is its own item,
+with its own art.
+
+Every colour stands on the same tiles as the original, so draw a colour by
+**recolouring the finished piece**:
+
+1. Start from the finished, approved art for the original colour, every
+   facing you drew.
+2. Change only the colours: the fabric, the paint, the wood. Keep the
+   outline, the shading direction and the highlights where they are.
+3. Keep the **same canvas** and the **same facings**. The width, the height
+   and where the piece stands on its diamond don't change. If you mirrored a
+   facing for the original, mirror it for the colour too.
+4. Name the files as above, under the colour's own slug, which is the
+   original's slug and the colour: `items/hearthmore-love-seat-moss/0.png`.
+
+To upload, open the original piece in the **Item catalog** and scroll to
+**Variants**. Each colour has an **Edit and art** button that opens its page,
+with the same **Art** list as above. Staff add a new colour there with
+**Add a colour**, which asks for its name, its swatch and its price. A new
+colour starts out of the shop, so its art can go up before anyone buys it.
+
+If the original piece changes size or shape, every colour changes with it,
+and all their art goes stale together.
+
 ## How it looks in the game
 
 The game cuts each picture into thin vertical strips, so players can walk

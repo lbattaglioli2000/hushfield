@@ -6,6 +6,7 @@ use App\Filament\Resources\Items\Pages\CreateItem;
 use App\Filament\Resources\Items\Pages\EditItem;
 use App\Filament\Resources\Items\Pages\ListItems;
 use App\Filament\Resources\Items\RelationManagers\ArtRelationManager;
+use App\Filament\Resources\Items\RelationManagers\VariantsRelationManager;
 use App\Filament\Resources\Items\Schemas\ItemForm;
 use App\Filament\Resources\Items\Tables\ItemsTable;
 use App\Models\Item;
@@ -43,6 +44,7 @@ class ItemResource extends Resource
     public static function getRelations(): array
     {
         return [
+            VariantsRelationManager::class,
             ArtRelationManager::class,
         ];
     }

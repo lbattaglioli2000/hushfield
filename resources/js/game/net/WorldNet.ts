@@ -217,10 +217,12 @@ export class WorldNet {
         );
     }
 
-    purchase(itemId: number): Promise<WalletUpdate> {
+    /** `key` names this one purchase: a retry with the same key never buys twice. */
+    purchase(itemId: number, key: string): Promise<WalletUpdate> {
         return this.request<WalletUpdate>(
             'POST',
             `/world/shop/${itemId}/purchase`,
+            { key },
         );
     }
 
@@ -294,22 +296,22 @@ export class WorldNet {
 
     /** Places, moves or turns a piece. Without a rotation, a placed piece keeps its turn. */
     async placeFurniture(
-        itemId: number,
+        piece: number,
         tile: Tile,
         rotation?: number,
     ): Promise<void> {
         const body = await this.request<{ furniture: PlacedFurniture[] }>(
             'POST',
-            `/world/home/furniture/${itemId}`,
+            `/world/home/furniture/${piece}`,
             { x: tile[0], y: tile[1], rotation },
         );
         this.showFurniture(body.furniture);
     }
 
-    async putAwayFurniture(itemId: number): Promise<void> {
+    async putAwayFurniture(piece: number): Promise<void> {
         const body = await this.request<{ furniture: PlacedFurniture[] }>(
             'DELETE',
-            `/world/home/furniture/${itemId}`,
+            `/world/home/furniture/${piece}`,
         );
         this.showFurniture(body.furniture);
     }

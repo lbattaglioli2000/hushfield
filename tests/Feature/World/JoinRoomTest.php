@@ -67,7 +67,7 @@ test('a resident joining a full instance lands in instance 2 with an overflow no
     $response = joinOverHttp(resident(), $this->room);
 
     $response->assertOk()
-        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('protocol', 2)
         ->assertJsonPath('notice', __('hushfield.instance_full'))
         ->assertJsonPath('snapshot.instance.number', 2);
 

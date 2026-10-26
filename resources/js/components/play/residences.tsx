@@ -10,6 +10,7 @@ import type {
     HomesList,
     HomeVisitors,
     Item,
+    OwnedItem,
     PlacedFurniture,
 } from '@/game';
 import { useFleeting } from '@/hooks/use-fleeting';
@@ -44,7 +45,7 @@ export default function Residences({
     const [room, setRoom] = useState<GameEvents['room'] | null>(null);
     const [homes, setHomes] = useState<HomesList | null>(null);
     const [open, setOpen] = useState(false);
-    const [furniture, setFurniture] = useState<Item[]>([]);
+    const [furniture, setFurniture] = useState<OwnedItem[]>([]);
     const [placed, setPlaced] = useState<PlacedFurniture[]>([]);
     const [decorating, setDecorating] = useState(false);
     const [armed, setArmed] = useState<number | null>(null);
@@ -62,17 +63,25 @@ export default function Residences({
     useGameBus(bus, 'furniture', ({ placed }) => setPlaced(placed));
     useGameBus(bus, 'wallet', (wallet) =>
         setFurniture(
-            wallet.inventory.filter((item) => item.slot === 'furniture'),
+            wallet.inventory.filter(({ item }) => item.slot === 'furniture'),
         ),
     );
 
     const armedItem = decorating
-        ? (furniture.find((item) => item.id === armed) ?? null)
+        ? (furniture.find(
+              ({ pieces }) => armed !== null && pieces.includes(armed),
+          )?.item ?? null)
         : null;
 
     useEffect(() => {
-        bus.emit('decorate', { active: decorating, armed: armedItem });
-    }, [bus, decorating, armedItem]);
+        bus.emit('decorate', {
+            active: decorating,
+            armed:
+                armed !== null && armedItem
+                    ? { piece: armed, item: armedItem }
+                    : null,
+        });
+    }, [bus, decorating, armed, armedItem]);
 
     if (!room) return null;
 
@@ -81,7 +90,7 @@ export default function Residences({
 
         bus.emit('travel', { slug: homes.residence, instanceId });
     };
-    const placedIds = new Set(placed.map((piece) => piece.item.id));
+    const placedPieces = new Set(placed.map(({ piece }) => piece));
 
     return (
         <>
@@ -123,46 +132,46 @@ export default function Residences({
                             <p>You own no furniture yet. The shop has some.</p>
                         ) : (
                             <ul className="flex max-h-[40vh] flex-col gap-1 overflow-y-auto">
-                                {furniture.map((item) => (
-                                    <li key={item.id} className="flex gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setArmed(
-                                                    armed === item.id
-                                                        ? null
-                                                        : item.id,
-                                                )
-                                            }
-                                            className={`flex min-w-0 flex-1 items-center justify-between rounded-sm px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-amber ${armed === item.id ? 'bg-amber text-glass' : 'text-amber hover:bg-amber/10'}`}
-                                            aria-pressed={armed === item.id}
-                                            data-test={`arm-${item.slug}`}
-                                        >
-                                            <span className="font-sans font-bold tracking-wide uppercase">
+                                {furniture.map(({ item, pieces }) => (
+                                    <li
+                                        key={item.id}
+                                        className="grid gap-0.5"
+                                        data-test={`owned-${item.slug}`}
+                                    >
+                                        {pieces.length > 1 && (
+                                            <p className="px-2 pt-1 text-xs tracking-wide text-amber/70 uppercase">
                                                 {item.name}
-                                            </span>
-                                            <span className="text-xs opacity-70">
-                                                {sizeOf(item)}
-                                                {placedIds.has(item.id)
-                                                    ? ' · placed · move'
-                                                    : ' · place'}
-                                            </span>
-                                        </button>
-                                        {placedIds.has(item.id) && (
-                                            <button
-                                                type="button"
-                                                onClick={() =>
+                                                {item.colour &&
+                                                    ` · ${item.colour}`}{' '}
+                                                ×{pieces.length}
+                                            </p>
+                                        )}
+                                        {pieces.map((piece, index) => (
+                                            <PieceRow
+                                                key={piece}
+                                                item={item}
+                                                label={
+                                                    pieces.length > 1
+                                                        ? `No. ${index + 1}`
+                                                        : null
+                                                }
+                                                armed={armed === piece}
+                                                placed={placedPieces.has(piece)}
+                                                onArm={() =>
+                                                    setArmed(
+                                                        armed === piece
+                                                            ? null
+                                                            : piece,
+                                                    )
+                                                }
+                                                onTurn={() =>
                                                     bus.emit('turn-furniture', {
-                                                        itemId: item.id,
+                                                        piece,
                                                     })
                                                 }
-                                                className="rounded-sm px-2 py-1.5 text-xs tracking-wide text-amber uppercase outline-none hover:bg-amber/10 focus-visible:ring-2 focus-visible:ring-amber"
-                                                aria-label={`Turn the ${item.name}`}
-                                                data-test={`turn-${item.slug}`}
-                                            >
-                                                Turn ↻
-                                            </button>
-                                        )}
+                                                test={`${item.slug}-${index + 1}`}
+                                            />
+                                        ))}
                                     </li>
                                 ))}
                             </ul>
@@ -271,5 +280,61 @@ export default function Residences({
                 )}
             </RadioDialog>
         </>
+    );
+}
+
+/**
+ * One owned piece in the decorate list: arm it to place it (or move it, if it
+ * is placed), or turn it where it stands. `label` tells copies of one item apart.
+ */
+function PieceRow({
+    item,
+    label,
+    armed,
+    placed,
+    onArm,
+    onTurn,
+    test,
+}: {
+    item: Item;
+    label: string | null;
+    armed: boolean;
+    placed: boolean;
+    onArm: () => void;
+    onTurn: () => void;
+    test: string;
+}) {
+    const name = `${item.name}${item.colour ? ` · ${item.colour}` : ''}`;
+
+    return (
+        <div className="flex gap-1">
+            <button
+                type="button"
+                onClick={onArm}
+                className={`flex min-w-0 flex-1 items-center justify-between rounded-sm px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-amber ${armed ? 'bg-amber text-glass' : 'text-amber hover:bg-amber/10'} ${label ? 'pl-4' : ''}`}
+                aria-pressed={armed}
+                aria-label={label ? `${name}, ${label}` : name}
+                data-test={`arm-${test}`}
+            >
+                <span className="truncate font-sans font-bold tracking-wide uppercase">
+                    {label ?? name}
+                </span>
+                <span className="shrink-0 text-xs opacity-70">
+                    {sizeOf(item)}
+                    {placed ? ' · placed · move' : ' · place'}
+                </span>
+            </button>
+            {placed && (
+                <button
+                    type="button"
+                    onClick={onTurn}
+                    className="rounded-sm px-2 py-1.5 text-xs tracking-wide text-amber uppercase outline-none hover:bg-amber/10 focus-visible:ring-2 focus-visible:ring-amber"
+                    aria-label={`Turn the ${name}${label ? `, ${label}` : ''}`}
+                    data-test={`turn-${test}`}
+                >
+                    Turn ↻
+                </button>
+            )}
+        </div>
     );
 }

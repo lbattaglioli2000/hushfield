@@ -80,8 +80,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('homes', HomesController::class)->name('homes');
             Route::middleware('throttle:home')->group(function () {
                 Route::post('home/visitors', HomeVisitorsController::class)->name('home.visitors');
-                Route::post('home/furniture/{item}', PlaceFurnitureController::class)->name('home.furniture.place');
-                Route::delete('home/furniture/{item}', PutAwayFurnitureController::class)->name('home.furniture.remove');
+                Route::post('home/furniture/{piece}', PlaceFurnitureController::class)->name('home.furniture.place');
+                Route::delete('home/furniture/{piece}', PutAwayFurnitureController::class)->name('home.furniture.remove');
             });
         });
     });

@@ -10,5 +10,5 @@ namespace App\Domain\World;
  */
 final class Protocol
 {
-    public const int VERSION = 1;
+    public const int VERSION = 2;
 }

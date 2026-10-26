@@ -93,11 +93,6 @@ final class WorldActionRefused extends RuntimeException
         return new self('insufficient_coins', 422);
     }
 
-    public static function itemOwned(): self
-    {
-        return new self('item_owned', 409);
-    }
-
     public static function itemUnavailable(): self
     {
         return new self('item_unavailable', 422);

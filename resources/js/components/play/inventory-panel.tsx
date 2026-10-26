@@ -26,8 +26,16 @@ export default function InventoryPanel({
                 <p className="text-bakelite/60">{copy.inventory_empty}</p>
             ) : (
                 <ul className="grid max-h-[60vh] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
-                    {wallet.inventory.map((item) => (
-                        <ItemCard key={item.id} item={item} />
+                    {wallet.inventory.map(({ item, pieces }) => (
+                        <ItemCard
+                            key={item.id}
+                            item={item}
+                            badge={
+                                pieces.length > 1
+                                    ? `×${pieces.length}`
+                                    : undefined
+                            }
+                        />
                     ))}
                 </ul>
             )}

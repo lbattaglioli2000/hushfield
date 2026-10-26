@@ -31,7 +31,7 @@ test('chat is filtered, stored, and broadcast to others in the instance', functi
     $message = ChatMessage::query()->sole();
 
     $response->assertCreated()
-        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('protocol', 2)
         ->assertJsonPath('id', $message->id)
         ->assertJsonPath('user_id', $this->user->id)
         ->assertJsonPath('body', 'you are (hushed) so see (hushed)');
@@ -79,7 +79,7 @@ test('an expired or lifted mute no longer silences', function () {
 test('identical repeats within 30 seconds are dropped', function () {
     postChat('hello')->assertCreated();
     // Same after normalization: case, leetspeak, and stretched letters.
-    postChat('HeLLLL0')->assertStatus(202)->assertExactJson(['protocol' => 1, 'dropped' => true]);
+    postChat('HeLLLL0')->assertStatus(202)->assertExactJson(['protocol' => 2, 'dropped' => true]);
 
     $this->travel(29)->seconds();
     postChat('hello')->assertStatus(202);
@@ -145,7 +145,7 @@ test('the chat kill switch pauses chat everywhere', function () {
 test('empty and overlong lines are refused with a reason the client understands', function (string $body, string $reason) {
     postChat($body)
         ->assertUnprocessable()
-        ->assertExactJson(['protocol' => 1, 'reason' => $reason, 'message' => __("hushfield.{$reason}")]);
+        ->assertExactJson(['protocol' => 2, 'reason' => $reason, 'message' => __("hushfield.{$reason}")]);
 
     expect(ChatMessage::query()->count())->toBe(0);
 })->with([

@@ -179,16 +179,19 @@ export class FurnitureLayer {
      * faces so turning it shows.
      */
     private placeholder(placed: PlacedFurniture, footprint: Footprint): string {
-        const { slug, furniture } = placed.item;
+        const { slug, swatch, furniture } = placed.item;
         const { wide, deep } = footprint;
         const height = furniture?.height ?? FURNITURE.heightPx;
         const facing = placed.rotation % 4;
         const shape = footprint.mask?.join('/') ?? 'block';
-        const key = `furniture-placeholder:${slug}:${wide}x${deep}x${height}:${shape}:${facing}`;
+        const key = `furniture-placeholder:${slug}:${swatch ?? ''}:${wide}x${deep}x${height}:${shape}:${facing}`;
 
         if (this.scene.textures.exists(key)) return key;
 
-        const base = colourFor(slug, FURNITURE.saturation, FURNITURE.lightness);
+        // A colour of a piece is tinted its swatch, so colours tell apart before they have art.
+        const base = swatch
+            ? Phaser.Display.Color.HexStringToColor(swatch)
+            : colourFor(slug, FURNITURE.saturation, FURNITURE.lightness);
         const shaded = (factor: number) =>
             Phaser.Display.Color.GetColor(
                 base.red * factor,

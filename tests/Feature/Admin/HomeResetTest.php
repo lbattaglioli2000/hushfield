@@ -27,8 +27,11 @@ test('a moderator resets a home: furniture is put away in house and yard, the do
     $yard = app(JoinRoom::class)($owner, importRoom('test-yard'))->instance;
     $home->update(['visitors' => HomeVisitors::Everyone]);
 
+    // Two of one chair, one in the house and one in the yard.
+    $chair = Item::factory()->furniture()->create();
+
     foreach ([$home->instance, $yard] as $instance) {
-        $owned = InventoryItem::query()->create(['user_id' => $owner->id, 'item_id' => Item::factory()->furniture()->create()->id, 'source' => InventorySource::Purchase]);
+        $owned = InventoryItem::query()->create(['user_id' => $owner->id, 'item_id' => $chair->id, 'source' => InventorySource::Purchase]);
         $home->furniture()->create(['room_instance_id' => $instance->id, 'inventory_item_id' => $owned->id, 'x' => 1, 'y' => 1]);
     }
 

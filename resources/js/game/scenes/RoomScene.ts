@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { EventBus, FishingPhase } from '../bus';
+import type { ArmedPiece, EventBus, FishingPhase } from '../bus';
 import type { FishingView } from '../fishing';
 import type { VoicePositions, VoiceView } from '../voice';
 import type { WorldListener } from '../net/WorldNet';
@@ -10,7 +10,6 @@ import type {
     PlayerLeftEvent,
     PlacedFurniture,
     PlayerMovedEvent,
-    Item,
     PlayerState,
     Snapshot,
     Tile,
@@ -294,13 +293,13 @@ export class RoomScene
     }
 
     /** UI → game: decorate mode is only honoured in the player's own home. */
-    setDecorating(active: boolean, armed: Item | null): void {
+    setDecorating(active: boolean, armed: ArmedPiece | null): void {
         this.decorate.set(active, armed);
     }
 
     /** UI → game: a placed piece turns a quarter turn where it stands. The server says if it fits. */
-    turnFurniture(itemId: number): void {
-        this.decorate.turn(itemId);
+    turnFurniture(piece: number): void {
+        this.decorate.turn(piece);
     }
 
     /** Voice → scene: where everyone stands now, in tiles, for fading voices by distance. */

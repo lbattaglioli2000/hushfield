@@ -105,10 +105,12 @@ class ViewUser extends ViewRecord
             ->schema([
                 Select::make('item_id')
                     ->label('Item')
-                    ->options(fn (User $record): array => Item::query()
-                        ->whereNotIn('id', $record->inventory()->select('item_id'))
+                    // A resident may own several of one item, so anything can be granted again.
+                    ->options(fn (): array => Item::query()
                         ->orderBy('name')
-                        ->pluck('name', 'id')
+                        ->orderBy('variant_label')
+                        ->get()
+                        ->mapWithKeys(fn (Item $item): array => [$item->id => $item->label()])
                         ->all())
                     ->searchable()
                     ->required(),

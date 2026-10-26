@@ -1,5 +1,5 @@
 /** Must match config('hushfield.protocol'). A server payload with a higher value means this build is outdated. */
-export const PROTOCOL = 1;
+export const PROTOCOL = 2;
 
 export type Tile = [number, number];
 
@@ -43,6 +43,8 @@ export type HomeInfo = {
  * turned `rotation` quarter turns (see shared/furniture.ts).
  */
 export type PlacedFurniture = {
+    /** The owned piece placed: one of possibly several of its item (see OwnedItem). */
+    piece: number;
     x: number;
     y: number;
     rotation: number;
@@ -121,6 +123,11 @@ export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'peculiar';
 export type Item = {
     id: number;
     slug: string;
+    /** The item this is a colour of, or its own id: the shop shows one entry per family. */
+    family: number;
+    /** The colour's name, such as "Moss", and its swatch as #rrggbb; null for an item without colours. */
+    colour: string | null;
+    swatch: string | null;
     name: string;
     description: string | null;
     slot: ItemSlot;
@@ -147,8 +154,11 @@ export type Item = {
 export type Wallet = {
     balance: number;
     stipend: { amount: number; available: boolean; next_at: string };
-    inventory: Item[];
+    inventory: OwnedItem[];
 };
+
+/** An item the resident owns, newest first, with the id of every piece of it they own. */
+export type OwnedItem = { item: Item; pieces: number[] };
 
 /** A room on the town map. `position` is its grid cell, null for a map that sets none; `links` are the rooms its doors join it to. */
 export type TownRoom = {

@@ -30,12 +30,26 @@ export function connectEconomy(
             .catch(fail);
     };
 
+    /** The key of each purchase sent and not yet answered, by item. */
+    const pending = new Map<number, string>();
+
     const cleanups = [
         bus.on('load-shop', loadShop),
         bus.on('purchase-item', ({ itemId }) => {
-            net.purchase(itemId)
-                .then(applied)
+            // One key per purchase: until the server answers, a double click or a retry
+            // resends it and buys nothing more. After an answer, the next click buys another.
+            const key = pending.get(itemId) ?? crypto.randomUUID();
+            pending.set(itemId, key);
+
+            net.purchase(itemId, key)
+                .then((update) => {
+                    pending.delete(itemId);
+                    applied(update);
+                })
                 .catch((error: unknown) => {
+                    // Refused: nothing was bought. Lost on the way: the retry keeps the key.
+                    if (error instanceof RefusedError) pending.delete(itemId);
+
                     fail(error);
 
                     // Closed while the panel was open: refresh it so every Buy button says so.

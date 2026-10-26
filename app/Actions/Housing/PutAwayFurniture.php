@@ -4,18 +4,17 @@ namespace App\Actions\Housing;
 
 use App\Events\World\FurnitureChanged;
 use App\Events\WorldBroadcast;
-use App\Models\HomeFurniture;
-use App\Models\Item;
+use App\Models\InventoryItem;
 use App\Models\RoomInstance;
 use App\Models\User;
 
 /**
- * Takes a placed piece off the floor, in the house or the yard; the resident
+ * Takes one placed piece off the floor, in the house or the yard; the resident
  * still owns it. Returns the room of the home the resident is standing in.
  */
 final readonly class PutAwayFurniture
 {
-    public function __invoke(User $owner, Item $item): ?RoomInstance
+    public function __invoke(User $owner, InventoryItem $owned): ?RoomInstance
     {
         $home = $owner->home;
 
@@ -23,10 +22,11 @@ final readonly class PutAwayFurniture
             return null;
         }
 
-        $pieces = $home->furniture()->whereRelation('inventoryItem', 'item_id', $item->id)->get();
-        HomeFurniture::query()->whereKey($pieces->modelKeys())->delete();
+        $placed = $home->furniture()->where('inventory_item_id', $owned->id)->first();
 
-        foreach (RoomInstance::query()->findMany($pieces->pluck('room_instance_id')->unique()) as $instance) {
+        if ($placed !== null) {
+            $placed->delete();
+            $instance = RoomInstance::query()->findOrFail($placed->room_instance_id);
             WorldBroadcast::send(new FurnitureChanged($instance->id, $instance->furniturePayload()));
         }
 

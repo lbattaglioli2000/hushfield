@@ -29,11 +29,6 @@ final class ModerationActionRefused extends RuntimeException
         return new self("That would take the balance below zero. It is {$balance}.");
     }
 
-    public static function alreadyOwned(): self
-    {
-        return new self('This resident already owns that item.');
-    }
-
     public static function notFurniture(): self
     {
         return new self('Only furniture has facings to upload art for.');
@@ -47,5 +42,15 @@ final class ModerationActionRefused extends RuntimeException
     public static function staleArt(): self
     {
         return new self('This art was drawn for an older size or shape of the item. Upload new art instead.');
+    }
+
+    public static function notVariantParent(): self
+    {
+        return new self('Only a furniture item that is not itself a colour of another can have colours.');
+    }
+
+    public static function variantExists(string $slug): self
+    {
+        return new self("An item with the slug {$slug} already exists. Name the colour differently.");
     }
 }

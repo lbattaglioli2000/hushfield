@@ -4,8 +4,8 @@ namespace App\Http\Responses;
 
 use App\Domain\Economy\DailyStipend;
 use App\Domain\Economy\Wallet;
-use App\Models\InventoryItem;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -34,8 +34,14 @@ final readonly class WalletResponse
                     'available' => $this->stipend->isAvailable($user),
                     'next_at' => $this->stipend->nextAt()->toIso8601String(),
                 ],
+                // One entry per item, newest first, with every piece of it the resident owns, oldest first.
                 'inventory' => $user->inventory()->with('item.publishedArt')->latest('id')->get()
-                    ->map(fn (InventoryItem $owned): array => $owned->item->toPayload())
+                    ->groupBy('item_id')
+                    ->map(fn (Collection $pieces): array => [
+                        'item' => $pieces->first()->item->toPayload(),
+                        'pieces' => $pieces->sortBy('id')->values()->modelKeys(),
+                    ])
+                    ->values()
                     ->all(),
             ],
         ], $status);

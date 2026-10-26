@@ -25,9 +25,10 @@ function giveCoins(User $user, int $amount): void
     app(RecordLedgerEntry::class)($user, $amount, LedgerReason::StaffAdjustment, 'test:'.Str::uuid());
 }
 
-function buy(Item $item)
+/** One purchase; the same key is a retry of the same purchase. */
+function buy(Item $item, ?string $key = null)
 {
-    return asResident(test()->resident, test()->token)->postJson(route('world.shop.purchase', $item));
+    return asResident(test()->resident, test()->token)->postJson(route('world.shop.purchase', $item), ['key' => $key ?? (string) Str::uuid()]);
 }
 
 test('the shop lists only items on sale', function () {
@@ -37,7 +38,7 @@ test('the shop lists only items on sale', function () {
 
     asResident($this->resident, $this->token)->getJson(route('world.shop'))
         ->assertOk()
-        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('protocol', 2)
         ->assertJsonPath('open', true)
         ->assertJsonPath('items.*.id', [$locked->id, $hat->id])
         ->assertJsonPath('items.1.name', 'Moth Hat')
@@ -52,7 +53,7 @@ test('buying an item charges its price and adds it to the inventory', function (
         ->assertOk()
         ->assertJsonPath('message', __('hushfield.purchase_complete'))
         ->assertJsonPath('wallet.balance', 50)
-        ->assertJsonPath('wallet.inventory.0.id', $hat->id);
+        ->assertJsonPath('wallet.inventory.0.item.id', $hat->id);
 
     $owned = InventoryItem::query()->sole();
     $debit = LedgerEntry::query()->where('reason', LedgerReason::Purchase)->sole();
@@ -63,15 +64,42 @@ test('buying an item charges its price and adds it to the inventory', function (
         ->and($debit->item_id)->toBe($hat->id);
 });
 
-test('a repeated purchase is charged once', function () {
+test('buying the same item twice gives two pieces of it, listed together', function () {
+    giveCoins($this->resident, 100);
+    $chair = Item::factory()->furniture()->create(['price' => 30]);
+
+    buy($chair)->assertOk()->assertJsonPath('wallet.balance', 70);
+    $pieces = buy($chair)->assertOk()
+        ->assertJsonPath('wallet.balance', 40)
+        ->assertJsonCount(1, 'wallet.inventory')
+        ->assertJsonPath('wallet.inventory.0.item.id', $chair->id)
+        ->json('wallet.inventory.0.pieces');
+
+    // Oldest first, as a list.
+    expect($pieces)->toBe(InventoryItem::query()->where('item_id', $chair->id)->orderBy('id')->pluck('id')->all())
+        ->and(LedgerEntry::query()->where('reason', LedgerReason::Purchase)->count())->toBe(2);
+});
+
+test('a replayed purchase is charged once and buys one piece', function () {
     giveCoins($this->resident, 100);
     $hat = Item::factory()->create(['price' => 30]);
+    $key = (string) Str::uuid();
 
-    buy($hat)->assertOk()->assertJsonPath('wallet.balance', 70);
-    buy($hat)->assertOk()->assertJsonPath('wallet.balance', 70);
+    $first = buy($hat, $key)->assertOk()->assertJsonPath('wallet.balance', 70)->json('wallet.inventory.0.pieces');
+    buy($hat, $key)->assertOk()->assertJsonPath('wallet.balance', 70)->assertJsonPath('wallet.inventory.0.pieces', $first);
 
     expect(InventoryItem::query()->count())->toBe(1)
         ->and(LedgerEntry::query()->where('reason', LedgerReason::Purchase)->count())->toBe(1);
+});
+
+test('a purchase needs a key naming it', function () {
+    giveCoins($this->resident, 100);
+
+    asResident($this->resident, $this->token)->postJson(route('world.shop.purchase', Item::factory()->create()))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('key');
+
+    expect(InventoryItem::query()->count())->toBe(0);
 });
 
 test('a resident cannot spend more than they have', function () {
@@ -93,14 +121,12 @@ test('spending exactly the whole balance is allowed', function () {
     buy(Item::factory()->create(['price' => 30]))->assertOk()->assertJsonPath('wallet.balance', 0);
 });
 
-test('an item already granted by staff cannot be bought, and nothing is charged', function () {
+test('an item staff granted can be bought again, as another piece', function () {
     giveCoins($this->resident, 100);
     $hat = Item::factory()->create(['price' => 30]);
     InventoryItem::query()->create(['user_id' => $this->resident->id, 'item_id' => $hat->id, 'source' => InventorySource::StaffGrant]);
 
-    buy($hat)->assertStatus(409)->assertJsonPath('reason', 'item_owned');
-
-    expect(app(Wallet::class)->balance($this->resident))->toBe(100);
+    buy($hat)->assertOk()->assertJsonPath('wallet.balance', 70)->assertJsonCount(2, 'wallet.inventory.0.pieces');
 });
 
 test('items off the shelf or for members only cannot be bought', function (Closure $item, int $status, string $reason) {
@@ -125,7 +151,7 @@ test('while the shop is switched off nothing can be bought, but the shelves, bel
 
     buy($hat)
         ->assertStatus(409)
-        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('protocol', 2)
         ->assertJsonPath('reason', 'shop_closed')
         ->assertJsonPath('message', __('hushfield.shop_closed'));
 
@@ -140,7 +166,7 @@ test('while the shop is switched off nothing can be bought, but the shelves, bel
     asResident($this->resident, $this->token)->getJson(route('world.wallet'))
         ->assertOk()
         ->assertJsonPath('wallet.balance', 90)
-        ->assertJsonPath('wallet.inventory.*.id', [$owned->id]);
+        ->assertJsonPath('wallet.inventory.*.item.id', [$owned->id]);
 
     asResident($this->resident, $this->token)->postJson(route('world.stipend.claim'))->assertCreated();
 
@@ -175,7 +201,7 @@ test('a resident whose session has no room cannot reach the shop', function () {
     giveCoins($wanderer, 100);
 
     asResident($wanderer, startSession($wanderer))
-        ->postJson(route('world.shop.purchase', Item::factory()->create(['price' => 30])))
+        ->postJson(route('world.shop.purchase', Item::factory()->create(['price' => 30])), ['key' => (string) Str::uuid()])
         ->assertStatus(409)
         ->assertJsonPath('reason', 'shop_elsewhere');
 });

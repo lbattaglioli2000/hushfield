@@ -85,15 +85,15 @@ test('an admin grants an item that is not in the shop', function () {
         ->assertCanSeeTableRecords([$owned]);
 });
 
-test('an item the resident owns cannot be granted again', function () {
+test('an item the resident owns can be granted again, as another piece', function () {
     $hat = Item::factory()->create();
     InventoryItem::query()->create(['user_id' => $this->player->id, 'item_id' => $hat->id, 'source' => InventorySource::Purchase]);
 
     viewPlayer()
         ->callAction('grantItem', data: ['item_id' => $hat->id, 'reason' => 'Again'])
-        ->assertHasActionErrors(['item_id']);
+        ->assertHasNoActionErrors();
 
-    expect(InventoryItem::query()->count())->toBe(1);
+    expect($this->player->inventory()->where('item_id', $hat->id)->count())->toBe(2);
 });
 
 test('moderators cannot move coins or items', function () {

@@ -16,6 +16,7 @@ import { COLORS } from './theme';
 
 export { EventBus } from './bus';
 export type {
+    ArmedPiece,
     ConnectionState,
     FatalKind,
     FishingPhase,
@@ -35,6 +36,7 @@ export type {
     HomesList,
     Item,
     ItemSlot,
+    OwnedItem,
     PlacedFurniture,
     TownMap,
     TownRoom,

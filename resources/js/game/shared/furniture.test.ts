@@ -11,6 +11,7 @@ function piece(
     size: { wide: number; deep: number; floor?: boolean; shape?: string[] },
 ): PlacedFurniture {
     return {
+        piece: x * 100 + y,
         x,
         y,
         rotation,

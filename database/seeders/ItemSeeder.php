@@ -10,6 +10,7 @@ use Illuminate\Database\Seeder;
 /**
  * The starter catalog. Safe to run again (including in production): items are
  * matched by slug, and existing items are left as staff last edited them.
+ * A family's first colour is named only while staff haven't named it.
  */
 class ItemSeeder extends Seeder
 {
@@ -18,6 +19,41 @@ class ItemSeeder extends Seeder
         foreach ($this->items() as $item) {
             Item::query()->firstOrCreate(['slug' => $item['slug']], $item);
         }
+
+        foreach ($this->colours() as $slug => [$first, $others]) {
+            $parent = Item::query()->where('slug', $slug)->sole();
+
+            if ($parent->variant_label === null && $parent->swatch === null) {
+                $parent->update($first);
+            }
+
+            foreach ($others as $variant) {
+                Item::query()->firstOrCreate(['slug' => "{$slug}-".str($variant['variant_label'])->slug()], [
+                    ...$parent->only(['name', 'description', 'rarity', 'price', 'in_shop', 'members_only']),
+                    ...$variant,
+                    'variant_of' => $parent->id,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Colour families (see App\Actions\Items\AddItemVariant): the parent's own
+     * colour, then the others, each its own item on the parent's tiles.
+     *
+     * @return array<string, array{0: array{variant_label: string, swatch: string}, 1: list<array{variant_label: string, swatch: string}>}>
+     */
+    private function colours(): array
+    {
+        return [
+            'hearthmore-love-seat' => [
+                ['variant_label' => 'Rose', 'swatch' => '#a8545c'],
+                [
+                    ['variant_label' => 'Moss', 'swatch' => '#6f8a4f'],
+                    ['variant_label' => 'Slate', 'swatch' => '#5d6f80'],
+                ],
+            ],
+        ];
     }
 
     /**

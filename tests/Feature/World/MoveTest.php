@@ -25,7 +25,7 @@ test('a move stores a path from the current tile and broadcasts it to others', f
     $response = postMove(4, 1, 'socket.7');
 
     $response->assertOk()
-        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('protocol', 2)
         ->assertJsonPath('path', [[1, 1], [2, 1], [3, 1], [4, 1]])
         ->assertJsonPath('started_at_ms', now()->getTimestampMs())
         ->assertJsonPath('speed', 4);
@@ -115,7 +115,7 @@ test('moves beyond the rate limit are dropped quietly', function () {
         postMove($x, $y)->assertOk();
     }
 
-    postMove(1, 5)->assertStatus(202)->assertExactJson(['protocol' => 1, 'dropped' => true]);
+    postMove(1, 5)->assertStatus(202)->assertExactJson(['protocol' => 2, 'dropped' => true]);
 
     expect(last($this->positions->get($this->user->id)->path))->toBe([6, 1]);
     Event::assertDispatchedTimes(PlayerMoved::class, 5);

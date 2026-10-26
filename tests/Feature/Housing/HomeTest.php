@@ -29,25 +29,26 @@ function visitHome(User $visitor, ?int $instanceId)
         ->postJson(route('world.rooms.join', test()->residence), ['instance_id' => $instanceId]);
 }
 
-function own(User $user, Item $item): void
+/** One piece of the item, owned by the user. */
+function own(User $user, Item $item): InventoryItem
 {
-    InventoryItem::query()->create(['user_id' => $user->id, 'item_id' => $item->id, 'source' => InventorySource::Purchase]);
+    return InventoryItem::query()->create(['user_id' => $user->id, 'item_id' => $item->id, 'source' => InventorySource::Purchase]);
 }
 
-function placeFurniture(Item $item, int $x, int $y, ?int $rotation = null)
+function placeFurniture(InventoryItem $piece, int $x, int $y, ?int $rotation = null)
 {
     return asResident(test()->owner, test()->ownerToken)
-        ->postJson(route('world.home.furniture.place', $item), array_filter(['x' => $x, 'y' => $y, 'rotation' => $rotation], fn ($value) => $value !== null));
+        ->postJson(route('world.home.furniture.place', $piece), array_filter(['x' => $x, 'y' => $y, 'rotation' => $rotation], fn ($value) => $value !== null));
 }
 
 /**
- * A furniture item the owner owns, wide × deep tiles.
+ * A piece of a furniture item the owner owns, wide × deep tiles.
  *
  * @param  array<string, mixed>  $attributes
  */
-function ownedPiece(int $wide = 1, int $deep = 1, array $attributes = []): Item
+function ownedPiece(int $wide = 1, int $deep = 1, array $attributes = []): InventoryItem
 {
-    return tap(Item::factory()->furniture()->create(['wide' => $wide, 'deep' => $deep, ...$attributes]), fn (Item $item) => own(test()->owner, $item));
+    return own(test()->owner, Item::factory()->furniture()->create(['wide' => $wide, 'deep' => $deep, ...$attributes]));
 }
 
 /** Walks the resident through a door of the room they are in, from the door's tile. */
@@ -138,8 +139,7 @@ test('closing the door shows visitors out to the square and leaves the owner in'
 });
 
 test('owners place, move and put away their furniture, and everyone inside sees it', function () {
-    $chair = Item::factory()->furniture()->create(['slug' => 'chair']);
-    own($this->owner, $chair);
+    $chair = own($this->owner, Item::factory()->furniture()->create(['slug' => 'chair']));
 
     placeFurniture($chair, 1, 1)->assertOk()
         ->assertJsonPath('furniture.0.item.slug', 'chair')
@@ -163,19 +163,36 @@ test('owners place, move and put away their furniture, and everyone inside sees 
     Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$this->home->room_instance_id}");
 });
 
+test('two pieces of one item are placed, turned and put away each on its own', function () {
+    $chair = Item::factory()->furniture()->create(['slug' => 'chair']);
+    $first = own($this->owner, $chair);
+    $second = own($this->owner, $chair);
+
+    placeFurniture($first, 1, 1)->assertOk()->assertJsonCount(1, 'furniture');
+    placeFurniture($second, 3, 1)->assertOk()
+        ->assertJsonCount(2, 'furniture')
+        ->assertJsonPath('furniture.*.piece', [$first->id, $second->id])
+        ->assertJsonPath('furniture.*.x', [1, 3]);
+
+    // Turning the second leaves the first where and as it was.
+    placeFurniture($second, 3, 1, 2)->assertOk()->assertJsonPath('furniture.*.rotation', [0, 2]);
+
+    asResident($this->owner, $this->ownerToken)->deleteJson(route('world.home.furniture.remove', $first))
+        ->assertOk()
+        ->assertJsonPath('furniture.*.piece', [$second->id]);
+});
+
 test('furniture is refused off the floor, on doors and arrivals, on top of other furniture, and when not owned or not furniture', function (Closure $item, int $x, int $y, string $reason) {
-    $table = Item::factory()->furniture()->create();
-    own($this->owner, $table);
-    placeFurniture($table, 1, 1)->assertOk();
+    placeFurniture(ownedPiece(), 1, 1)->assertOk();
 
     placeFurniture($item(), $x, $y)->assertStatus(422)->assertJsonPath('reason', $reason);
 })->with([
-    'off the map' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 9, 9, 'furniture_off_floor'],
-    'on the door' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 2, 4, 'furniture_in_doorway'],
-    'on the arrival point' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 2, 3, 'furniture_in_doorway'],
-    'on another piece' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 1, 1, 'furniture_blocked'],
-    'not owned' => [fn () => Item::factory()->furniture()->create(), 3, 3, 'not_furniture'],
-    'a hat' => [fn () => tap(Item::factory()->create(['slot' => 'head']), fn (Item $item) => own(test()->owner, $item)), 3, 3, 'not_furniture'],
+    'off the map' => [fn () => ownedPiece(), 9, 9, 'furniture_off_floor'],
+    'on the door' => [fn () => ownedPiece(), 2, 4, 'furniture_in_doorway'],
+    'on the arrival point' => [fn () => ownedPiece(), 2, 3, 'furniture_in_doorway'],
+    'on another piece' => [fn () => ownedPiece(), 1, 1, 'furniture_blocked'],
+    "someone else's" => [fn () => own(resident(), Item::factory()->furniture()->create()), 3, 3, 'not_furniture'],
+    'a hat' => [fn () => own(test()->owner, Item::factory()->create(['slot' => 'head'])), 3, 3, 'not_furniture'],
 ]);
 
 // test-home is 5 × 5 tiles, all floor. The door is at (2, 4), its arrival point at (2, 3), and the owner stands at the spawn (2, 2).
@@ -418,8 +435,8 @@ test('furniture placed in the yard stays in the yard', function () {
         ->assertJsonPath('furniture', fn (array $placed): bool => collect($placed)->pluck('item.slug')->all() === ['fern']);
 
     expect(collect($this->home->instance->furniturePayload())->pluck('item.slug')->all())->toBe(['chair'])
-        ->and(HomeFurniture::query()->whereRelation('inventoryItem', 'item_id', $fern->id)->sole()->room_instance_id)->toBe($yard)
-        ->and(HomeFurniture::query()->whereRelation('inventoryItem', 'item_id', $chair->id)->sole()->room_instance_id)->toBe($this->home->room_instance_id);
+        ->and(HomeFurniture::query()->where('inventory_item_id', $fern->id)->sole()->room_instance_id)->toBe($yard)
+        ->and(HomeFurniture::query()->where('inventory_item_id', $chair->id)->sole()->room_instance_id)->toBe($this->home->room_instance_id);
 
     // House and yard share one allowance.
     config(['hushfield.housing.max_furniture' => 2]);

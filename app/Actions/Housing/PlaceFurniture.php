@@ -16,6 +16,7 @@ use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
 use App\Models\Home;
 use App\Models\HomeFurniture;
+use App\Models\InventoryItem;
 use App\Models\Item;
 use App\Models\RoomInstance;
 use App\Models\User;
@@ -23,7 +24,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Puts a furniture item the resident owns in the room of their home they are
+ * Puts a piece of furniture the resident owns (one inventory row: they may own
+ * several of one item, each placed on its own) in the room of their home they are
  * standing in, the house or the yard, or moves or turns it there if it is
  * already placed. Every tile it covers must be open floor, clear of
  * doors and arrival points, and clear of other pieces, except that a rug may
@@ -42,11 +44,11 @@ final readonly class PlaceFurniture
     /**
      * @param  int|null  $rotation  Quarter turns, 0–3. Null keeps a placed piece's turn, or 0 for a new one.
      */
-    public function __invoke(User $owner, Item $item, int $x, int $y, ?int $rotation = null): RoomInstance
+    public function __invoke(User $owner, InventoryItem $owned, int $x, int $y, ?int $rotation = null): RoomInstance
     {
-        $owned = $owner->inventory()->where('item_id', $item->id)->first();
+        $item = $owned->item;
 
-        if ($owned === null || $item->slot !== ItemSlot::Furniture) {
+        if ($owned->user_id !== $owner->id || $item->slot !== ItemSlot::Furniture) {
             throw WorldActionRefused::notFurniture();
         }
 

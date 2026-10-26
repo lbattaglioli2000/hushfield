@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\RelationManagers;
 
+use App\Models\InventoryItem;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -27,8 +28,10 @@ class InventoryRelationManager extends RelationManager
             ->modifyQueryUsing(fn ($query) => $query->with(['item', 'granter']))
             ->defaultSort('id', 'desc')
             ->columns([
+                // One row per piece: a resident may own several of one item.
                 TextColumn::make('item.name')
-                    ->label('Item'),
+                    ->label('Item')
+                    ->description(fn (InventoryItem $record): ?string => $record->item->variant_label),
                 TextColumn::make('item.slot')
                     ->label('Slot')
                     ->badge(),

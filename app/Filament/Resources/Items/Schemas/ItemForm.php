@@ -6,7 +6,9 @@ use App\Domain\Items\ItemRarity;
 use App\Domain\Items\ItemSlot;
 use App\Domain\World\Footprint;
 use App\Filament\Forms\Components\ShapePicker;
+use App\Models\Item;
 use Closure;
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -42,16 +44,35 @@ class ItemForm
                         Select::make('slot')
                             ->options(ItemSlot::class)
                             ->live()
+                            ->disabled(self::isVariant(...))
                             ->required(),
                         Select::make('rarity')
                             ->options(ItemRarity::class)
                             ->default(ItemRarity::Common)
                             ->required(),
                     ]),
+                Section::make('Colour')
+                    ->description(fn (?Item $record): string => $record?->parent !== null
+                        ? "A colour of {$record->parent->name}. It stands like it, so its size and shape are set there."
+                        : 'Shown as a swatch in the shop when this piece comes in more than one colour (see Variants below).')
+                    ->columns(2)
+                    ->visible(self::isFurniture(...))
+                    ->schema([
+                        TextInput::make('variant_label')
+                            ->label('Colour name')
+                            ->placeholder('Rose')
+                            ->maxLength(30)
+                            ->required(self::isVariant(...)),
+                        ColorPicker::make('swatch')
+                            ->regex('/^#[0-9a-fA-F]{6}$/')
+                            ->required(self::isVariant(...)),
+                    ]),
                 Section::make('Furniture')
-                    ->description('How the piece stands in a home. Turning it a quarter turn swaps wide and deep, and turns its shape. Resizing a placed piece does not move anything already standing near it.')
+                    ->description('How the piece stands in a home. Turning it a quarter turn swaps wide and deep, and turns its shape. Resizing a placed piece does not move anything already standing near it. Its colours follow it.')
                     ->columns(4)
-                    ->visible(fn (Get $get): bool => $get('slot') === ItemSlot::Furniture || $get('slot') === ItemSlot::Furniture->value)
+                    ->visible(self::isFurniture(...))
+                    // A colour stands like the item it is a colour of: see Item::INHERITED.
+                    ->disabled(self::isVariant(...))
                     ->schema([
                         TextInput::make('wide')
                             ->label('Tiles wide')
@@ -137,6 +158,16 @@ class ItemForm
                             ->helperText('Shown in the shop but locked. Membership does not exist yet.'),
                     ]),
             ]);
+    }
+
+    private static function isFurniture(Get $get): bool
+    {
+        return $get('slot') === ItemSlot::Furniture || $get('slot') === ItemSlot::Furniture->value;
+    }
+
+    private static function isVariant(?Item $record): bool
+    {
+        return $record?->variant_of !== null;
     }
 
     /**

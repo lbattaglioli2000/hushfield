@@ -23,7 +23,7 @@ class ItemsTable
             ->modifyQueryUsing(fn ($query) => $query->withCount('owners')->with('publishedArt'))
             ->columns([
                 TextColumn::make('name')
-                    ->description(fn ($record): string => $record->slug)
+                    ->description(fn (Item $record): string => $record->variant_label === null ? $record->slug : "{$record->slug} · {$record->variant_label}")
                     ->searchable(['name', 'slug'])
                     ->sortable(),
                 TextColumn::make('slot')

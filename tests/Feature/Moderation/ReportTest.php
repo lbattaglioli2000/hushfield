@@ -27,7 +27,7 @@ test('reporting a chat bubble links the message', function () {
         'chat_message_id' => $message->id,
         'reason' => 'harassment',
     ])->assertCreated()
-        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('protocol', 2)
         ->assertJsonPath('message', __('hushfield.report_sent'));
 
     $report = ChatReport::query()->sole();
@@ -94,7 +94,7 @@ test('residents can file 5 reports an hour', function () {
 
     fileReport(['reported_user_id' => $this->reported->id, 'reason' => 'spam'])
         ->assertTooManyRequests()
-        ->assertExactJson(['protocol' => 1, 'reason' => 'report_too_many', 'message' => __('hushfield.report_too_many')]);
+        ->assertExactJson(['protocol' => 2, 'reason' => 'report_too_many', 'message' => __('hushfield.report_too_many')]);
 
     expect(ChatReport::query()->count())->toBe(5);
 

@@ -13,7 +13,7 @@ beforeEach(function () {
 
 function townMap()
 {
-    return asResident(test()->resident, test()->token)->getJson(route('world.town'))->assertOk()->assertJsonPath('protocol', 1);
+    return asResident(test()->resident, test()->token)->getJson(route('world.town'))->assertOk()->assertJsonPath('protocol', 2);
 }
 
 test('the town map lists every room with its place, the rooms its doors join, and who is in it, but no homes', function () {
@@ -27,7 +27,7 @@ test('the town map lists every room with its place, the rooms its doors join, an
     }
     Room::factory()->create(['slug' => 'closed-lane', 'is_active' => false]);
 
-    townMap()->assertExactJson(['protocol' => 1, 'rooms' => [
+    townMap()->assertExactJson(['protocol' => 2, 'rooms' => [
         [
             'slug' => 'test-lane',
             'name' => 'Test Lane',

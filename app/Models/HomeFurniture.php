@@ -63,11 +63,14 @@ class HomeFurniture extends Model
     }
 
     /**
-     * @return array{x: int, y: int, rotation: int, item: array<string, mixed>}
+     * `piece` is the owned piece (inventory row) placed, which decorating moves, turns and puts away.
+     *
+     * @return array{piece: int, x: int, y: int, rotation: int, item: array<string, mixed>}
      */
     public function toPayload(): array
     {
         return [
+            'piece' => $this->inventory_item_id,
             'x' => $this->x,
             'y' => $this->y,
             'rotation' => $this->rotation,

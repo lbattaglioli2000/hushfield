@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * An item a resident owns, at most one of each. Created only by
+ * One piece of an item a resident owns; they may own several of one item,
+ * and each piece is placed in their home at most once. Created only by
  * App\Actions\Economy\PurchaseItem and App\Actions\Items\GrantItem.
  *
  * @property int $id

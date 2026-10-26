@@ -41,8 +41,8 @@ export function connectHousing(
         bus.on('decorate', ({ active, armed }) => {
             scene()?.setDecorating(active, armed);
         }),
-        bus.on('turn-furniture', ({ itemId }) => {
-            scene()?.turnFurniture(itemId);
+        bus.on('turn-furniture', ({ piece }) => {
+            scene()?.turnFurniture(piece);
         }),
     ];
 

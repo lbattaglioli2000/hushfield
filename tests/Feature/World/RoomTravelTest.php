@@ -24,7 +24,7 @@ test('walking through a door puts the resident at the arrival point of the room 
     standAt($this->resident, 5, 3);
 
     $response = useExit('home')->assertOk()
-        ->assertJsonPath('protocol', 1)
+        ->assertJsonPath('protocol', 2)
         ->assertJsonPath('snapshot.room.slug', 'test-home')
         ->assertJsonPath('snapshot.room.kind', 'residence')
         ->assertJsonPath('snapshot.home.owner_id', $this->resident->id)

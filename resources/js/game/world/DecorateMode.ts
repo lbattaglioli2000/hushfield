@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import type { Item, PlacedFurniture, Tile } from '../protocol/types';
+import type { ArmedPiece } from '../bus';
+import type { PlacedFurniture, Tile } from '../protocol/types';
 import { covers, tilesOf } from '../shared/footprint';
 import { TILE_HEIGHT } from '../shared/iso';
 import {
@@ -11,14 +12,10 @@ import {
 import { DEPTH, FURNITURE } from '../theme';
 import type { IsoMap } from './IsoMap';
 
-/** The requests decorating makes; the server says whether each piece fits. */
+/** The requests decorating makes, each for one owned piece; the server says whether it fits. */
 export type DecoratePort = {
-    placeFurniture(
-        itemId: number,
-        tile: Tile,
-        rotation?: number,
-    ): Promise<void>;
-    putAwayFurniture(itemId: number): Promise<void>;
+    placeFurniture(piece: number, tile: Tile, rotation?: number): Promise<void>;
+    putAwayFurniture(piece: number): Promise<void>;
 };
 
 /**
@@ -28,7 +25,7 @@ export type DecoratePort = {
  */
 export class DecorateMode {
     private active = false;
-    private armed: Item | null = null;
+    private armed: ArmedPiece | null = null;
     private ownHome = false;
     /** The current home's arrangement, as the server last said. */
     private placed: PlacedFurniture[] = [];
@@ -51,7 +48,7 @@ export class DecorateMode {
     }
 
     /** UI → game: switch decorate mode, with the piece to place (if any). */
-    set(active: boolean, armed: Item | null): void {
+    set(active: boolean, armed: ArmedPiece | null): void {
         this.active = active;
         this.armed = active ? armed : null;
 
@@ -70,14 +67,14 @@ export class DecorateMode {
     }
 
     /** UI → game: a placed piece turns a quarter turn where it stands. */
-    turn(itemId: number): void {
-        const piece = this.placed.find((p) => p.item.id === itemId);
+    turn(id: number): void {
+        const piece = this.placed.find((p) => p.piece === id);
 
         if (!piece || !this.ownHome) return;
 
         this.port
             .placeFurniture(
-                itemId,
+                id,
                 [piece.x, piece.y],
                 (piece.rotation + 1) % FACINGS,
             )
@@ -95,9 +92,9 @@ export class DecorateMode {
         const armed = this.armed;
         const request =
             placed && (blocksWalking(placed) || !armed)
-                ? this.port.putAwayFurniture(placed.item.id)
+                ? this.port.putAwayFurniture(placed.piece)
                 : armed
-                  ? this.port.placeFurniture(armed.id, tile)
+                  ? this.port.placeFurniture(armed.piece, tile)
                   : null;
 
         request?.catch(this.refused);
@@ -116,9 +113,9 @@ export class DecorateMode {
         if (!tile || !armed || !map) return;
 
         const rotation =
-            this.placed.find((p) => p.item.id === armed.id)?.rotation ?? 0;
+            this.placed.find((p) => p.piece === armed.piece)?.rotation ?? 0;
         const footprint = footprintOf(
-            armed.furniture ?? { wide: 1, deep: 1 },
+            armed.item.furniture ?? { wide: 1, deep: 1 },
             tile[0],
             tile[1],
             rotation,

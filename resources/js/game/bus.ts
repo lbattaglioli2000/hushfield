@@ -15,6 +15,9 @@ import type {
  * The only bridge between the game and whatever UI hosts it. React subscribes
  * and emits here; it never touches Phaser objects, and game state never lives in React.
  */
+/** In decorate mode, the owned piece the next tap places, or moves if it is placed. */
+export type ArmedPiece = { piece: number; item: Item };
+
 export type ConnectionState = 'connecting' | 'online' | 'reconnecting';
 
 /** Idle, asking to cast, line in and waiting, something biting, asking to reel. */
@@ -125,9 +128,9 @@ export type GameEvents = {
     'remove-friend': { userId: number };
     'set-friend-requests': { allowed: boolean };
     /** In decorate mode taps place the armed item, or put away the piece tapped, instead of walking. */
-    decorate: { active: boolean; armed: Item | null };
+    decorate: { active: boolean; armed: ArmedPiece | null };
     /** Turn a placed piece a quarter turn clockwise, where it stands. */
-    'turn-furniture': { itemId: number };
+    'turn-furniture': { piece: number };
     /** No payload: any input that keeps the player from being shown as away. */
     'input-activity': Record<string, never>;
 };

@@ -78,7 +78,7 @@ test('an admin closes the shop from the Feature flags page, audited, and purchas
     $resident = resident();
     $item = Item::factory()->create(['price' => 0]);
 
-    asResident($resident, startSession($resident))->postJson(route('world.shop.purchase', $item))
+    asResident($resident, startSession($resident))->postJson(route('world.shop.purchase', $item), ['key' => (string) Str::uuid()])
         ->assertStatus(409)
         ->assertJsonPath('reason', 'shop_closed');
 });

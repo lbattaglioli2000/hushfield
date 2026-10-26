@@ -68,7 +68,7 @@ function fishingPaid(): int
 test('a cast tells the client when it bites and until when a reel lands it, but not what is on the line', function () {
     $now = Clock::nowMs();
 
-    $cast = castLine()->assertCreated()->assertJsonPath('protocol', 1)->json('cast');
+    $cast = castLine()->assertCreated()->assertJsonPath('protocol', 2)->json('cast');
 
     expect(array_keys($cast))->toBe(['id', 'bite_at_ms', 'reel_by_ms'])
         ->and($cast['bite_at_ms'])->toBeGreaterThanOrEqual($now + 2000)->toBeLessThanOrEqual($now + 7000)
