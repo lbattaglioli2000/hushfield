@@ -14,15 +14,15 @@ final class AssetIndex
 {
     public function __construct(private readonly AssetBuilder $builder) {}
 
-    /** @return array{version: string, files: array<string, string>} */
+    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>} */
     public function current(): array
     {
         $path = (string) config('hushfield.assets.index');
         $index = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
 
-        if (is_array($index) && is_string($index['version'] ?? null) && is_array($index['files'] ?? null)
+        if (is_array($index) && is_string($index['version'] ?? null) && is_array($index['files'] ?? null) && is_array($index['sizes'] ?? null)
             && is_string($index['files']['tiles'] ?? null) && is_file($this->path($index['files']['tiles']))) {
-            /** @var array{version: string, files: array<string, string>} $index */
+            /** @var array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>} $index */
             return $index;
         }
 

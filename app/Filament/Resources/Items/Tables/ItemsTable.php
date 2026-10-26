@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\Items\Tables;
 
+use App\Domain\Assets\ArtStatus;
+use App\Domain\Assets\ItemArt;
 use App\Domain\Items\ItemRarity;
 use App\Domain\Items\ItemSlot;
+use App\Models\Item;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -33,6 +36,11 @@ class ItemsTable
                     ->numeric()
                     ->suffix(' coins')
                     ->sortable(),
+                TextColumn::make('art')
+                    ->label('Art')
+                    ->badge()
+                    ->state(fn (Item $record): ArtStatus => app(ItemArt::class)->status($record))
+                    ->tooltip('Built from resources/art/items/{slug}/. Missing facings are drawn as placeholders.'),
                 IconColumn::make('in_shop')
                     ->label('In shop')
                     ->boolean(),

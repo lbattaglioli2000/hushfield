@@ -41,9 +41,15 @@ final class AssetBuilder
         'resident-placeholder' => null,
     ];
 
+    /** A building's, a wall style's or an item's slug. */
+    private const string SLUG = '[a-z0-9-]+';
+
+    /** Wall panel parts, by side: plain, a doorway, and (not drawn yet) a window. */
+    public const string WALL_PART = '(left|right)(-door|-window)?';
+
     public function __construct(private readonly TileRegistry $tiles) {}
 
-    /** @return array{version: string, files: array<string, string>} */
+    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>} */
     public function build(bool $maps = true): array
     {
         $sources = (string) config('hushfield.assets.sources');
@@ -52,18 +58,28 @@ final class AssetBuilder
 
         $slots = $this->tiles->slots();
         $sheet = $this->tileSheet($sources, $files, $slots);
-        $outputs = ['tiles' => Png::encode($sheet)];
+        $outputs = ['tiles' => $sheet];
+        $buildings = null;
 
         foreach ($files as $file) {
-            if (preg_match('#^ui/([a-z0-9-]+)\.png$#', $file, $m)) {
-                $outputs["ui/{$m[1]}"] = Png::encode($this->ui($sources, $file, $m[1]));
+            $name = substr($file, 0, -4);
+
+            if (preg_match('#^ui/('.self::SLUG.')\.png$#', $file, $m)) {
+                $outputs[$name] = $this->ui($sources, $file, $m[1]);
+            } elseif (preg_match('#^buildings/('.self::SLUG.')\.png$#', $file, $m)) {
+                $buildings ??= $this->buildingFootprints();
+                $outputs[$name] = $this->building($sources, $file, $buildings[$m[1]] ?? null);
+            } elseif (preg_match('#^walls/'.self::SLUG.'/'.self::WALL_PART.'\.png$#', $file)) {
+                $outputs[$name] = $this->wall($sources, $file, str_starts_with(basename($file), 'left'));
+            } elseif (preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', $file)) {
+                $outputs[$name] = $this->furniture($sources, $file);
             }
         }
 
         $index = $this->write($outputs);
 
         if ($maps) {
-            $this->writeMaps($outputs['tiles'], $sheet, $slots);
+            $this->writeMaps(Png::encode($sheet), $sheet, $slots);
         }
 
         return $index;
@@ -95,7 +111,9 @@ final class AssetBuilder
             $png = preg_replace('/\.(aseprite|ase)$/', '.png', $file);
             $known = in_array($file, ['provenance.json', 'tiles/tiles.json'], true)
                 || preg_match('#^tiles/'.TileRegistry::NAME.'\.png$#', (string) $png)
-                || preg_match('#^ui/[a-z0-9-]+\.png$#', (string) $png);
+                || preg_match('#^(ui|buildings)/'.self::SLUG.'\.png$#', (string) $png)
+                || preg_match('#^walls/'.self::SLUG.'/'.self::WALL_PART.'\.png$#', (string) $png)
+                || preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', (string) $png);
 
             if (! $known) {
                 throw new InvalidAssetException("art/{$file} isn't a file the build knows. Names are lowercase words joined with hyphens, in the folders resources/maps/README.md lists.");
@@ -183,25 +201,201 @@ final class AssetBuilder
     }
 
     /**
-     * A source checked against its size in game pixels (null: any) divided by
-     * its kind's scale, then multiplied up to game size.
+     * A building's art: as wide as its footprint, (wide + deep) × 32 game
+     * pixels, standing on the footprint diamond at the bottom of the canvas.
+     *
+     * @param  array{int, int}|null  $footprint  wide and deep, from the maps
      */
+    private function building(string $sources, string $file, ?array $footprint): Image
+    {
+        if ($footprint === null) {
+            throw new InvalidAssetException("art/{$file} is for a building no map has. Its name must be a building's name in a map's \"buildings\" layer.");
+        }
+
+        [$wide, $deep] = $footprint;
+        $art = $this->source($sources, $file, 'buildings', ($wide + $deep) * 32, null);
+        $this->checkFootprint($file, $art, $wide, "a {$wide} × {$deep} footprint");
+
+        return $art->scale($this->scale('buildings'));
+    }
+
+    /**
+     * A furniture facing. Its size isn't known until the game draws it (it
+     * comes from the catalog, which the build can't read), so the build checks
+     * the canvas is a whole number of tiles across and that nothing hangs below
+     * where a footprint diamond could lie; the game draws a placeholder for
+     * art whose width doesn't match the piece, and the item list shows it.
+     */
+    private function furniture(string $sources, string $file): Image
+    {
+        $scale = $this->scale('items');
+        $art = $this->source($sources, $file, 'items', null, null);
+        $tile = intdiv(32, $scale);
+
+        if ($art->width % $tile !== 0 || $art->width < 2 * $tile) {
+            throw new InvalidAssetException("art/{$file} is {$art->width} wide; it must be (wide + deep) × {$tile}: {$tile} for each tile the piece runs along each way, so ".(2 * $tile).' for a 1 × 1 piece.');
+        }
+
+        // Fine if it stands on the footprint of any piece this wide, whichever way it's turned.
+        $first = null;
+
+        for ($wide = 1; $wide < intdiv($art->width, $tile); $wide++) {
+            $problem = $this->footprintProblem($art, $wide * $tile, $file);
+
+            if ($problem === null) {
+                return $art->scale($scale);
+            }
+
+            $first ??= $problem;
+        }
+
+        throw new InvalidAssetException($first ?? "art/{$file} hangs below its footprint.");
+    }
+
+    /**
+     * A wall panel: one tile edge across (32 game pixels) and at least 112
+     * tall, standing on the floor edge that climbs 16 game pixels across its
+     * bottom: up to the right on a left panel, down to the right on a right one.
+     */
+    private function wall(string $sources, string $file, bool $left): Image
+    {
+        $scale = $this->scale('walls');
+        $art = $this->source($sources, $file, 'walls', 32, null);
+        $climb = intdiv(16, $scale);
+
+        if ($art->height < intdiv(112, $scale)) {
+            throw new InvalidAssetException("art/{$file} is {$art->height} tall; a wall panel must be at least ".intdiv(112, $scale).' tall.');
+        }
+
+        for ($x = 0; $x < $art->width; $x++) {
+            // The floor edge at this column's middle, in rows from the top.
+            $edge = $art->height - ($left ? ($x + 0.5) : ($art->width - $x - 0.5)) * $climb / $art->width;
+
+            for ($y = (int) floor($edge) + 1; $y < $art->height; $y++) {
+                if ($art->alphaAt($x, $y) > 0) {
+                    throw new InvalidAssetException("art/{$file} has pixels below the floor edge at ({$x}, {$y}). The edge runs from the bottom-".($left ? 'left corner up to '.$climb.' above the bottom-right' : 'right corner up to '.$climb.' above the bottom-left').'.');
+                }
+            }
+        }
+
+        return $art->scale($scale);
+    }
+
+    /** Fails unless nothing hangs below the footprint diamond whose bottom corner is `wide` tiles in. */
+    private function checkFootprint(string $file, Image $art, int $wide, string $what): void
+    {
+        $problem = $this->footprintProblem($art, $wide * intdiv(32, $this->scale('buildings')), $file);
+
+        if ($problem !== null) {
+            throw new InvalidAssetException("{$problem} It stands on {$what}.");
+        }
+    }
+
+    /**
+     * What hangs below a footprint diamond whose bottom corner touches the
+     * bottom of the canvas `corner` pixels from its left edge, the diamond's
+     * edges climbing one pixel for every two across, or null if nothing.
+     * Hand-drawn edges may stray by a pixel.
+     */
+    private function footprintProblem(Image $art, int $corner, string $file): ?string
+    {
+        $rows = intdiv($art->width, 2) + 1;
+
+        for ($y = max(0, $art->height - $rows); $y < $art->height; $y++) {
+            for ($x = 0; $x < $art->width; $x++) {
+                $edge = $art->height - abs($x + 0.5 - $corner) / 2;
+
+                if ($y > $edge + 1 && $art->alphaAt($x, $y) > 0) {
+                    return "art/{$file} has pixels below its footprint diamond at ({$x}, {$y}).";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Each building's footprint, wide and deep, from the "buildings" layer of
+     * every map. One building's name stands for one piece of art, so it must
+     * have the same footprint wherever it stands.
+     *
+     * @return array<string, array{int, int}>
+     */
+    private function buildingFootprints(): array
+    {
+        $found = [];
+
+        foreach (glob(config('hushfield.maps.path').'/*.json') ?: [] as $path) {
+            $map = json_decode((string) file_get_contents($path), true);
+            $unit = is_array($map) && is_int($map['tileheight'] ?? null) && $map['tileheight'] > 0 ? $map['tileheight'] : 32;
+            $layers = is_array($map) && is_array($map['layers'] ?? null) ? $map['layers'] : [];
+
+            while ($layers !== []) {
+                $layer = array_shift($layers);
+
+                if (! is_array($layer)) {
+                    continue;
+                }
+
+                array_push($layers, ...(is_array($layer['layers'] ?? null) ? $layer['layers'] : []));
+
+                if (($layer['name'] ?? null) !== 'buildings' || ! is_array($layer['objects'] ?? null)) {
+                    continue;
+                }
+
+                foreach ($layer['objects'] as $object) {
+                    if (! is_array($object) || ! is_string($object['name'] ?? null) || ! is_numeric($object['width'] ?? null) || ! is_numeric($object['height'] ?? null)) {
+                        continue;
+                    }
+
+                    $size = [(int) round($object['width'] / $unit), (int) round($object['height'] / $unit)];
+                    $seen = $found[$object['name']] ?? $size;
+
+                    if ($seen !== $size) {
+                        throw new InvalidAssetException("The building {$object['name']} is {$seen[0]} × {$seen[1]} in one map and {$size[0]} × {$size[1]} in another; one name has one piece of art, so it needs one size.");
+                    }
+
+                    $found[$object['name']] = $size;
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /** A source checked against its size in game pixels (null: any), multiplied up to game size. */
     private function scaled(string $sources, string $file, string $kind, ?int $width, ?int $height): Image
+    {
+        return $this->source($sources, $file, $kind, $width, $height)->scale($this->scale($kind));
+    }
+
+    /**
+     * A source in art pixels, checked against its size in game pixels (null:
+     * any) divided by its kind's scale, and refused if it was exported
+     * already scaled up.
+     */
+    private function source(string $sources, string $file, string $kind, ?int $width, ?int $height): Image
     {
         $scale = $this->scale($kind);
         $image = Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}");
-        $want = fn (?int $size, int $got): int => $size === null ? $got : intdiv($size, $scale);
-        [$wantWidth, $wantHeight] = [$want($width, $image->width), $want($height, $image->height)];
+        $wantWidth = $width === null ? null : intdiv($width, $scale);
+        $wantHeight = $height === null ? null : intdiv($height, $scale);
+        $matches = fn (int $factor): bool => ($wantWidth === null || $image->width === $wantWidth * $factor)
+            && ($wantHeight === null || $image->height === $wantHeight * $factor);
 
-        if ($image->width === $wantWidth && $image->height === $wantHeight) {
-            return $image->scale($scale);
+        if ($scale > 1 && $matches($scale) && $image->isScaledUp($scale)) {
+            $expected = ($wantWidth ?? intdiv($image->width, $scale)).'×'.($wantHeight ?? intdiv($image->height, $scale));
+
+            throw new InvalidAssetException("art/{$file} is already scaled up to {$image->width}×{$image->height}. Export it at 100%: {$expected}.");
         }
 
-        if ($scale > 1 && $image->width === $wantWidth * $scale && $image->height === $wantHeight * $scale && $image->isScaledUp($scale)) {
-            throw new InvalidAssetException("art/{$file} is already scaled up to {$image->width}×{$image->height}. Export it at 100%: {$wantWidth}×{$wantHeight}.");
+        if (! $matches(1)) {
+            $size = $wantHeight === null ? "{$wantWidth} wide" : ($wantWidth === null ? "{$wantHeight} tall" : "{$wantWidth}×{$wantHeight}");
+
+            throw new InvalidAssetException("art/{$file} is {$image->width}×{$image->height}; it must be {$size}.");
         }
 
-        throw new InvalidAssetException("art/{$file} is {$image->width}×{$image->height}; it must be {$wantWidth}×{$wantHeight}.");
+        return $image;
     }
 
     /** How many game pixels one art pixel of this kind covers each way. */
@@ -316,17 +510,20 @@ final class AssetBuilder
      * Writes each output under its content hash and the index naming them,
      * then deletes outputs no longer listed.
      *
-     * @param  array<string, string>  $outputs
-     * @return array{version: string, files: array<string, string>}
+     * @param  array<string, Image>  $outputs
+     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>}
      */
     private function write(array $outputs): array
     {
         $dir = (string) config('hushfield.assets.output');
         $files = [];
+        $sizes = [];
 
-        foreach ($outputs as $name => $bytes) {
+        foreach ($outputs as $name => $image) {
+            $bytes = Png::encode($image);
             $file = $name.'.'.substr(hash('sha256', $bytes), 0, 8).'.png';
             $files[$name] = $file;
+            $sizes[$name] = [$image->width, $image->height];
 
             if (! is_file("{$dir}/{$file}")) {
                 File::ensureDirectoryExists(dirname("{$dir}/{$file}"));
@@ -335,7 +532,8 @@ final class AssetBuilder
         }
 
         ksort($files);
-        $index = ['version' => substr(hash('sha256', (string) json_encode($files)), 0, 16), 'files' => $files];
+        ksort($sizes);
+        $index = ['version' => substr(hash('sha256', (string) json_encode($files)), 0, 16), 'files' => $files, 'sizes' => $sizes];
         $path = (string) config('hushfield.assets.index');
         File::ensureDirectoryExists(dirname($path));
         $this->put($path, json_encode($index, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");

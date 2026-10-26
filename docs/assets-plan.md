@@ -139,9 +139,8 @@ a file that is already scaled up (scale × the expected size, with every
 block of that size one colour), which is the easy mistake of exporting at
 200%.
 
-**Ordering.** Until the build doubles buildings, furniture and walls
-(step 3), art for them drawn at half size would show at half size. Hold any
-non-tile art until that step lands.
+**Ordering.** Step 3 has landed: the build doubles buildings, furniture and
+walls, so half-size art for them can arrive now.
 
 ## 3. Size expectations
 
@@ -582,7 +581,7 @@ handover-2026-11-02/
   tiles/stone/half.png            32×32 half slab of the same tile
   buildings/library.png           one whole image per building
   walls/brick/left.png            16×56 panel; right.png, and left-door.png / right-door.png if any
-  items/love-seat/0.png           furniture facings 0–3 (0 faces lower left)
+  items/love-seat/0.png           furniture facings 0–3 (0 faces lower left), 48 wide for a 2×1
   items/love-seat/1.png           leave out any facing that mirrors another
   items/red-beanie/front.png      wearable: strip of 48×72 frames, in the avatar brief's order
   items/red-beanie/back.png
@@ -593,13 +592,13 @@ handover-2026-11-02/
 the ground. If we try a larger size later, we'll send new canvas sizes. Don't
 change size on your own: the build rejects any file that doesn't match.
 
-| Kind                      | Your canvas                                                                                                                                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ground tile, full block   | 32×32, standing on the bottom edge: top face a 32×16 diamond from row 7, sides 8 tall at the canvas's edges (rows 15–24), bottom edge from row 24 at the sides to row 31 in the middle        |
-| Ground tile, half slab    | The same 32×32 canvas, top face and bottom edge, with sides 4 tall (rows 19–24), so the top face starts on row 11                                                                             |
-| Building or furniture     | (wide + deep) × 16 across, with the footprint diamond (wide + deep) × 8 tall touching the bottom edge. A 1×1 stool is 32 across, a 2×1 love seat 48, a 7×5 building 192. As tall as it needs. |
-| Wall panel                | 16 wide × 56 tall: the floor edge climbs 8 across the bottom, and the face is 48 tall above it                                                                                                |
-| Avatar and wearable frame | 48×72                                                                                                                                                                                         |
+| Kind                      | Your canvas                                                                                                                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ground tile, full block   | 32×32, standing on the bottom edge: top face a 32×16 diamond from row 7, sides 8 tall at the canvas's edges (rows 15–24), bottom edge from row 24 at the sides to row 31 in the middle                                                   |
+| Ground tile, half slab    | The same 32×32 canvas, top face and bottom edge, with sides 4 tall (rows 19–24), so the top face starts on row 11                                                                                                                        |
+| Building or furniture     | (wide + deep) × 16 across, with the footprint diamond (wide + deep) × 8 tall touching the bottom edge, its bottom corner wide × 16 from the left. A 1×1 stool is 32 across, a 2×1 love seat 48, a 7×5 building 192. As tall as it needs. |
+| Wall panel                | 16 wide × 56 tall (or taller): the floor edge climbs 8 across the bottom, and the face is 48 tall above it. `walls/{style}/left.png`, `right.png`, optional `left-door.png`, `right-door.png`                                            |
+| Avatar and wearable frame | 48×72                                                                                                                                                                                                                                    |
 
 **Rules**
 

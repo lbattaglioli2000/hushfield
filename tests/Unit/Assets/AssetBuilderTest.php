@@ -1,7 +1,11 @@
 <?php
 
+use App\Domain\Assets\ArtStatus;
 use App\Domain\Assets\Image;
+use App\Domain\Assets\ItemArt;
 use App\Domain\Assets\Png;
+use App\Domain\Items\ItemSlot;
+use App\Models\Item;
 use Illuminate\Support\Facades\File;
 
 /** A scratch copy of resources/art and of one real map, with the build pointed at it. */
@@ -11,6 +15,7 @@ function scratchArt(): string
     File::copyDirectory(resource_path('art'), "{$root}/art");
     File::ensureDirectoryExists("{$root}/maps");
     File::copy(resource_path('maps/library.json'), "{$root}/maps/library.json");
+    File::copy(resource_path('maps/lantern-street.json'), "{$root}/maps/lantern-street.json");
     config([
         'hushfield.assets.sources' => "{$root}/art",
         'hushfield.maps.path' => "{$root}/maps",
@@ -234,3 +239,205 @@ it('refuses art it cannot ship, and says why', function (Closure $break, string 
         "art/tiles/stone.png isn't a file the build knows.",
     ],
 ]);
+
+/**
+ * Art in art pixels standing on a footprint: the diamond whose bottom corner
+ * touches the canvas's bottom `corner` pixels in, and a wall `tall` pixels
+ * high above it, one colour. `below` paints one stray pixel under the diamond.
+ */
+function standing(int $width, int $corner, int $tall, bool $below = false): string
+{
+    $height = intdiv($width, 2) + $tall;
+    $pixels = '';
+
+    for ($y = 0; $y < $height; $y++) {
+        for ($x = 0; $x < $width; $x++) {
+            $edge = $height - abs($x + 0.5 - $corner) / 2;
+            $pixels .= $y <= $edge ? "\x60\x40\x20\xFF" : "\0\0\0\0";
+        }
+    }
+
+    $image = new Image($width, $height, $pixels);
+
+    if ($below) {
+        $image = $image->paste(new Image(1, 1, "\xFF\xFF\xFF\xFF"), 0, $height - 1);
+    }
+
+    return Png::encode($image);
+}
+
+/** A wall panel in art pixels: `width` across, standing on a floor edge climbing `climb` across it. */
+function panel(bool $left, int $width = 16, int $height = 56, int $climb = 8, bool $below = false): string
+{
+    $pixels = '';
+
+    for ($y = 0; $y < $height; $y++) {
+        for ($x = 0; $x < $width; $x++) {
+            $edge = $height - ($left ? $x + 0.5 : $width - $x - 0.5) * $climb / $width;
+            $pixels .= $y <= $edge || ($below && $y === $height - 1 && $x === ($left ? $width - 1 : 0)) ? "\xA0\xA0\xA0\xFF" : "\0\0\0\0";
+        }
+    }
+
+    return Png::encode(new Image($width, $height, $pixels));
+}
+
+function claimAll(string $root): void
+{
+    File::put("{$root}/art/provenance.json", (string) json_encode([
+        'art/tiles/*/*.png' => ['by' => 'our artist'],
+        'art/ui/*.png' => ['by' => 'us'],
+        'art/buildings/*.png' => ['by' => 'our artist'],
+        'art/walls/*/*.png' => ['by' => 'our artist'],
+        'art/items/*/*.png' => ['by' => 'our artist'],
+    ]));
+}
+
+it('doubles building, wall and furniture art drawn at half size, and lists it by slug and part', function () {
+    $root = scratchArt();
+    claimAll($root);
+    // The library is 7 × 5 on Lantern Street: (7 + 5) × 16 = 192 across, its bottom corner 7 × 16 in.
+    File::ensureDirectoryExists("{$root}/art/buildings");
+    File::put("{$root}/art/buildings/library.png", standing(192, 112, 60));
+    File::ensureDirectoryExists("{$root}/art/walls/plaster");
+    File::put("{$root}/art/walls/plaster/left.png", panel(true));
+    File::put("{$root}/art/walls/plaster/right-door.png", panel(false));
+    File::ensureDirectoryExists("{$root}/art/items/love-seat");
+    // A 2 × 1 love seat: 48 across, its bottom corner 32 in at facing 0, 16 in when turned.
+    File::put("{$root}/art/items/love-seat/0.png", standing(48, 32, 20));
+    File::put("{$root}/art/items/love-seat/1.png", standing(48, 16, 20));
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $index = builtIndex();
+
+    expect($index['sizes'])->toMatchArray([
+        'buildings/library' => [384, 312],
+        'walls/plaster/left' => [32, 112],
+        'walls/plaster/right-door' => [32, 112],
+        'items/love-seat/0' => [96, 88],
+        'items/love-seat/1' => [96, 88],
+    ])
+        ->and(builtImage('buildings/library')->equals(Png::decode(standing(192, 112, 60))->scale(2)))->toBeTrue();
+
+    $manifest = $this->getJson(route('assets.manifest'))->assertOk();
+    $base = asset('assets');
+
+    expect($manifest->json('buildings'))->toBe(['library' => "{$base}/{$index['files']['buildings/library']}"])
+        ->and($manifest->json('walls'))->toBe(['plaster' => [
+            'left' => "{$base}/{$index['files']['walls/plaster/left']}",
+            'right-door' => "{$base}/{$index['files']['walls/plaster/right-door']}",
+        ]])
+        ->and(array_keys($manifest->json('items.love-seat')))->toBe([0, 1]);
+});
+
+it('refuses building, wall and furniture art that breaks its canvas rule', function (Closure $draw, string $message) {
+    $root = scratchArt();
+    claimAll($root);
+    $draw($root);
+
+    $this->artisan('hushfield:build-assets')
+        ->expectsOutputToContain($message)
+        ->assertFailed();
+})->with([
+    'a building drawn at full size' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings");
+            File::put("{$root}/art/buildings/library.png", Png::encode(Png::decode(standing(192, 112, 60))->scale(2)));
+        },
+        'art/buildings/library.png is already scaled up to 384×312. Export it at 100%: 192×156.',
+    ],
+    'a building the wrong width' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings");
+            File::put("{$root}/art/buildings/laundromat.png", standing(192, 112, 60));
+        },
+        'art/buildings/laundromat.png is 192×156; it must be 144 wide.',
+    ],
+    'a building hanging below its footprint' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings");
+            File::put("{$root}/art/buildings/library.png", standing(192, 112, 60, below: true));
+        },
+        'art/buildings/library.png has pixels below its footprint diamond at (0, 155). It stands on a 7 × 5 footprint.',
+    ],
+    'a building no map has' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings");
+            File::put("{$root}/art/buildings/lighthouse.png", standing(64, 32, 60));
+        },
+        'art/buildings/lighthouse.png is for a building no map has.',
+    ],
+    'a wall panel exported at 200%' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/walls/plaster");
+            File::put("{$root}/art/walls/plaster/left.png", Png::encode(Png::decode(panel(true))->scale(2)));
+        },
+        'art/walls/plaster/left.png is already scaled up to 32×112. Export it at 100%: 16×56.',
+    ],
+    'a wall panel too short' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/walls/plaster");
+            File::put("{$root}/art/walls/plaster/right.png", panel(false, height: 40));
+        },
+        'art/walls/plaster/right.png is 40 tall; a wall panel must be at least 56 tall.',
+    ],
+    'a wall panel below the floor edge' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/walls/plaster");
+            File::put("{$root}/art/walls/plaster/left.png", panel(true, below: true));
+        },
+        'art/walls/plaster/left.png has pixels below the floor edge at (15, 55).',
+    ],
+    'a left panel drawn as a right one' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/walls/plaster");
+            File::put("{$root}/art/walls/plaster/left.png", panel(false));
+        },
+        'art/walls/plaster/left.png has pixels below the floor edge',
+    ],
+    'furniture not a whole number of tiles across' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/items/stool");
+            File::put("{$root}/art/items/stool/0.png", standing(40, 16, 10));
+        },
+        'art/items/stool/0.png is 40 wide; it must be (wide + deep) × 16',
+    ],
+    'furniture hanging below any footprint' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/items/stool");
+            File::put("{$root}/art/items/stool/0.png", standing(32, 16, 10, below: true));
+        },
+        'art/items/stool/0.png has pixels below its footprint diamond',
+    ],
+    'the old flat furniture name' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/items");
+            File::put("{$root}/art/items/stool-0.png", standing(32, 16, 10));
+        },
+        "art/items/stool-0.png isn't a file the build knows.",
+    ],
+]);
+
+it('reports how much of an item\'s art is built, counting facings the game mirrors or borrows', function () {
+    $root = scratchArt();
+    claimAll($root);
+    File::ensureDirectoryExists("{$root}/art/items/love-seat");
+    File::ensureDirectoryExists("{$root}/art/items/corner-sofa");
+    File::ensureDirectoryExists("{$root}/art/items/wrong-table");
+    // One facing covers a plain block: the game mirrors and borrows the rest.
+    File::put("{$root}/art/items/love-seat/0.png", standing(48, 32, 20));
+    // An L only has the tiles of the facing it was drawn for.
+    File::put("{$root}/art/items/corner-sofa/0.png", standing(64, 32, 20));
+    // Drawn 1 × 1, but the item is 2 × 1: the game won't draw it.
+    File::put("{$root}/art/items/wrong-table/0.png", standing(32, 16, 20));
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $furniture = fn (string $slug, int $wide, int $deep, ?array $shape = null): Item => new Item([
+        'slug' => $slug, 'slot' => ItemSlot::Furniture, 'wide' => $wide, 'deep' => $deep, 'shape' => $shape,
+    ]);
+    $art = app(ItemArt::class);
+
+    expect($art->status($furniture('love-seat', 2, 1)))->toBe(ArtStatus::Complete)
+        ->and($art->status($furniture('corner-sofa', 2, 2, ['##', '#.'])))->toBe(ArtStatus::Partial)
+        ->and($art->status($furniture('wrong-table', 2, 1)))->toBe(ArtStatus::Partial)
+        ->and($art->status($furniture('standard-bed', 2, 2)))->toBe(ArtStatus::None);
+});

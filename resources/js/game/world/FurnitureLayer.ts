@@ -9,9 +9,9 @@ import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { DEPTH, FURNITURE } from '../theme';
 import type { IsoMap } from './IsoMap';
 
-/** The texture key furniture art from the asset manifest is loaded under, by file name. */
-export function furnitureTexture(name: string): string {
-    return `furniture:${name}`;
+/** The texture key an item's art from the asset manifest is loaded under, by `{slug}/{part}`. */
+export function itemTexture(name: string): string {
+    return `item:${name}`;
 }
 
 type DrawnPiece = {
@@ -82,16 +82,23 @@ export class FurnitureLayer {
 
     private draw(placed: PlacedFurniture): DrawnPiece {
         const footprint = placedFootprint(placed);
+        // Art drawn for another size would hang off the piece's tiles: the build
+        // can't check it against the catalog, so a placeholder is drawn instead.
+        const fits = (name: string) =>
+            this.scene.textures.exists(itemTexture(name)) &&
+            this.scene.textures.get(itemTexture(name)).getSourceImage()
+                .width ===
+                (footprint.wide + footprint.deep) * (TILE_WIDTH / 2);
         const art = facingArt(
             placed.item.slug,
             placed.rotation,
-            (name) => this.scene.textures.exists(furnitureTexture(name)),
+            fits,
             placed.item.furniture ?? undefined,
         );
         const texture = art
             ? art.mirrored
-                ? this.mirrored(furnitureTexture(art.name))
-                : furnitureTexture(art.name)
+                ? this.mirrored(itemTexture(art.name))
+                : itemTexture(art.name)
             : this.placeholder(placed, footprint);
         const source = this.scene.textures.get(texture);
         const placement = placeBuilding(

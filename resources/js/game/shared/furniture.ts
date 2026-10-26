@@ -86,8 +86,8 @@ export function pieceAt(
 /**
  * Which image to draw a piece from, and whether to mirror it.
  *
- * Art is named by item slug: `{slug}-{rotation}.png` for each facing, or just
- * `{slug}.png` for facing 0 (see Furniture art above). A facing without
+ * Art is named by item slug and facing: `{slug}/{rotation}`, from
+ * resources/art/items/{slug}/{rotation}.png (resources/maps/README.md, "Art"). A facing without
  * its own image mirrors its mirror image: flipping an isometric picture left
  * to right turns lower left into lower right and upper left into upper
  * right, so facing r mirrors facing 3 − r. Failing that it borrows the
@@ -106,8 +106,7 @@ export function facingArt(
     size: FurnitureSize = { wide: 1, deep: 1 },
 ): { name: string; mirrored: boolean } | null {
     const named = (facing: number) =>
-        [`${slug}-${facing}`, ...(facing === 0 ? [slug] : [])].find(has) ??
-        null;
+        has(`${slug}/${facing}`) ? `${slug}/${facing}` : null;
     const lies = (facing: number) => footprintOf(size, 0, 0, facing);
     const opposite = (rotation + 2) % FACINGS;
     const tries: Array<[number, boolean]> = [

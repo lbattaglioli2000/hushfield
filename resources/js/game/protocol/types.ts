@@ -96,10 +96,10 @@ export type AssetManifest = {
     images: Record<'tiles' | 'resident' | 'marker' | 'hover', string>;
     /** Art for buildings that have it, by building slug. The rest are drawn as placeholders. */
     buildings: Record<string, string>;
-    /** Art for furniture that has it, by file name: `{slug}` or `{slug}-{rotation}`. */
-    furniture: Record<string, string>;
-    /** Art for wall styles that have it, by file name: `{style}-{side}`, or `{style}-{side}-door` for a doorway. */
-    walls: Record<string, string>;
+    /** Art for wall styles that have it, by style and part: `left`, `right`, `left-door`, `right-door`. */
+    walls: Record<string, Record<string, string>>;
+    /** Art for items that have it, by slug and part: a furniture facing, `0` to `3`. */
+    items: Record<string, Record<string, string>>;
 };
 
 /** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */

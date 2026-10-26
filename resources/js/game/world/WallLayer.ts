@@ -7,8 +7,8 @@ import { colourFor } from './FurnitureLayer';
 import type { IsoMap } from './IsoMap';
 
 /**
- * The texture key wall art from the asset manifest is loaded under, by file
- * name: `{style}-{side}`, or `{style}-{side}-door` for a doorway.
+ * The texture key wall art from the asset manifest is loaded under, by style
+ * and part: `{style}/{side}`, or `{style}/{side}-door` for a doorway.
  */
 export function wallTexture(name: string): string {
     return `wall:${name}`;
@@ -67,7 +67,7 @@ export class WallLayer {
         style: string,
         { side, doorway }: WallPanel,
     ): string | null {
-        const name = `${style}-${side}`;
+        const name = `${style}/${side}`;
         const art = (file: string) =>
             this.scene.textures.exists(wallTexture(file))
                 ? wallTexture(file)

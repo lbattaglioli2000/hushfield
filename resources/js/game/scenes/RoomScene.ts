@@ -29,7 +29,7 @@ import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
 import type { DecoratePort } from '../world/DecorateMode';
 import { DecorateMode } from '../world/DecorateMode';
 import { FishingLine, waterBeside } from '../world/FishingLine';
-import { FurnitureLayer, furnitureTexture } from '../world/FurnitureLayer';
+import { FurnitureLayer, itemTexture } from '../world/FurnitureLayer';
 import { WallLayer, wallTexture } from '../world/WallLayer';
 import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
@@ -39,14 +39,16 @@ import { MovementController } from '../world/MovementController';
 
 /** The textures loaded before anything is drawn. */
 function bootAssets(manifest: AssetManifest): AssetFile[] {
-    const art = (
-        kind: 'buildings' | 'furniture' | 'walls',
+    const parts = (
+        kind: 'walls' | 'items',
         texture: (name: string) => string,
     ): AssetFile[] =>
-        Object.keys(manifest[kind]).map((name) => ({
-            key: texture(name),
-            url: (m) => m[kind][name],
-        }));
+        Object.entries(manifest[kind]).flatMap(([slug, files]) =>
+            Object.keys(files).map((part) => ({
+                key: texture(`${slug}/${part}`),
+                url: (m: AssetManifest) => m[kind][slug]?.[part],
+            })),
+        );
 
     return [
         {
@@ -60,9 +62,12 @@ function bootAssets(manifest: AssetManifest): AssetFile[] {
         { key: AVATAR_TEXTURE, url: (m) => m.images.resident },
         { key: 'marker', url: (m) => m.images.marker },
         { key: 'hover', url: (m) => m.images.hover },
-        ...art('buildings', buildingTexture),
-        ...art('furniture', furnitureTexture),
-        ...art('walls', wallTexture),
+        ...Object.keys(manifest.buildings).map((slug) => ({
+            key: buildingTexture(slug),
+            url: (m: AssetManifest) => m.buildings[slug],
+        })),
+        ...parts('items', itemTexture),
+        ...parts('walls', wallTexture),
     ];
 }
 

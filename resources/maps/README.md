@@ -234,15 +234,17 @@ map in Tiled, and commit the maps it changes.
 
 ### Buildings, furniture and walls
 
-**Hold this art for now**: the build doesn't take it yet. When it does, it
-moves to per-slug folders under `resources/art/` drawn at half size, and
-this section is restated in art pixels. Until then, the conventions are:
+Like tiles, these are drawn at **half size**, in art pixels: one art pixel is
+2 × 2 game pixels, so their pixels match the ground's. The build doubles
+them. Each has a folder per slug:
 
-| what      | folder        | file name                                   |
-| --------- | ------------- | ------------------------------------------- |
-| building  | `buildings/`  | `{slug}.png`, the building's name           |
-| furniture | `furniture/`  | `{slug}-{rotation}.png`, or `{slug}.png` for facing 0 |
-| walls     | `walls/`      | `{style}-left.png` and `{style}-right.png`; optionally `{style}-left-door.png`, `{style}-right-door.png` |
+```
+resources/art/
+  buildings/{slug}.png              one whole image per building, named as in the map
+  items/{slug}/0.png … 3.png        a furniture item's facings, by item slug
+  walls/{style}/left.png            a wall style's panels: left.png, right.png,
+  walls/{style}/right.png           and optionally left-door.png, right-door.png
+```
 
 A facing without its own furniture image mirrors its mirror image (facing r
 mirrors 3 − r), or borrows the opposite facing; see `facingArt` in
@@ -253,24 +255,35 @@ only when the borrowed facing's shape, flipped, is the shape of the facing
 it stands in for (a U-shaped booth, symmetric left to right, mirrors facing
 0 for facing 3), and an opposite facing only when the shape looks the same
 from behind. Otherwise the placeholder is drawn. A Corner Sofa never
-mirrors: give it all four facings.
+mirrors: give it all four facings. The admin item list shows each item's art
+as none, partial or complete.
 
-Buildings and furniture share one canvas rule, for the footprint as it lies
-(a 2 × 1 love seat is 96 px across at every facing):
+Buildings and furniture share one canvas rule, in art pixels, for the
+footprint as it lies (a 2 × 1 love seat is 48 across at every facing):
 
-- **Canvas width**: (wide + deep) × 32 px. A 7 × 5 building is 384 px wide.
+- **Canvas width**: (wide + deep) × 16. A 1 × 1 stool is 32 wide, a 2 × 1
+  love seat 48, a 7 × 5 building 192.
 - **Footprint**: the footprint diamond sits at the bottom of the canvas,
-  (wide + deep) × 16 px tall. Its bottom corner touches the bottom edge at
-  x = wide × 32; its left corner is on the left edge, wide × 16 px above the
-  bottom; its right corner is on the right edge, deep × 16 px above the
-  bottom. Nothing may hang below or beside that diamond.
+  (wide + deep) × 8 tall. Its bottom corner touches the bottom edge at
+  x = wide × 16; its left corner is on the left edge, wide × 8 above the
+  bottom; its right corner is on the right edge, deep × 8 above the bottom.
+  Its edges climb 1 pixel for every 2 across. Nothing may hang below that
+  diamond.
 - **Height**: as tall as it needs, above the footprint.
 - **Light** from the top left: the south-west face is lit, the south-east face
   is in shade.
-- **Pixels**: 1:1 with the game's 64×32 tiles, no scaling, no smoothing.
-- **Format**: PNG with a transparent background.
+- **Pixels**: export at 100%, no scaling, no smoothing. **Format**: PNG with a
+  transparent background.
 - **Front**: a building's door is drawn on its face, across the tiles its
   `door` exit covers. Furniture faces the lower-left edge at facing 0.
+
+**The build checks**: a building's width against its footprint in the maps
+(one name, one size, wherever it stands), and that nothing hangs below the
+diamond. It can't read the catalog, so for furniture it checks the width is
+a whole number of tiles (a multiple of 16) and that the art stands on some
+footprint diamond; if the width doesn't match the item, the game draws the
+placeholder and the item list says partial. It refuses any file exported at
+200%.
 
 Deliver one whole image per building or facing. The game slices it into
 vertical strips half a tile wide and sorts each strip on its own, so players
@@ -280,7 +293,7 @@ it. Rugs lie flat under everything.
 A shaped piece is drawn over its whole block, empty tiles included; leave
 them transparent. Where a strip runs over an empty tile with the piece both
 behind and in front of it (the inner corner of an L, seen from the side),
-the strip is cut into slices 8 px wide, and each slice is cut across where
+the strip is cut into slices 4 art pixels wide, and each slice is cut across where
 the front part's art can begin: its back edge, raised by the art's height
 above the footprint. The part above sorts as the back arm and the part below
 as the front arm, so someone standing in the corner is drawn over one and
@@ -290,27 +303,28 @@ over someone in the corner.
 
 ### Wall panels
 
-A wall style is two images, one panel each, repeated along the walls: `left`
-for the top-left wall (it runs down the map's left side and faces the
-viewer's lower right) and `right` for the top-right wall (facing the lower
-left).
+A wall style is a folder, `resources/art/walls/{style}/`, of panels repeated
+along the walls: `left.png` for the top-left wall (it runs down the map's
+left side and faces the viewer's lower right) and `right.png` for the
+top-right wall (facing the lower left). In art pixels:
 
-- **Canvas**: 32 px wide (one tile edge across) and 112 px tall: about three
-  tiles of wall, 96 px, plus the 16 px the floor's edge climbs across it.
+- **Canvas**: 16 wide (one tile edge across) and 56 tall: 48 of wall, about
+  three tiles, plus the 8 the floor's edge climbs across it.
 - **Floor edge**: the face stands on the floor's edge, which runs corner to
   corner across the bottom of the canvas. On `left` it runs from the
-  bottom-left corner up to 16 px above the bottom-right corner; on `right`,
-  from 16 px above the bottom-left corner down to the bottom-right corner.
-  Nothing may hang below it. Panels butt edge to edge, so the art should tile
-  along the wall.
-- **Height**: the top of the face is 96 px above the floor edge at every
-  point; a taller canvas is fine, its bottom edge is what lines up.
+  bottom-left corner up to 8 above the bottom-right corner; on `right`,
+  from 8 above the bottom-left corner down to the bottom-right corner.
+  Nothing may hang below it; the build checks. Panels butt edge to edge, so
+  the art should tile along the wall.
+- **Height**: the top of the face is 48 above the floor edge at every point;
+  a taller canvas is fine, its bottom edge is what lines up.
 - **Light** from the top left, as for buildings: `right` faces the light and
   is lit, `left` is in shade.
-- **Pixels**: 1:1, no scaling, no smoothing. **Format**: PNG with a
+- **Pixels**: export at 100%, no scaling, no smoothing. **Format**: PNG with a
   transparent background.
-- **Doorway** (optional): `{style}-{side}-door.png`, the same panel with an
-  opening from the floor up, through which the door's floor tile shows.
-  Without it, a style with art leaves a gap where a door is.
-- **Window** (later): `{style}-{side}-window.png` is reserved for a panel
-  with a window; the game does not draw it yet.
+- **Doorway** (optional): `left-door.png`, `right-door.png`, the same panel
+  with an opening from the floor up, through which the door's floor tile
+  shows. Without it, a style with art leaves a gap where a door is.
+- **Window** (later): `left-window.png`, `right-window.png` are reserved for a
+  panel with a window; the build takes them, but the game does not draw them
+  yet.
