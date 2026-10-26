@@ -8,9 +8,7 @@ use App\Domain\Fishing\CatchTable;
 use App\Domain\World\Clock;
 use App\Domain\World\FixtureKind;
 use App\Domain\World\FixtureReach;
-use App\Exceptions\WorldActionRefused;
-use App\Features\FishingEnabled;
-use App\Features\WorldFlags;
+use App\Features\WorldFlag;
 use App\Models\User;
 use Illuminate\Support\Str;
 
@@ -29,9 +27,7 @@ final readonly class CastLine
 
     public function __invoke(User $user): Cast
     {
-        if (! WorldFlags::active(FishingEnabled::class)) {
-            throw WorldActionRefused::fishingClosed();
-        }
+        WorldFlag::Fishing->ensureActive();
 
         $instance = $this->fixtures->ensureWithin($user, FixtureKind::Fishing);
 

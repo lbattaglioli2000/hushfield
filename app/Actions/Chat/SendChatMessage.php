@@ -9,8 +9,7 @@ use App\Domain\Presence\InstanceMembers;
 use App\Events\Chat\ChatMessageSent;
 use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
-use App\Features\ChatEnabled;
-use App\Features\WorldFlags;
+use App\Features\WorldFlag;
 use App\Models\ChatMessage;
 use App\Models\RoomInstance;
 use App\Models\User;
@@ -35,9 +34,7 @@ final readonly class SendChatMessage
 
     public function __invoke(User $user, RoomInstance $instance, string $body): ?ChatMessage
     {
-        if (! WorldFlags::active(ChatEnabled::class)) {
-            throw WorldActionRefused::chatPaused();
-        }
+        WorldFlag::Chat->ensureActive();
 
         $this->members->ensureContains($instance->id, $user->id);
 

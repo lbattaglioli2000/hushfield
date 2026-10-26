@@ -4,8 +4,7 @@ namespace App\Http\Controllers\Economy;
 
 use App\Domain\World\FixtureKind;
 use App\Domain\World\FixtureReach;
-use App\Features\ShopEnabled;
-use App\Features\WorldFlags;
+use App\Features\WorldFlag;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\WorldResponse;
 use App\Models\Item;
@@ -28,7 +27,7 @@ final class ShopController extends Controller
         $fixtures->ensureWithin($user, FixtureKind::Shop);
 
         return WorldResponse::json([
-            'open' => WorldFlags::active(ShopEnabled::class),
+            'open' => WorldFlag::Shop->isActive(),
             'items' => Item::query()->inShop()->orderBy('price')->orderBy('name')->get()
                 ->map(fn (Item $item): array => $item->toPayload())
                 ->all(),

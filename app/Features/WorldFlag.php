@@ -2,11 +2,13 @@
 
 namespace App\Features;
 
+use App\Exceptions\WorldActionRefused;
 use Filament\Support\Contracts\HasLabel;
 
 /**
  * Every global kill switch staff can flip. Add a case here (and its Pennant
- * feature class) to put a new flag on the admin Feature flags page.
+ * feature class) to put a new flag on the admin Feature flags page; actions
+ * it guards call ensureActive().
  */
 enum WorldFlag: string implements HasLabel
 {
@@ -38,5 +40,20 @@ enum WorldFlag: string implements HasLabel
     public function isActive(): bool
     {
         return WorldFlags::active($this->value);
+    }
+
+    /**
+     * @throws WorldActionRefused saying what is switched off, when it is.
+     */
+    public function ensureActive(): void
+    {
+        if (! $this->isActive()) {
+            throw match ($this) {
+                self::Chat => WorldActionRefused::chatPaused(),
+                self::Joins => WorldActionRefused::joinsPaused(),
+                self::Shop => WorldActionRefused::shopClosed(),
+                self::Fishing => WorldActionRefused::fishingClosed(),
+            };
+        }
     }
 }

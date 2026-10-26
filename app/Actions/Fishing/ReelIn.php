@@ -15,8 +15,7 @@ use App\Domain\World\Clock;
 use App\Events\Fishing\RareCatchLanded;
 use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
-use App\Features\FishingEnabled;
-use App\Features\WorldFlags;
+use App\Features\WorldFlag;
 use App\Models\LedgerEntry;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -40,9 +39,7 @@ final readonly class ReelIn
 
     public function __invoke(User $user, string $castId): ReelResult
     {
-        if (! WorldFlags::active(FishingEnabled::class)) {
-            throw WorldActionRefused::fishingClosed();
-        }
+        WorldFlag::Fishing->ensureActive();
 
         $reeledAt = Clock::nowMs();
         $cast = $this->casts->take($user->id, $castId);

@@ -14,8 +14,7 @@ use App\Domain\World\WalkabilityGridRepository;
 use App\Events\World\PlayerJoined;
 use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
-use App\Features\JoinsEnabled;
-use App\Features\WorldFlags;
+use App\Features\WorldFlag;
 use App\Models\Room;
 use App\Models\RoomInstance;
 use App\Models\User;
@@ -43,9 +42,11 @@ final readonly class JoinRoom
             throw WorldActionRefused::banned();
         }
 
-        if (! $room->is_active || ! WorldFlags::active(JoinsEnabled::class)) {
+        if (! $room->is_active) {
             throw WorldActionRefused::joinsPaused();
         }
+
+        WorldFlag::Joins->ensureActive();
 
         // Fails before anyone is moved when the room's map is missing.
         $this->grids->forRoom($room);

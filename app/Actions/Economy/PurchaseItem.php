@@ -8,8 +8,7 @@ use App\Domain\Items\InventorySource;
 use App\Domain\World\FixtureKind;
 use App\Domain\World\FixtureReach;
 use App\Exceptions\WorldActionRefused;
-use App\Features\ShopEnabled;
-use App\Features\WorldFlags;
+use App\Features\WorldFlag;
 use App\Models\InventoryItem;
 use App\Models\Item;
 use App\Models\User;
@@ -32,9 +31,7 @@ final readonly class PurchaseItem
 
     public function __invoke(User $user, Item $item): InventoryItem
     {
-        if (! WorldFlags::active(ShopEnabled::class)) {
-            throw WorldActionRefused::shopClosed();
-        }
+        WorldFlag::Shop->ensureActive();
 
         $this->fixtures->ensureWithin($user, FixtureKind::Shop);
 
