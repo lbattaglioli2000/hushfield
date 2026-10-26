@@ -92,7 +92,6 @@ test('the asset manifest lists every built image by its content-hashed URL', fun
         ->assertOk()
         ->assertHeader('Cache-Control', 'no-cache, private')
         ->assertJsonPath('buildings', [])
-        ->assertJsonPath('items', [])
         ->assertJsonPath('walls', []);
     $index = json_decode((string) file_get_contents(config('hushfield.assets.index')), true);
     $base = asset('assets');

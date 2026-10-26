@@ -9,9 +9,9 @@ import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { DEPTH, FURNITURE } from '../theme';
 import type { IsoMap } from './IsoMap';
 
-/** The texture key an item's art from the asset manifest is loaded under, by `{slug}/{part}`. */
-export function itemTexture(name: string): string {
-    return `item:${name}`;
+/** The texture key an item's art is loaded under, by its URL: new art never reuses an old texture. */
+export function itemTexture(url: string): string {
+    return `item:${url}`;
 }
 
 /** The key of a texture's left-to-right flipped copy (see FurnitureLayer.mirrored). */
@@ -89,21 +89,28 @@ export class FurnitureLayer {
         const footprint = placedFootprint(placed);
         // Art drawn for another size would hang off the piece's tiles: the build
         // can't check it against the catalog, so a placeholder is drawn instead.
-        const fits = (name: string) =>
-            this.scene.textures.exists(itemTexture(name)) &&
-            this.scene.textures.get(itemTexture(name)).getSourceImage()
-                .width ===
-                (footprint.wide + footprint.deep) * (TILE_WIDTH / 2);
+        const urls = placed.item.furniture?.art ?? {};
+        const key = (facing: number) =>
+            urls[facing] ? itemTexture(urls[facing]) : null;
+        const fits = (facing: number) => {
+            const texture = key(facing);
+
+            return (
+                texture !== null &&
+                this.scene.textures.exists(texture) &&
+                this.scene.textures.get(texture).getSourceImage().width ===
+                    (footprint.wide + footprint.deep) * (TILE_WIDTH / 2)
+            );
+        };
         const art = facingArt(
-            placed.item.slug,
             placed.rotation,
             fits,
             placed.item.furniture ?? undefined,
         );
         const texture = art
             ? art.mirrored
-                ? this.mirrored(itemTexture(art.name))
-                : itemTexture(art.name)
+                ? this.mirrored(key(art.facing) as string)
+                : (key(art.facing) as string)
             : this.placeholder(placed, footprint);
         const source = this.scene.textures.get(texture);
         const placement = placeBuilding(

@@ -31,6 +31,17 @@ final class ItemPolicy
         return $staff->isAdmin();
     }
 
+    /**
+     * Uploaded art goes live for every player, so one staff member publishes
+     * it (hushfield.assets.publisher); until one is named, any admin may.
+     */
+    public function publishArt(User $staff, Item $item): bool
+    {
+        $publisher = config('hushfield.assets.publisher');
+
+        return $staff->isAdmin() && (blank($publisher) || strcasecmp((string) $publisher, $staff->email) === 0);
+    }
+
     public function delete(User $staff, Item $item): bool
     {
         return false;

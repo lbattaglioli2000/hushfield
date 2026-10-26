@@ -69,7 +69,7 @@ class RoomInstance extends Model
      */
     public function furniturePayload(): array
     {
-        return array_values($this->furniture()->with('inventoryItem.item')->orderBy('id')->get()
+        return array_values($this->furniture()->with('inventoryItem.item.publishedArt')->orderBy('id')->get()
             ->map(fn (HomeFurniture $piece): array => $piece->toPayload())
             ->all());
     }

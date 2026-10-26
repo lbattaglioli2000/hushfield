@@ -100,8 +100,6 @@ export type AssetManifest = {
     buildings: Record<string, string>;
     /** Art for wall styles that have it, by style and part: `left`, `right`, `left-door`, `right-door`. */
     walls: Record<string, Record<string, string>>;
-    /** Art for items that have it, by slug and part: a furniture facing, `0` to `3`. */
-    items: Record<string, Record<string, string>>;
 };
 
 /** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */
@@ -140,6 +138,8 @@ export type Item = {
         floor: boolean;
         /** Which of those tiles it covers, as a Footprint mask (['##', '#.'] for an L); null for all of them. */
         shape: string[] | null;
+        /** Art URL by facing, `0` to `3`, for the facings that have art (see facingArt). */
+        art: Record<string, string>;
     } | null;
 };
 

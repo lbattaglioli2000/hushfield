@@ -28,7 +28,7 @@ final class ShopController extends Controller
 
         return WorldResponse::json([
             'open' => WorldFlag::Shop->isActive(),
-            'items' => Item::query()->inShop()->orderBy('price')->orderBy('name')->get()
+            'items' => Item::query()->inShop()->with('publishedArt')->orderBy('price')->orderBy('name')->get()
                 ->map(fn (Item $item): array => $item->toPayload())
                 ->all(),
         ]);

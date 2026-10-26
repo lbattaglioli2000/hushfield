@@ -12,27 +12,23 @@ use Illuminate\Http\Request;
  * Every game asset URL comes from here, read from the index
  * hushfield:build-assets writes. Each file's name carries its content hash,
  * so this is the one response that must be revalidated: no-cache, with an
- * ETag. Building, wall and furniture art is listed by slug and part (see
- * resources/maps/README.md, "Art"); anything without art is drawn as a
- * placeholder.
+ * ETag. Building and wall art is listed by slug and part (see
+ * resources/maps/README.md, "Art"); furniture art comes with each item
+ * (Item::toPayload), as it may be uploaded. Anything without art is drawn
+ * as a placeholder.
  */
 final class AssetManifestController extends Controller
 {
     public function __invoke(Request $request, AssetIndex $assets, AssetPublisher $publisher): JsonResponse
     {
         $index = $assets->current();
-        // The bucket once this build is published to it, the app until then.
-        $bucket = (string) config('hushfield.assets.base_url');
-        $base = $bucket !== '' && $publisher->published($index['version'])
-            ? rtrim($bucket, '/').'/'.AssetPublisher::PREFIX
-            : asset('assets');
+        $base = $publisher->baseUrl($index['version']);
 
         /** @var array<string, string> $images */
         $images = config('hushfield.assets.images');
 
         $buildings = [];
         $walls = [];
-        $items = [];
 
         foreach ($index['files'] as $name => $file) {
             $url = "{$base}/{$file}";
@@ -41,7 +37,6 @@ final class AssetManifestController extends Controller
             match ($parts[0]) {
                 'buildings' => $buildings[$parts[1]] = $url,
                 'walls' => $walls[$parts[1]][$parts[2]] = $url,
-                'items' => $items[$parts[1]][$parts[2]] = $url,
                 default => null,
             };
         }
@@ -51,7 +46,6 @@ final class AssetManifestController extends Controller
             'images' => array_map(fn (string $name): string => "{$base}/{$index['files'][$name]}", $images),
             'buildings' => (object) $buildings,
             'walls' => (object) array_map(fn (array $parts): object => (object) $parts, $walls),
-            'items' => (object) array_map(fn (array $parts): object => (object) $parts, $items),
         ])->header('Cache-Control', 'no-cache');
 
         $response->setEtag(hash('xxh128', (string) $response->getContent()));

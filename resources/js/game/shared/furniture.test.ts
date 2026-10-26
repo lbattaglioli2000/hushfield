@@ -137,64 +137,64 @@ describe('pieceAt', () => {
 
 describe('facingArt', () => {
     const art =
-        (...names: string[]) =>
-        (name: string) =>
-            names.includes(name);
+        (...facings: number[]) =>
+        (facing: number) =>
+            facings.includes(facing);
 
     it('uses each facing’s own image when it has one', () => {
-        const all = art('bed/0', 'bed/1', 'bed/2', 'bed/3');
+        const all = art(0, 1, 2, 3);
 
         for (const rotation of [0, 1, 2, 3]) {
-            expect(facingArt('bed', rotation, all)).toEqual({
-                name: `bed/${rotation}`,
+            expect(facingArt(rotation, all)).toEqual({
+                facing: rotation,
                 mirrored: false,
             });
         }
     });
 
     it('mirrors a single image for the quarter turns', () => {
-        const one = art('bed/0');
+        const one = art(0);
 
-        expect(facingArt('bed', 0, one)).toEqual({
-            name: 'bed/0',
+        expect(facingArt(0, one)).toEqual({
+            facing: 0,
             mirrored: false,
         });
-        expect(facingArt('bed', 1, one)).toEqual({
-            name: 'bed/0',
+        expect(facingArt(1, one)).toEqual({
+            facing: 0,
             mirrored: true,
         });
-        expect(facingArt('bed', 2, one)).toEqual({
-            name: 'bed/0',
+        expect(facingArt(2, one)).toEqual({
+            facing: 0,
             mirrored: false,
         });
-        expect(facingArt('bed', 3, one)).toEqual({
-            name: 'bed/0',
+        expect(facingArt(3, one)).toEqual({
+            facing: 0,
             mirrored: true,
         });
     });
 
     it('mirrors the facing that is its mirror image', () => {
-        const backAndFront = art('bed/0', 'bed/2');
+        const backAndFront = art(0, 2);
 
-        expect(facingArt('bed', 1, backAndFront)).toEqual({
-            name: 'bed/2',
+        expect(facingArt(1, backAndFront)).toEqual({
+            facing: 2,
             mirrored: true,
         });
-        expect(facingArt('bed', 3, backAndFront)).toEqual({
-            name: 'bed/0',
+        expect(facingArt(3, backAndFront)).toEqual({
+            facing: 0,
             mirrored: true,
         });
     });
 
     it('borrows the opposite facing when there is no mirror image', () => {
-        const front = art('bed/0', 'bed/3');
+        const front = art(0, 3);
 
-        expect(facingArt('bed', 1, front)).toEqual({
-            name: 'bed/3',
+        expect(facingArt(1, front)).toEqual({
+            facing: 3,
             mirrored: false,
         });
-        expect(facingArt('bed', 2, front)).toEqual({
-            name: 'bed/0',
+        expect(facingArt(2, front)).toEqual({
+            facing: 0,
             mirrored: false,
         });
     });
@@ -205,10 +205,10 @@ describe('facingArt', () => {
         const sofa = { wide: 2, deep: 2, shape: ['##', '#.'] };
 
         for (const rotation of [1, 2, 3]) {
-            expect(facingArt('sofa', rotation, art('sofa/0'), sofa)).toBeNull();
+            expect(facingArt(rotation, art(0), sofa)).toBeNull();
         }
-        expect(facingArt('sofa', 0, art('sofa/0'), sofa)).toEqual({
-            name: 'sofa/0',
+        expect(facingArt(0, art(0), sofa)).toEqual({
+            facing: 0,
             mirrored: false,
         });
 
@@ -216,15 +216,15 @@ describe('facingArt', () => {
         // (#.# over ###, transposed) stands on facing 3's tiles.
         const booth = { wide: 3, deep: 2, shape: ['#.#', '###'] };
 
-        expect(facingArt('booth', 3, art('booth/0'), booth)).toEqual({
-            name: 'booth/0',
+        expect(facingArt(3, art(0), booth)).toEqual({
+            facing: 0,
             mirrored: true,
         });
-        expect(facingArt('booth', 1, art('booth/0'), booth)).toBeNull();
-        expect(facingArt('booth', 2, art('booth/0'), booth)).toBeNull();
+        expect(facingArt(1, art(0), booth)).toBeNull();
+        expect(facingArt(2, art(0), booth)).toBeNull();
     });
 
     it('has nothing to draw without art', () => {
-        expect(facingArt('bed', 1, art('chair/0'))).toBeNull();
+        expect(facingArt(1, art())).toBeNull();
     });
 });

@@ -52,6 +52,16 @@ final readonly class AssetPublisher
         return ['uploaded' => $uploaded, 'skipped' => count($index['files']) - $uploaded, 'version' => $index['version']];
     }
 
+    /** Where a build's files are fetched from: the bucket once it is published there, the app until then. */
+    public function baseUrl(string $version): string
+    {
+        $bucket = (string) config('hushfield.assets.base_url');
+
+        return $bucket !== '' && $this->published($version)
+            ? rtrim($bucket, '/').'/'.self::PREFIX
+            : asset('assets');
+    }
+
     /** Whether this build's files are all in the bucket. */
     public function published(string $version): bool
     {

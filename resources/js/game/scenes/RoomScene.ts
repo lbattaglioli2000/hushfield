@@ -549,15 +549,18 @@ export class RoomScene
         ];
     }
 
+    /** Each placed item's art, which comes with the item, not the manifest. */
     private itemFiles(placed: PlacedFurniture[]): AssetFile[] {
-        const slugs = new Set(placed.map((piece) => piece.item.slug));
-
-        return [...slugs].flatMap((slug) =>
-            Object.keys(this.assets.manifest.items[slug] ?? {}).map((part) => ({
-                key: itemTexture(`${slug}/${part}`),
-                url: (m: AssetManifest) => m.items[slug]?.[part],
-            })),
+        const urls = new Set(
+            placed.flatMap((piece) =>
+                Object.values(piece.item.furniture?.art ?? {}),
+            ),
         );
+
+        return [...urls].map((url) => ({
+            key: itemTexture(url),
+            url: () => url,
+        }));
     }
 
     /** Waits for a room's art like a map: the newest snapshot is drawn when it is in. */

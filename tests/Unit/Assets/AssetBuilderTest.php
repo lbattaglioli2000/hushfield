@@ -348,7 +348,15 @@ it('doubles building, wall and furniture art drawn at half size, and lists it by
             'left' => "{$base}/{$index['files']['walls/plaster/left']}",
             'right-door' => "{$base}/{$index['files']['walls/plaster/right-door']}",
         ]])
-        ->and(array_keys($manifest->json('items.love-seat')))->toBe([0, 1]);
+        ->and($manifest->json())->not->toHaveKey('items');
+
+    // Furniture art comes with the item instead.
+    $seat = new Item(['slug' => 'love-seat', 'slot' => ItemSlot::Furniture, 'wide' => 2, 'deep' => 1]);
+
+    expect(app(ItemArt::class)->facings($seat))->toBe([
+        0 => ['url' => "{$base}/{$index['files']['items/love-seat/0']}", 'width' => 96],
+        1 => ['url' => "{$base}/{$index['files']['items/love-seat/1']}", 'width' => 96],
+    ]);
 });
 
 it('refuses building, wall and furniture art that breaks its canvas rule', function (Closure $draw, string $message) {

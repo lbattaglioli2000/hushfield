@@ -236,7 +236,7 @@ final class AssetBuilder
 
         [$wide, $deep] = $footprint;
         $art = $this->source($sources, $file, 'buildings', ($wide + $deep) * 32, null);
-        $this->checkFootprint($file, $art, $wide, "a {$wide} × {$deep} footprint");
+        $this->checkFootprint("art/{$file}", $art, $wide * intdiv(32, $this->scale('buildings')), "a {$wide} × {$deep} footprint");
 
         return $art->scale($this->scale('buildings'));
     }
@@ -262,7 +262,7 @@ final class AssetBuilder
         $first = null;
 
         for ($wide = 1; $wide < intdiv($art->width, $tile); $wide++) {
-            $problem = $this->footprintProblem($art, $wide * $tile, $file);
+            $problem = $this->footprintProblem($art, $wide * $tile, "art/{$file}");
 
             if ($problem === null) {
                 return $art->scale($scale);
@@ -303,10 +303,25 @@ final class AssetBuilder
         return $art->scale($scale);
     }
 
-    /** Fails unless nothing hangs below the footprint diamond whose bottom corner is `wide` tiles in. */
-    private function checkFootprint(string $file, Image $art, int $wide, string $what): void
+    /**
+     * A furniture facing uploaded in the admin catalog (docs/assets-plan.md
+     * §8): checked as the build checks repo art, but against the piece's own
+     * size, `wide` × `deep` as it lies at this facing, and multiplied up to
+     * game size. `name` is how messages refer to the file.
+     */
+    public function furnitureFacing(string $bytes, string $name, int $wide, int $deep): Image
     {
-        $problem = $this->footprintProblem($art, $wide * intdiv(32, $this->scale('buildings')), $file);
+        $scale = $this->scale('items');
+        $art = $this->checked(Png::decode($bytes, $name), $name, $scale, ($wide + $deep) * 32, null);
+        $this->checkFootprint($name, $art, $wide * intdiv(32, $scale), "a {$wide} × {$deep} footprint");
+
+        return $art->scale($scale);
+    }
+
+    /** Fails unless nothing hangs below the footprint diamond whose bottom corner is `corner` pixels in. */
+    private function checkFootprint(string $name, Image $art, int $corner, string $what): void
+    {
+        $problem = $this->footprintProblem($art, $corner, $name);
 
         if ($problem !== null) {
             throw new InvalidAssetException("{$problem} It stands on {$what}.");
@@ -319,7 +334,7 @@ final class AssetBuilder
      * edges climbing one pixel for every two across, or null if nothing.
      * Hand-drawn edges may stray by a pixel.
      */
-    private function footprintProblem(Image $art, int $corner, string $file): ?string
+    private function footprintProblem(Image $art, int $corner, string $name): ?string
     {
         $rows = intdiv($art->width, 2) + 1;
 
@@ -328,7 +343,7 @@ final class AssetBuilder
                 $edge = $art->height - abs($x + 0.5 - $corner) / 2;
 
                 if ($y > $edge + 1 && $art->alphaAt($x, $y) > 0) {
-                    return "art/{$file} has pixels below its footprint diamond at ({$x}, {$y}).";
+                    return "{$name} has pixels below its footprint diamond at ({$x}, {$y}).";
                 }
             }
         }
@@ -398,8 +413,15 @@ final class AssetBuilder
      */
     private function source(string $sources, string $file, string $kind, ?int $width, ?int $height): Image
     {
-        $scale = $this->scale($kind);
-        $image = Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}");
+        return $this->checked(Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}"), "art/{$file}", $this->scale($kind), $width, $height);
+    }
+
+    /**
+     * An image in art pixels, checked against its size in game pixels (null:
+     * any) divided by `scale`, and refused if it was exported already scaled up.
+     */
+    private function checked(Image $image, string $name, int $scale, ?int $width, ?int $height): Image
+    {
         $wantWidth = $width === null ? null : intdiv($width, $scale);
         $wantHeight = $height === null ? null : intdiv($height, $scale);
         $matches = fn (int $factor): bool => ($wantWidth === null || $image->width === $wantWidth * $factor)
@@ -408,13 +430,13 @@ final class AssetBuilder
         if ($scale > 1 && $matches($scale) && $image->isScaledUp($scale)) {
             $expected = ($wantWidth ?? intdiv($image->width, $scale)).'×'.($wantHeight ?? intdiv($image->height, $scale));
 
-            throw new InvalidAssetException("art/{$file} is already scaled up to {$image->width}×{$image->height}. Export it at 100%: {$expected}.");
+            throw new InvalidAssetException("{$name} is already scaled up to {$image->width}×{$image->height}. Export it at 100%: {$expected}.");
         }
 
         if (! $matches(1)) {
             $size = $wantHeight === null ? "{$wantWidth} wide" : ($wantWidth === null ? "{$wantHeight} tall" : "{$wantWidth}×{$wantHeight}");
 
-            throw new InvalidAssetException("art/{$file} is {$image->width}×{$image->height}; it must be {$size}.");
+            throw new InvalidAssetException("{$name} is {$image->width}×{$image->height}; it must be {$size}.");
         }
 
         return $image;

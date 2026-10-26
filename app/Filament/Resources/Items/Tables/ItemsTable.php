@@ -20,7 +20,7 @@ class ItemsTable
     {
         return $table
             ->defaultSort('name')
-            ->modifyQueryUsing(fn ($query) => $query->withCount('owners'))
+            ->modifyQueryUsing(fn ($query) => $query->withCount('owners')->with('publishedArt'))
             ->columns([
                 TextColumn::make('name')
                     ->description(fn ($record): string => $record->slug)
@@ -40,7 +40,7 @@ class ItemsTable
                     ->label('Art')
                     ->badge()
                     ->state(fn (Item $record): ArtStatus => app(ItemArt::class)->status($record))
-                    ->tooltip('Built from resources/art/items/{slug}/. Missing facings are drawn as placeholders.'),
+                    ->tooltip('Uploaded on the item, or built from resources/art/items/{slug}/. Missing facings are drawn as placeholders.'),
                 IconColumn::make('in_shop')
                     ->label('In shop')
                     ->boolean(),

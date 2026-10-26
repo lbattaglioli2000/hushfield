@@ -130,6 +130,15 @@ return [
          * (hushfield:publish-assets); until then, or when unset, the app serves it.
          */
         'base_url' => env('HUSHFIELD_ASSET_URL'),
+        /*
+         * Furniture art uploaded in the admin catalog goes to the same disk,
+         * under items/ (docs/assets-plan.md §8). Only this staff member, by
+         * email, publishes it; unset, any admin may.
+         */
+        'publisher' => env('HUSHFIELD_ART_PUBLISHER'),
+        // Limits on an upload as it arrives: bytes, and art pixels tall.
+        'upload_max_bytes' => 64 * 1024,
+        'upload_max_height' => 256,
         // The disk built art is published to, and how long prune keeps files no recent build names.
         'disk' => 'public',
         'keep_days' => 30,

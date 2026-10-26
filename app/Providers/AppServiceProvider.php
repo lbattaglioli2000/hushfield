@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Actions\Identity\ApplyAccountPolicy;
+use App\Domain\Assets\ItemArt;
 use App\Domain\Chat\BlockedTermsFilter;
 use App\Domain\Chat\BlockedTermsUsernameScreen;
 use App\Domain\Chat\ChatFilter;
@@ -40,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Safe as a singleton under Octane: it only caches immutable grids keyed by map version.
         $this->app->singleton(WalkabilityGridRepository::class);
+
+        // Reads the asset index once per request, however many items it is asked about.
+        $this->app->scoped(ItemArt::class);
     }
 
     public function boot(): void

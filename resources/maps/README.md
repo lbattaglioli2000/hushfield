@@ -294,6 +294,29 @@ from behind. Otherwise the placeholder is drawn. A Corner Sofa never
 mirrors: give it all four facings. The admin item list shows each item's art
 as none, partial or complete.
 
+**Uploaded furniture art.** Staff can also upload a furniture facing on the
+item's page in the admin catalog (the Art table). An upload gets the
+same canvas checks, but against the item's own size, so its width must be
+exactly (wide + deep) × 16 and it must stand on the footprint as it lies at
+that facing. It must also be at most 256 tall and 64 KB. It is doubled,
+re-encoded (which drops metadata), and stored on the `public` disk as
+`items/{slug}/{facing}.{hash}.png`, outside `assets/`, so pruning never
+touches it. An `item_art` row records it. Rows are never overwritten:
+publishing one unpublishes the facing's other uploads, so publishing an
+older one rolls back. A facing's published upload wins over its file in
+`resources/art/items/`; unpublishing falls back to that file, or to the
+placeholder. Changing an item's `wide`, `deep` or `shape` marks its uploads
+stale, and the game stops drawing them. Only `HUSHFIELD_ART_PUBLISHER` (an
+email; unset, any admin) publishes. Every upload, publish and unpublish is in
+the audit log under "Item art". Item art URLs, uploaded or built, come with
+each item as `furniture.art` (facing => URL), not in the manifest.
+Uploads are served from `HUSHFIELD_ASSET_URL` when it is set, and from the
+`public` disk's own URL otherwise. For a local folder, that needs
+`php artisan storage:link`.
+
+The artist's guide to all this, in plain words and with footprint templates,
+is [`docs/art/furniture.md`](../../docs/art/furniture.md). Keep the two in step.
+
 Buildings and furniture share one canvas rule, in art pixels, for the
 footprint as it lies (a 2 × 1 love seat is 48 across at every facing):
 

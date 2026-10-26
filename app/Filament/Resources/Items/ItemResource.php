@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Items;
 use App\Filament\Resources\Items\Pages\CreateItem;
 use App\Filament\Resources\Items\Pages\EditItem;
 use App\Filament\Resources\Items\Pages\ListItems;
+use App\Filament\Resources\Items\RelationManagers\ArtRelationManager;
 use App\Filament\Resources\Items\Schemas\ItemForm;
 use App\Filament\Resources\Items\Tables\ItemsTable;
 use App\Models\Item;
@@ -37,6 +38,13 @@ class ItemResource extends Resource
     public static function table(Table $table): Table
     {
         return ItemsTable::configure($table);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ArtRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

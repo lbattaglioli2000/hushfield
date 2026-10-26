@@ -34,7 +34,7 @@ final readonly class WalletResponse
                     'available' => $this->stipend->isAvailable($user),
                     'next_at' => $this->stipend->nextAt()->toIso8601String(),
                 ],
-                'inventory' => $user->inventory()->with('item')->latest('id')->get()
+                'inventory' => $user->inventory()->with('item.publishedArt')->latest('id')->get()
                     ->map(fn (InventoryItem $owned): array => $owned->item->toPayload())
                     ->all(),
             ],

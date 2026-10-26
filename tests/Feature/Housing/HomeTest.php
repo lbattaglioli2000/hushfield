@@ -186,7 +186,7 @@ test('a piece covers every tile of its footprint, and nothing else may stand on 
 
     placeFurniture($seat, 0, 0)->assertOk()
         ->assertJsonPath('furniture.0.rotation', 0)
-        ->assertJsonPath('furniture.0.item.furniture', ['wide' => 2, 'deep' => 1, 'height' => 18, 'floor' => false, 'shape' => null]);
+        ->assertJsonPath('furniture.0.item.furniture', ['wide' => 2, 'deep' => 1, 'height' => 18, 'floor' => false, 'shape' => null, 'art' => []]);
 
     placeFurniture(ownedPiece(), 1, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
     // A 2 × 2 piece whose back corner is clear but whose other tiles are not.

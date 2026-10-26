@@ -84,14 +84,15 @@ export function pieceAt(
 }
 
 /**
- * Which image to draw a piece from, and whether to mirror it.
+ * Which facing's image to draw a piece from, and whether to mirror it.
  *
- * Art is named by item slug and facing: `{slug}/{rotation}`, from
- * resources/art/items/{slug}/{rotation}.png (resources/maps/README.md, "Art"). A facing without
- * its own image mirrors its mirror image: flipping an isometric picture left
- * to right turns lower left into lower right and upper left into upper
- * right, so facing r mirrors facing 3 − r. Failing that it borrows the
- * opposite facing, the same shape seen from the wrong side, or mirrors that.
+ * Each item carries its art by facing (`item.furniture.art`): uploaded in the
+ * admin catalog, or built from resources/art/items/{slug}/{facing}.png
+ * (resources/maps/README.md, "Art"). A facing without its own image mirrors
+ * its mirror image: flipping an isometric picture left to right turns lower
+ * left into lower right and upper left into upper right, so facing r mirrors
+ * facing 3 − r. Failing that it borrows the opposite facing, the same shape
+ * seen from the wrong side, or mirrors that.
  *
  * A stand-in must stand on the same tiles. A plain block always does; a
  * shaped one (an L, say) only when the borrowed image, flipped if it is,
@@ -100,13 +101,10 @@ export function pieceAt(
  * placeholder is drawn instead.
  */
 export function facingArt(
-    slug: string,
     rotation: number,
-    has: (name: string) => boolean,
+    has: (facing: number) => boolean,
     size: FurnitureSize = { wide: 1, deep: 1 },
-): { name: string; mirrored: boolean } | null {
-    const named = (facing: number) =>
-        has(`${slug}/${facing}`) ? `${slug}/${facing}` : null;
+): { facing: number; mirrored: boolean } | null {
     const lies = (facing: number) => footprintOf(size, 0, 0, facing);
     const opposite = (rotation + 2) % FACINGS;
     const tries: Array<[number, boolean]> = [
@@ -117,11 +115,10 @@ export function facingArt(
     ];
 
     for (const [facing, flipped] of tries) {
-        const name = named(facing);
         const drawn = flipped ? mirrored(lies(facing)) : lies(facing);
 
-        if (name && sameShape(drawn, lies(rotation))) {
-            return { name, mirrored: flipped };
+        if (has(facing) && sameShape(drawn, lies(rotation))) {
+            return { facing, mirrored: flipped };
         }
     }
 

@@ -15,8 +15,8 @@ checks canvases, gives each output a content hash in its name, and writes the
 index the manifest is served from. Built files aren't committed. Production
 serves them from the public Laravel Cloud bucket with immutable caching.
 Locally the app serves them itself, and an orb can run Adobe's S3Mock to test
-the bucket path. Masters go in a separate private bucket. Item art ships with code for now. Filament uploads come later,
-when we want to require art.
+the bucket path. Masters go in a separate private bucket. Item art ships with code, and
+furniture art can also be uploaded in Filament (§8, built).
 
 ---
 
@@ -439,23 +439,35 @@ Until then the item draws as its tinted placeholder.
 - The manifest lists item art under `items`, by slug and part. It's loaded per
   room, not at boot (§9).
 
-**Later, when we want to require art:** uploads through Filament.
+**Uploads through Filament: built** for furniture facings. The artist's
+guide is [`docs/art/furniture.md`](art/furniture.md); the rules are in
+`resources/maps/README.md`, "Buildings, furniture and walls".
 
-- Upload to the bucket under `items/{slug}/{part}.{hash}.png`, with an
-  `item_art` row per upload: path, sha, size, uploader, `published_at` and
-  `published_by`. Rows are never overwritten, so rolling back is instant.
-- Checks on upload: the same art-pixel canvas rules as the build. The file is
-  doubled and **re-encoded with GD**, which drops metadata and anything
-  hidden in the PNG. Limits: ≤ 64 KB as uploaded, ≤ 256 art pixels tall.
-- **One staff member can publish.** Every upload, publish and unpublish is
-  logged. Unpublishing goes back to the placeholder at once. Changing an
-  item's `wide` or `deep` marks its art stale.
-- `hushfield:import-item-art {dir}` and a Filament zip action take the
-  handover layout (§13) in bulk, and move the repo's item art across.
-- Item art URLs move from the manifest into the item payload, so the manifest
-  stays small as the catalog grows.
-- Then switch on enforcement: an item can't be `in_shop` until all its parts
-  are published.
+- Uploaded on the item's page (the Art table), one facing at a time, to the
+  `public` disk under `items/{slug}/{facing}.{hash}.png`, with an `item_art`
+  row per upload: path, sha, size, uploader, `published_at` and
+  `published_by`. Rows are never overwritten, so rolling back is instant:
+  publish the older row.
+- Checks on upload: the same art-pixel canvas rules as the build, but
+  against the item's own size and the footprint as it lies at that facing.
+  The file is doubled and **re-encoded**. That uses the build's own PNG
+  codec rather than GD: it drops metadata and anything hidden in the file
+  just the same, and GD would round every alpha value to 7 bits. Limits:
+  ≤ 64 KB as uploaded, ≤ 256 art pixels tall.
+- **One staff member publishes** (`HUSHFIELD_ART_PUBLISHER`, by email;
+  unset, any admin). Every upload, publish and unpublish is logged under
+  "Item art". Unpublishing goes back to the repo's art for that facing, or
+  the placeholder. Changing an item's `wide`, `deep` or `shape` marks its
+  uploads stale, and they stop being drawn.
+- A facing's published upload takes precedence over its file in
+  `resources/art/items/`, so repo art keeps working.
+- Item art URLs moved from the manifest into the item payload
+  (`furniture.art`), so the manifest stays small as the catalog grows.
+  Textures are keyed by URL, so new art never reuses an old texture.
+
+Still to do: `hushfield:import-item-art {dir}` and a Filament zip action for
+the handover layout (§13) in bulk; wearable uploads; and enforcement, so an
+item can't be `in_shop` until all its parts are published.
 
 | Option                                          | For                                                      | Against                                                                   |
 | ----------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -521,7 +533,7 @@ allowed, one entry per handover:
 | --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A   | Pixel scale                | **Half size, doubled at build, for now** (§2). Scale is one build setting (`assets.scale`), so larger art can be tried later without code changes. Prove it on one avatar strip and one wearable first. |
 | B   | Third-party pack           | **Removed.** Its slots pack as placeholders until she draws them.                                                                                                                                       |
-| C   | Item art through Filament  | **Later.** Item art ships with code for now (§8).                                                                                                                                                       |
+| C   | Item art through Filament  | **Built for furniture** (§8). Repo art still works; an upload wins per facing.                                                                                                                          |
 | D   | Who publishes              | **One staff member**, with an audit log, once uploads exist.                                                                                                                                            |
 | E   | Bucket                     | **Use the public bucket already attached in Cloud.** Adobe S3Mock in the orb for testing (§7); not MinIO.                                                                                               |
 | F   | Masters                    | **A second, private bucket** (§7). You create it and its keys in Cloud.                                                                                                                                 |
@@ -569,9 +581,9 @@ Each step is its own PR and leaves the game working.
    `items/{slug}/front|back.png`, loaded per resident in the room.
 7. **Audio.** Room music under `resources/audio/music/{room-slug}.opus`,
    loaded lazily after a gesture.
-8. **Later, to enforce item art:** Filament uploads to the bucket, one-staff
-   publish, the import command, URLs in the item payload. Then the shop
-   requires published art.
+8. **Item art uploads.** Done: Filament uploads of furniture facings to the
+   bucket, one-staff publish, URLs in the item payload. Still to come: the
+   import command and zip action, then the shop requiring published art.
 
 ## 13. For the artist: how to hand over files
 

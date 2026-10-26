@@ -33,4 +33,19 @@ final class ModerationActionRefused extends RuntimeException
     {
         return new self('This resident already owns that item.');
     }
+
+    public static function notFurniture(): self
+    {
+        return new self('Only furniture has facings to upload art for.');
+    }
+
+    public static function notArtPublisher(): self
+    {
+        return new self('Only the art publisher can publish or unpublish item art.');
+    }
+
+    public static function staleArt(): self
+    {
+        return new self('This art was drawn for an older size or shape of the item. Upload new art instead.');
+    }
 }
