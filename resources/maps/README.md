@@ -14,9 +14,8 @@ leads to), `arrive` (an arrival point in that room) and `label`.
   door: one name, one glowing band, one label over its middle tile.
 - **Width**: doors between outdoor rooms are 3 tiles wide, and the gap in the
   hedge or edge around them is open across the same 3 tiles, so players can
-  walk in with the arrow keys without lining up first. Doors in and out of a
-  building are at least 2 wide, as wide as its front face allows without
-  taking a corner.
+  walk in with the arrow keys without lining up first. A building has a single
+  doorway: its door, and the door back out of the room inside, are one tile.
 - **Arrival**: put the arrival point on the other side one tile in front of the
   middle of the door back, never on the door itself.
 

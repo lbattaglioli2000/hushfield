@@ -109,7 +109,7 @@ test('every committed map imports with its own place on the town map, every door
                 ->and(isset($maps[$exit->to]->grid->arrivals[(string) $exit->arrive]))->toBeTrue("{$door} lands on no arrival");
 
             // Doors are wide enough to walk into with the keys without lining up first:
-            // three tiles between outdoor rooms, at least two in and out of a building.
+            // three tiles between outdoor rooms. A building has a single doorway, one tile in and out.
             $there = $maps[$exit->to];
             $wayBack = collect($there->grid->exits)->first(fn ($back) => $back->to === $slug);
             $intoBuilding = collect([...$map->buildings, ...$there->buildings])->contains(fn ($building) => $building->door === $exit || $building->door === $wayBack);
@@ -117,7 +117,7 @@ test('every committed map imports with its own place on the town map, every door
             $span = max($exit->wide, $exit->deep);
 
             expect(min($exit->wide, $exit->deep))->toBe(1, "{$door} is a row or column of tiles")
-                ->and($intoBuilding ? $span >= 2 : $span === 3)->toBeTrue("{$door} is {$span} wide");
+                ->and($span === ($intoBuilding ? 1 : 3))->toBeTrue("{$door} is {$span} wide");
 
             // The player lands just in front of the middle of the door back, clear of it.
             [$cx, $cy] = $wayBack?->centre() ?? [-9, -9];
