@@ -121,7 +121,6 @@ test('an admin adds an item to the catalog', function () {
             'slug' => 'velvet-hat',
             'slot' => ItemSlot::Head->value,
             'rarity' => ItemRarity::Rare->value,
-            'sprite_layers' => ['items/velvet-hat'],
             'price' => 75,
             'in_shop' => true,
         ])
@@ -132,7 +131,6 @@ test('an admin adds an item to the catalog', function () {
 
     expect($item->slot)->toBe(ItemSlot::Head)
         ->and($item->price)->toBe(75)
-        ->and($item->sprite_layers)->toBe(['items/velvet-hat'])
         ->and($item->in_shop)->toBeTrue();
 });
 

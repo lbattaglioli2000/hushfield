@@ -16,7 +16,7 @@ class ItemSeeder extends Seeder
     public function run(): void
     {
         foreach ($this->items() as $item) {
-            Item::query()->firstOrCreate(['slug' => $item['slug']], [...$item, 'sprite_layers' => ["items/{$item['slug']}"]]);
+            Item::query()->firstOrCreate(['slug' => $item['slug']], $item);
         }
     }
 

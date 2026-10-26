@@ -121,7 +121,6 @@ export type Item = {
     slot: ItemSlot;
     rarity: ItemRarity;
     price: number;
-    sprite_layers: string[];
     members_only: boolean;
     /** How a furniture item stands in a home; null for everything else. */
     furniture: {

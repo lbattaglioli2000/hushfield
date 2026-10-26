@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Items\Schemas;
 use App\Domain\Items\ItemRarity;
 use App\Domain\Items\ItemSlot;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -44,11 +43,6 @@ class ItemForm
                             ->options(ItemRarity::class)
                             ->default(ItemRarity::Common)
                             ->required(),
-                        TagsInput::make('sprite_layers')
-                            ->label('Sprite layers')
-                            ->required()
-                            ->helperText('Asset keys drawn for this item, bottom layer first.')
-                            ->columnSpanFull(),
                     ]),
                 Section::make('Furniture')
                     ->description('How the piece stands in a home. Turning it a quarter turn swaps wide and deep. Resizing a placed piece does not move anything already standing near it.')

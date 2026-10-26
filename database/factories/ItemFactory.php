@@ -23,7 +23,6 @@ class ItemFactory extends Factory
             'slot' => fake()->randomElement(ItemSlot::cases()),
             'rarity' => ItemRarity::Common,
             'price' => 50,
-            'sprite_layers' => [$slug],
             'in_shop' => true,
             'members_only' => false,
         ];
