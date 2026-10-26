@@ -228,3 +228,6 @@ export type RareCatchLandedEvent = Stamped & {
     user_id: number;
     message: string;
 };
+
+/** POST /world/instances/{id}/voice: where to connect, and whether this resident may speak or only listen. */
+export type VoiceGrant = { url: string; token: string; can_speak: boolean };

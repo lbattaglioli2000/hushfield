@@ -5,6 +5,7 @@ import { connectEconomy } from './economy';
 import { connectFishing } from './fishing';
 import { connectHousing } from './housing';
 import { connectSocial } from './social';
+import { connectVoice } from './voice';
 import { userMessage } from './net/http';
 import type { RealtimeConfig } from './net/realtime';
 import { WorldNet } from './net/WorldNet';
@@ -19,6 +20,7 @@ export type {
     FatalKind,
     FishingPhase,
     GameEvents,
+    VoiceState,
 } from './bus';
 export type { Copy } from './copy';
 export type { RealtimeConfig } from './net/realtime';
@@ -56,6 +58,8 @@ export type GameBootProps = {
     copy: Copy;
     /** Every station on the tuning dial, lowest frequency first. */
     stations: Station[];
+    /** Push-to-talk, for adults while voice is on; null for everyone else. */
+    voice: { hearingTiles: number } | null;
 };
 
 /** A station on the tuning dial: a room's frequency, or the one homes share. */
@@ -184,6 +188,18 @@ export function startGame(
     cleanups.push(connectFishing(net, bus, config.copy, () => scene));
     const social = connectSocial(net, bus, config.copy);
     cleanups.push(() => social.dispose());
+
+    if (config.voice) {
+        cleanups.push(
+            connectVoice(
+                net,
+                bus,
+                config.copy,
+                config.voice.hearingTiles,
+                () => scene,
+            ),
+        );
+    }
 
     void (async () => {
         const fetchManifest = async () => {

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { EventBus, FishingPhase } from '../bus';
 import type { FishingView } from '../fishing';
+import type { VoicePositions, VoiceView } from '../voice';
 import type { WorldListener } from '../net/WorldNet';
 import type {
     AssetManifest,
@@ -99,7 +100,7 @@ const NIGHT_RGB = (() => {
  */
 export class RoomScene
     extends Phaser.Scene
-    implements WorldListener, FishingView
+    implements WorldListener, FishingView, VoiceView
 {
     static readonly KEY = 'room';
 
@@ -107,6 +108,8 @@ export class RoomScene
     private readonly movement: MovementController;
     private keyboard: KeyboardMovement | null = null;
     private selfId = 0;
+    /** Residents talking on voice right now; kept here so avatars drawn later light up too. */
+    private readonly onAir = new Set<number>();
     private map: IsoMap | null = null;
     private furniture: FurnitureLayer | null = null;
     /** Where players may walk: the map, less the tiles under furniture in a home. */
@@ -298,6 +301,30 @@ export class RoomScene
     /** UI → game: a placed piece turns a quarter turn where it stands. The server says if it fits. */
     turnFurniture(itemId: number): void {
         this.decorate.turn(itemId);
+    }
+
+    /** Voice → scene: where everyone stands now, in tiles, for fading voices by distance. */
+    voicePositions(): VoicePositions {
+        const now = this.port.serverNow();
+        const others = new Map<number, { x: number; y: number }>();
+        let self: { x: number; y: number } | null = null;
+
+        for (const avatar of this.avatars.values()) {
+            const { x, y } = positionOf(avatar.state, now);
+
+            if (avatar.id === this.selfId) self = { x, y };
+            else others.set(avatar.id, { x, y });
+        }
+
+        return { self, others };
+    }
+
+    /** Voice → scene: a resident started or stopped talking. */
+    setOnAir(userId: number, on: boolean): void {
+        if (on) this.onAir.add(userId);
+        else this.onAir.delete(userId);
+
+        this.avatars.get(userId)?.setOnAir(on);
     }
 
     // ── WorldListener ─────────────────────────────────────────────────
@@ -678,7 +705,9 @@ export class RoomScene
             return;
         }
 
-        this.avatars.set(player.id, new AvatarView(this, player, isSelf));
+        const avatar = new AvatarView(this, player, isSelf);
+        avatar.setOnAir(this.onAir.has(player.id));
+        this.avatars.set(player.id, avatar);
     }
 
     private remove(id: number): void {

@@ -135,6 +135,25 @@ final class WorldActionRefused extends RuntimeException
         return new self('fishing_closed', 409);
     }
 
+    /**
+     * 409 like the shop's switch, so players read why voice is off. Also used
+     * while LiveKit is not configured.
+     */
+    public static function voicePaused(): self
+    {
+        return new self('voice_paused', 409);
+    }
+
+    public static function voiceAdultsOnly(): self
+    {
+        return new self('voice_adults_only', 403);
+    }
+
+    public static function voiceTooFast(): self
+    {
+        return new self('voice_too_fast', 429);
+    }
+
     public static function fishingNoLine(): self
     {
         return new self('fishing_no_line', 409);

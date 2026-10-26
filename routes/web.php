@@ -26,6 +26,7 @@ use App\Http\Controllers\World\SnapshotController;
 use App\Http\Controllers\World\StartWorldSessionController;
 use App\Http\Controllers\World\TownMapController;
 use App\Http\Controllers\World\UseExitController;
+use App\Http\Controllers\World\VoiceTokenController;
 use App\Http\Middleware\EnsureWorldSession;
 use Illuminate\Support\Facades\Route;
 
@@ -53,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('instances/{instance}/move', MoveController::class)->middleware('throttle:move')->name('instances.move');
             Route::post('instances/{instance}/exits/{exit}', UseExitController::class)->middleware('throttle:join-room')->name('instances.exit');
             Route::post('instances/{instance}/chat', ChatController::class)->middleware('throttle:chat')->name('instances.chat');
+            Route::post('instances/{instance}/voice', VoiceTokenController::class)->middleware('throttle:voice')->name('instances.voice');
             Route::get('town', TownMapController::class)->name('town');
             Route::post('reports', ReportController::class)->middleware('throttle:report')->name('reports.store');
 

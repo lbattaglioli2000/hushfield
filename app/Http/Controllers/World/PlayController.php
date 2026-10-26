@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\World;
 
 use App\Domain\Moderation\ReportReason;
+use App\Domain\Voice\LiveKit;
+use App\Features\WorldFlag;
 use App\Http\Controllers\Controller;
 use App\Models\Room;
+use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Lang;
 use Inertia\Inertia;
@@ -53,10 +57,16 @@ final class PlayController extends Controller
         'chat_placeholder',
         'on_air_host',
         'on_air',
+        'voice_muted',
+        'voice_mic_blocked',
+        'voice_hold',
     ];
 
-    public function __invoke(): Response
+    public function __invoke(Request $request, LiveKit $liveKit): Response
     {
+        /** @var User $user */
+        $user = $request->user();
+
         return Inertia::render('Play', [
             'game' => [
                 'protocol' => (int) config('hushfield.protocol'),
@@ -76,6 +86,10 @@ final class PlayController extends Controller
                 'reportReasons' => collect(ReportReason::cases())->map(fn (ReportReason $reason): array => ['value' => $reason->value, 'label' => $reason->label()])->all(),
                 'copy' => Arr::only((array) __('hushfield'), self::COPY_KEYS),
                 'stations' => $this->stations(),
+                // Push-to-talk is for adults only; everyone else keeps TALK as a shortcut to the chat line.
+                'voice' => ! $user->is_minor && $liveKit->configured() && WorldFlag::Voice->isActive()
+                    ? ['hearingTiles' => (int) config('hushfield.voice.hearing_tiles')]
+                    : null,
             ],
         ]);
     }

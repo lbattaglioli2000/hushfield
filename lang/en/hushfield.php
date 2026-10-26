@@ -60,6 +60,14 @@ return [
     'chat_too_long' => 'That is rather a lot to say at once. Please keep it shorter.',
     'filtered_placeholder' => '(hushed)',
 
+    // Proximity voice (18+)
+    'voice_paused' => 'The airwaves are closed for now. Nobody is quite sure who closed them. Chat still works.',
+    'voice_adults_only' => 'Voice is for residents 18 and over.',
+    'voice_too_fast' => 'The microphone needs a moment. Please try again shortly.',
+    'voice_muted' => 'A moderator has muted you. You can still listen.',
+    'voice_mic_blocked' => 'Hushfield could not reach your microphone. Allow it in your browser to talk.',
+    'voice_hold' => 'Hold to talk. Residents near you will hear.',
+
     // Moderation
     'banned' => 'Hearthmore Group has reviewed your residency.',
     'banned_action' => 'Your account cannot enter Hushfield right now.',

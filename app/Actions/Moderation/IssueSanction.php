@@ -5,6 +5,7 @@ namespace App\Actions\Moderation;
 use App\Actions\Presence\EndWorldSession;
 use App\Domain\Audit\AuditLog;
 use App\Domain\Moderation\SanctionType;
+use App\Domain\Voice\LiveKit;
 use App\Events\Moderation\PlayerWarned;
 use App\Events\Moderation\WorldAccessRevoked;
 use App\Events\WorldBroadcast;
@@ -18,11 +19,15 @@ use Illuminate\Support\Facades\DB;
 /**
  * Mutes, bans, or warns a player. A ban takes effect immediately: the player's
  * client is told through its private channel and removed from its instance.
+ * A mute cuts off their voice straight away too.
  * Staff accounts cannot be sanctioned.
  */
 final readonly class IssueSanction
 {
-    public function __construct(private EndWorldSession $endWorldSession) {}
+    public function __construct(
+        private EndWorldSession $endWorldSession,
+        private LiveKit $liveKit,
+    ) {}
 
     public function __invoke(User $target, SanctionType $type, string $reason, ?CarbonInterface $endsAt, User $staff, ?ChatReport $report = null): Sanction
     {
@@ -65,6 +70,12 @@ final readonly class IssueSanction
             if (is_string($token)) {
                 WorldBroadcast::send(new WorldAccessRevoked($token));
             }
+        }
+
+        // A token only binds on joining: drop the muted player's voice connection now.
+        // Their client rejoins with a listen-only token.
+        if ($type === SanctionType::Mute && $target->last_room_instance_id !== null && $this->liveKit->configured()) {
+            $this->liveKit->removeParticipant($target->last_room_instance_id, $target->id);
         }
 
         if ($type === SanctionType::Warning && is_string($token)) {

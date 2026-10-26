@@ -57,6 +57,20 @@ return [
         'bubble_seconds' => 6,
     ],
 
+    /*
+     * Proximity voice over LiveKit, for adult residents only. Each room instance
+     * is one LiveKit room; the client fades each voice by distance.
+     */
+    'voice' => [
+        'url' => env('LIVEKIT_URL'),
+        'api_key' => env('LIVEKIT_API_KEY'),
+        'api_secret' => env('LIVEKIT_API_SECRET'),
+        // Only checked on joining; leaving the room, a mute, or a ban evicts an open connection.
+        'token_ttl_seconds' => 300,
+        // Voices fade out to silence at this many tiles away.
+        'hearing_tiles' => 8,
+    ],
+
     'friends' => [
         'max_friends' => 200,
         // Requests a resident may have waiting for an answer at once.

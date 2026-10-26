@@ -46,5 +46,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Forced: the real LiveKit keys may be in the environment. Voice tests configure their own. -->
+        <env name="LIVEKIT_URL" value="" force="true"/>
+        <env name="LIVEKIT_API_KEY" value="" force="true"/>
+        <env name="LIVEKIT_API_SECRET" value="" force="true"/>
     </php>
 </phpunit>

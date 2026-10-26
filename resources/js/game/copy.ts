@@ -34,7 +34,10 @@ export type CopyKey =
     | 'town_map_intro'
     | 'town_map_unplaced'
     | 'chat_placeholder'
-    | 'on_air_host';
+    | 'on_air_host'
+    | 'voice_muted'
+    | 'voice_mic_blocked'
+    | 'voice_hold';
 
 /** `on_air` is the one list: the lines the ON AIR ticker picks from. */
 export type Copy = Record<CopyKey, string> & { on_air: string[] };

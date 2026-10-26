@@ -20,6 +20,12 @@ export type ConnectionState = 'connecting' | 'online' | 'reconnecting';
 /** Idle, asking to cast, line in and waiting, something biting, asking to reel. */
 export type FishingPhase = 'idle' | 'casting' | 'waiting' | 'bite' | 'reeling';
 
+/**
+ * Push-to-talk: connecting to the instance's voice room, ready to talk, talking,
+ * or unavailable (switched off, refused, or no microphone; the message says why).
+ */
+export type VoiceState = 'connecting' | 'ready' | 'talking' | 'unavailable';
+
 /** Why the game stopped for good. 'unavailable' covers boot failures and lost rooms. */
 export type FatalKind =
     | 'session_moved'
@@ -84,10 +90,16 @@ export type GameEvents = {
         catch: FishingCatch | null;
         paid: number;
     };
+    /** Where push-to-talk stands; a message explains a refusal. Only for adults. */
+    voice: { state: VoiceState; message?: string };
     /** The player walked off while their line was in the water; it is abandoned. */
     'fishing-interrupted': Record<string, never>;
 
     // UI → Game
+    /** TALK pressed (true) or let go (false). */
+    'voice-talk': { active: boolean };
+    /** The Volume knob, 0–1: voices play at this share of their distance volume. */
+    'voice-volume': { volume: number };
     'send-chat': { body: string };
     'send-report': {
         userId: number;

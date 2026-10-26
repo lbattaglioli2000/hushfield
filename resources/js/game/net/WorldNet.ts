@@ -8,6 +8,7 @@ import {
 } from '../protocol/channels';
 import type {
     ChatMessageSentEvent,
+    VoiceGrant,
     FishingCast,
     FriendsList,
     FriendsUpdate,
@@ -173,6 +174,11 @@ export class WorldNet {
         >('POST', this.instancePath('chat'), { body: text });
 
         return 'dropped' in body ? null : body;
+    }
+
+    /** A LiveKit token for the current instance's voice room. Refused to minors. */
+    voiceToken(): Promise<VoiceGrant> {
+        return this.request<VoiceGrant>('POST', this.instancePath('voice'));
     }
 
     async report(

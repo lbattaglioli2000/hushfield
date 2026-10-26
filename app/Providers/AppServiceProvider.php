@@ -114,6 +114,10 @@ class AppServiceProvider extends ServiceProvider
             ->by('friends:'.$request->user()?->id)
             ->response(fn (): JsonResponse => WorldActionRefused::friendsTooFast()->render()));
 
+        RateLimiter::for('voice', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by('voice:'.$request->user()?->id)
+            ->response(fn (): JsonResponse => WorldActionRefused::voiceTooFast()->render()));
+
         RateLimiter::for('join-room', fn (Request $request): Limit => Limit::perMinute(10)->by('join:'.$request->user()?->id));
 
         RateLimiter::for('registration', fn (Request $request): Limit => Limit::perHour(5)->by('register:'.$request->ip()));

@@ -30,6 +30,7 @@ export class AvatarView {
     private readonly container: Phaser.GameObjects.Container;
     private readonly body: Phaser.GameObjects.Image;
     private bubble: SpeechBubble | null = null;
+    private readonly onAir: Phaser.GameObjects.Arc;
     /** Drawn minus authoritative position, in tiles; decays to zero. */
     private offset = { x: 0, y: 0 };
     private drawn: { x: number; y: number } | null = null;
@@ -60,7 +61,21 @@ export class AvatarView {
             })
             .setOrigin(0.5, 1);
 
-        this.container = scene.add.container(0, 0, [this.body, label]);
+        this.onAir = scene.add
+            .circle(
+                -label.width / 2 - AVATAR.onAirRadius - 3,
+                -this.body.height - 2 - label.height / 2,
+                AVATAR.onAirRadius,
+                AVATAR.onAirColor,
+            )
+            .setStrokeStyle(1, 0x1d2330)
+            .setVisible(false);
+
+        this.container = scene.add.container(0, 0, [
+            this.body,
+            label,
+            this.onAir,
+        ]);
     }
 
     /** The sprite's box in world pixels, without the name above it. */
@@ -115,6 +130,11 @@ export class AvatarView {
         this.body.setFlipX(pos.to[0] - pos.from[0] < pos.to[1] - pos.from[1]);
 
         return pos;
+    }
+
+    /** Lights the ON AIR dot beside the name while this resident talks on voice. */
+    setOnAir(on: boolean): void {
+        this.onAir.setVisible(on);
     }
 
     setIdle(idle: boolean): void {

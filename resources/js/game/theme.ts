@@ -94,6 +94,9 @@ export const AVATAR = {
     /** The sprite's feet sit this far below the tile centre. */
     feetOffsetY: 4,
     idleAlpha: 0.45,
+    /** The red ON AIR light beside the name while the resident is talking on voice. */
+    onAirColor: 0xc8372d,
+    onAirRadius: 3,
 } as const;
 
 export const BUBBLE = {

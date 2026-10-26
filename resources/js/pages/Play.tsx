@@ -64,6 +64,9 @@ export default function Play({ game }: PlayProps) {
         return () => handle.destroy();
     }, [bus]);
 
+    // Voices come through the set's speaker, so the Volume knob turns them too.
+    useEffect(() => bus.emit('voice-volume', { volume }), [bus, volume]);
+
     return (
         <>
             <Head title={room?.title ?? 'Hushfield'} />
@@ -102,6 +105,8 @@ export default function Play({ game }: PlayProps) {
                                     bus={bus}
                                     maxLength={game.chatMaxLength}
                                     placeholder={game.copy.chat_placeholder}
+                                    voice={game.voice !== null}
+                                    holdHint={game.copy.voice_hold}
                                 />
                             </div>
 

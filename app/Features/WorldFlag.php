@@ -16,6 +16,7 @@ enum WorldFlag: string implements HasLabel
     case Joins = JoinsEnabled::class;
     case Shop = ShopEnabled::class;
     case Fishing = FishingEnabled::class;
+    case Voice = VoiceEnabled::class;
 
     public function getLabel(): string
     {
@@ -24,6 +25,7 @@ enum WorldFlag: string implements HasLabel
             self::Joins => 'Room joins',
             self::Shop => 'Shop',
             self::Fishing => 'Fishing',
+            self::Voice => 'Proximity voice',
         };
     }
 
@@ -34,6 +36,7 @@ enum WorldFlag: string implements HasLabel
             self::Joins => 'Kill switch for joining rooms. When off, players already in a room stay but nobody new can join.',
             self::Shop => 'Kill switch for shop purchases. When off, nobody can buy; belongings and the stipend still work.',
             self::Fishing => 'Kill switch for fishing at the Pier. When off, nobody can cast or land a catch, so fishing pays nothing.',
+            self::Voice => 'Kill switch for proximity voice (18+ only). When off, nobody new can connect; anyone already talking can carry on until they change rooms.',
         };
     }
 
@@ -53,6 +56,7 @@ enum WorldFlag: string implements HasLabel
                 self::Joins => WorldActionRefused::joinsPaused(),
                 self::Shop => WorldActionRefused::shopClosed(),
                 self::Fishing => WorldActionRefused::fishingClosed(),
+                self::Voice => WorldActionRefused::voicePaused(),
             };
         }
     }
