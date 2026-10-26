@@ -190,27 +190,31 @@ doubles it to 64 × 64), standing on the bottom of the canvas:
 ```
 resources/art/tiles/
   tiles.json        the slot registry, below
-  stone/full.png    a full block
+  grass/full.png    a full cube
   stone/half.png    a half slab
-  grass/full.png
 ```
 
-- **`full.png`**: the top face is a 32 × 16 diamond whose top corner is on
-  row 7; the block's sides stand 8 pixels tall at the canvas's left and
-  right edges, from row 15 down to row 24. The bottom edge runs from row 24
-  at the sides to row 31 in the middle.
-- **`half.png`**: the same canvas, the same top face and the same bottom
-  edge, with sides half as tall, 4 pixels (rows 19 to 24), so the top face
-  sits 4 pixels lower: its top corner is on row 11.
+- **`full.png`**, a full cube: the top face is a 32 × 16 diamond on rows 0
+  to 15, its top corner on row 0; the cube's sides stand 16 pixels tall at
+  the canvas's left and right edges (rows 8 to 24), and its bottom corner is
+  on row 31. The ground is drawn from full cubes: their top faces lie on the
+  grid.
+- **`half.png`**, a half slab: the same canvas, top face and bottom edge, with
+  sides half as tall, 8 pixels (rows 16 to 24), so the top face sits 8 pixels
+  lower: its top corner on row 8.
 - **The build checks** that nothing hangs below the bottom edge, that the
   sides reach it, and that the sides are the right height for the file's
   name. Grass tufts and the like may poke above the top face.
+- **A type with only a half slab** (stone, for now) has it packed into its
+  full slot as well, bottom-aligned, so it reads sunken; the build says so
+  each time. Drawing its `full.png` replaces it.
 
 `resources/art/tiles/tiles.json` lists every tile, by type and height, in
 slot order, and slot n is GID n + 1 in every map:
 
 ```json
-["grass/full", "sand/full", "stone/full", "water/full", "hedge/full", "wood/full"]
+["grass/full", "sand/full", "stone/full", "water/full", "hedge/full", "wood/full",
+ "asphalt/full", "asphalt-lines/full", "bricks/full", "stone/half"]
 ```
 
 - **Add a tile or a height**: put it on the end of the list, such as
@@ -221,8 +225,8 @@ slot order, and slot n is GID n + 1 in every map:
 - **Retire a tile**: replace its entry with `null`. `hushfield:import-map`
   then refuses any map that still draws it.
 
-Half slabs are packed into the sheet, but the game has no elevation yet:
-avatars don't step up or down, so maps don't use them. The folder leaves
+Half slabs get their own slots in the sheet, but the game has no elevation
+yet: avatars don't step up or down, so maps don't use them. The folder leaves
 room for more files later (another version of a height, such as
 `full-2.png`, or edge pieces); the build accepts only `full.png`,
 `half.png` and numbered versions of them (`full-2.png`) for now.

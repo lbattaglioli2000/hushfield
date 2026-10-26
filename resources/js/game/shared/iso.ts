@@ -5,11 +5,13 @@ export const TILE_WIDTH = 64;
 export const TILE_HEIGHT = 32;
 
 /**
- * Ground tile images are raised blocks: TILE_WIDTH wide and TILE_IMAGE_HEIGHT tall,
- * with the walkable top face starting TILE_FACE_TOP px down and the block's sides below it.
+ * Ground tile images are cubes: TILE_WIDTH wide and TILE_IMAGE_HEIGHT tall, the
+ * walkable top face starting TILE_FACE_TOP px down (a full cube's is at the
+ * top) and the cube's sides below it. A half slab is the same image with its
+ * face lower, so it reads sunken.
  */
 export const TILE_IMAGE_HEIGHT = 64;
-export const TILE_FACE_TOP = 16;
+export const TILE_FACE_TOP = 0;
 
 /** The nearest even game pixel: where one art pixel (2 × 2 game pixels) of the ground's grid begins. */
 export function evenPixel(value: number): number {

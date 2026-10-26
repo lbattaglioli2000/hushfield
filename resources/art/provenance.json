@@ -1,13 +1,39 @@
 {
-    "art/tiles/stone/full.png": {
+    "art/tiles/stone/half.png": {
         "by": "our artist",
         "received": "2026-10-25",
-        "notes": "her first tile"
+        "notes": "her first tile, an 8-px half slab; stands in for stone/full until she redraws stone as a full cube"
     },
     "art/tiles/grass/full.png": {
         "by": "our artist",
         "received": "2026-10-26",
         "notes": "second, calmer grass"
+    },
+    "art/tiles/water/full.png": {
+        "by": "our artist",
+        "received": "2026-10-26"
+    },
+    "art/tiles/asphalt/full.png": {
+        "by": "our artist",
+        "received": "2026-10-26"
+    },
+    "art/tiles/asphalt-lines/full.png": {
+        "by": "our artist",
+        "received": "2026-10-26",
+        "notes": "centre line along one axis; the rotated version comes later"
+    },
+    "art/tiles/bricks/full.png": {
+        "by": "our artist",
+        "received": "2026-10-26"
+    },
+    "art/tiles/sand/full.png": {
+        "by": "our artist",
+        "received": "2026-10-26"
+    },
+    "art/tiles/wood/full.png": {
+        "by": "our artist",
+        "received": "2026-10-26",
+        "notes": "hardwood"
     },
     "art/ui/*.png": {
         "by": "Hushfield team",

@@ -43,7 +43,9 @@ afterEach(function () {
 
 it('packs the tile sheet in slot order, her tiles doubled and the rest as placeholders', function () {
     scratchArt();
-    $this->artisan('hushfield:build-assets')->assertSuccessful();
+    $this->artisan('hushfield:build-assets')
+        ->expectsOutputToContain('tiles/stone/full has no art yet: packing tiles/stone/half.png in its slot')
+        ->assertSuccessful();
 
     $sheet = builtImage('tiles');
     // Read with GD, not the build's own decoder: every game pixel is its art pixel, 2 × 2.
@@ -73,12 +75,15 @@ it('packs the tile sheet in slot order, her tiles doubled and the rest as placeh
 
     expect([$sheet->width, $sheet->height])->toBe([1024, 64])
         ->and($mismatched)->toBe(0)
-        // Stone is slot 2, after sand.
-        ->and($sheet->crop(128, 0, 64, 64)->equals(Png::decode((string) file_get_contents(resource_path('art/tiles/stone/full.png')))->scale(2)))->toBeTrue()
-        // Sand has no art: a block the shape of her stone.
-        ->and($shape(64))->toBe($shape(128))
+        // Stone has only a half slab: it stands in for stone/full (slot 2) and fills its own slot (9).
+        ->and($sheet->crop(128, 0, 64, 64)->equals(Png::decode((string) file_get_contents(resource_path('art/tiles/stone/half.png')))->scale(2)))->toBeTrue()
+        ->and($sheet->crop(9 * 64, 0, 64, 64)->equals($sheet->crop(128, 0, 64, 64)))->toBeTrue()
+        // Sand is her art, doubled.
+        ->and($sheet->crop(64, 0, 64, 64)->equals(Png::decode((string) file_get_contents(resource_path('art/tiles/sand/full.png')))->scale(2)))->toBeTrue()
+        // Hedge has no art: a placeholder cube the shape of her grass, less its tufts.
+        ->and(substr($shape(4 * 64), 16 * 64))->toBe(substr($shape(0), 16 * 64))
         // Past the last slot, nothing.
-        ->and($sheet->crop(6 * 64, 0, 64, 64)->equals(Image::blank(64, 64)))->toBeTrue();
+        ->and($sheet->crop(10 * 64, 0, 64, 64)->equals(Image::blank(64, 64)))->toBeTrue();
 });
 
 /**
@@ -103,10 +108,15 @@ function slab(int $top, int $shift = 0): string
 
 it('packs a half slab into a new slot, and checks each height has its own shape', function () {
     $root = scratchArt();
-    File::put("{$root}/art/tiles/tiles.json", '["grass/full", "sand/full", "stone/full", "water/full", "hedge/full", "wood/full", "stone/half", "sand/half"]');
-    File::put("{$root}/art/tiles/stone/half.png", slab(11));
+    $slots = json_decode(File::get("{$root}/art/tiles/tiles.json"));
+    File::put("{$root}/art/tiles/tiles.json", json_encode([...$slots, 'grass/half', 'hedge/half']));
+    File::put("{$root}/art/tiles/grass/half.png", slab(8));
+    File::put("{$root}/art/tiles/stone/full.png", slab(0));
     File::put("{$root}/art/provenance.json", '{"art/tiles/*/*.png": {"by": "our artist"}, "art/ui/*.png": {"by": "us"}}');
-    $this->artisan('hushfield:build-assets')->assertSuccessful();
+    $this->artisan('hushfield:build-assets')
+        ->doesntExpectOutputToContain('tiles/stone/full has no art yet')
+        ->assertSuccessful();
+    $count = count($slots);
 
     $sheet = builtImage('tiles');
     $topRow = function (int $slot) use ($sheet): int {
@@ -119,19 +129,20 @@ it('packs a half slab into a new slot, and checks each height has its own shape'
         return -1;
     };
 
-    // Her half slab doubled into slot 6, and sand's placeholder half slab beside it:
-    // each top face 8 game pixels below its full block's, the bottoms level.
-    expect($sheet->crop(6 * 64, 0, 64, 64)->equals(Png::decode(slab(11))->scale(2)))->toBeTrue()
-        ->and($topRow(7) - $topRow(1))->toBe(8)
-        ->and($sheet->alphaAt(7 * 64 + 32, 63))->toBe(255)
-        // Nothing else moved.
-        ->and($sheet->crop(0, 0, 6 * 64, 64)->equals(Png::decode(file_get_contents(config('hushfield.maps.path').'/ground.png'))->crop(0, 0, 6 * 64, 64)))->toBeTrue();
+    // A half slab doubled into its new slot, and hedge's placeholder half slab after it:
+    // each top face 16 game pixels below its full cube's, the bottoms level.
+    expect($sheet->crop($count * 64, 0, 64, 64)->equals(Png::decode(slab(8))->scale(2)))->toBeTrue()
+        ->and($topRow($count + 1) - $topRow(4))->toBe(16)
+        ->and($topRow(4))->toBe(0)
+        ->and($sheet->alphaAt(($count + 1) * 64 + 32, 63))->toBe(255)
+        // Stone's own full cube replaces the half slab that stood in for it.
+        ->and($sheet->crop(128, 0, 64, 64)->equals(Png::decode(slab(0))->scale(2)))->toBeTrue();
 
     $wrong = [
-        'stone/half.png' => [slab(7), 'too tall for a half slab'],
-        'stone/full.png' => [slab(11), 'too short for a full block'],
-        // Drawn 4 pixels too high on the canvas.
-        'grass/full.png' => [slab(7, 4), "sides don't reach the bottom of the canvas"],
+        'stone/half.png' => [slab(0), 'too tall for a half slab'],
+        'stone/full.png' => [slab(8), 'too short for a full cube'],
+        // A half slab drawn 8 pixels too high on the canvas.
+        'grass/half.png' => [slab(8, 8), "sides don't reach the bottom of the canvas"],
     ];
 
     foreach ($wrong as $file => [$png, $message]) {
@@ -144,13 +155,15 @@ it('packs a half slab into a new slot, and checks each height has its own shape'
 
 it('leaves a retired slot empty without moving the slots after it', function () {
     $root = scratchArt();
-    File::put("{$root}/art/tiles/tiles.json", '["grass/full", null, "stone/full"]');
+    $slots = json_decode(File::get("{$root}/art/tiles/tiles.json"));
+    $slots[4] = null;
+    File::put("{$root}/art/tiles/tiles.json", json_encode($slots));
     $this->artisan('hushfield:build-assets')->assertSuccessful();
 
     $sheet = builtImage('tiles');
 
-    expect($sheet->crop(64, 0, 64, 64)->equals(Image::blank(64, 64)))->toBeTrue()
-        ->and($sheet->crop(128, 0, 64, 64)->equals(Png::decode((string) file_get_contents("{$root}/art/tiles/stone/full.png"))->scale(2)))->toBeTrue();
+    expect($sheet->crop(4 * 64, 0, 64, 64)->equals(Image::blank(64, 64)))->toBeTrue()
+        ->and($sheet->crop(5 * 64, 0, 64, 64)->equals(Png::decode((string) file_get_contents("{$root}/art/tiles/wood/full.png"))->scale(2)))->toBeTrue();
 });
 
 it('names every output by its content hash, so only what changed gets a new name', function () {
@@ -163,9 +176,9 @@ it('names every output by its content hash, so only what changed gets a new name
         expect($file)->toEndWith('.'.substr(hash('sha256', $bytes), 0, 8).'.png');
     }
 
-    // Brighten one stone pixel.
-    $stone = Png::decode((string) file_get_contents("{$root}/art/tiles/stone/full.png"));
-    File::put("{$root}/art/tiles/stone/full.png", Png::encode(new Image(32, 32, substr_replace($stone->pixels, "\xFF\xFF\xFF\xFF", (16 * 32 + 16) * 4, 4))));
+    // Brighten one grass pixel.
+    $stone = Png::decode((string) file_get_contents("{$root}/art/tiles/grass/full.png"));
+    File::put("{$root}/art/tiles/grass/full.png", Png::encode(new Image(32, 32, substr_replace($stone->pixels, "\xFF\xFF\xFF\xFF", (16 * 32 + 16) * 4, 4))));
     $this->artisan('hushfield:build-assets')->assertSuccessful();
     $after = builtIndex();
 
@@ -192,8 +205,8 @@ it('writes the tileset block into every map and changes nothing else', function 
         'tilewidth' => 64,
         'tileheight' => 64,
         'columns' => 16,
-        'tilecount' => 6,
-        'tileoffset' => ['x' => 0, 'y' => 16],
+        'tilecount' => 10,
+        'tileoffset' => ['x' => 0, 'y' => 32],
     ])
         ->and($map['tilesets'][0]['tiles'][2])->toBe(['id' => 2, 'properties' => [['name' => 'slug', 'type' => 'string', 'value' => 'stone/full']]])
         ->and(array_diff_key($map, ['tilesets' => 1]))->toBe(array_diff_key($original, ['tilesets' => 1]))
@@ -209,33 +222,37 @@ it('refuses art it cannot ship, and says why', function (Closure $break, string 
         ->assertFailed();
 })->with([
     'the wrong size' => [
-        fn (string $root) => File::put("{$root}/art/tiles/stone/full.png", Png::encode(Image::blank(32, 30))),
-        'art/tiles/stone/full.png is 32×30; it must be 32×32.',
+        fn (string $root) => File::put("{$root}/art/tiles/grass/full.png", Png::encode(Image::blank(32, 30))),
+        'art/tiles/grass/full.png is 32×30; it must be 32×32.',
     ],
     'exported at 200%' => [
-        fn (string $root) => File::put("{$root}/art/tiles/stone/full.png", Png::encode(Png::decode((string) file_get_contents("{$root}/art/tiles/stone/full.png"))->scale(2))),
-        'art/tiles/stone/full.png is already scaled up to 64×64. Export it at 100%: 32×32.',
+        fn (string $root) => File::put("{$root}/art/tiles/grass/full.png", Png::encode(Png::decode((string) file_get_contents("{$root}/art/tiles/grass/full.png"))->scale(2))),
+        'art/tiles/grass/full.png is already scaled up to 64×64. Export it at 100%: 32×32.',
     ],
     'a tile with no slot' => [
         function (string $root) {
-            File::copy("{$root}/art/tiles/stone/full.png", "{$root}/art/tiles/stone/half.png");
+            File::copy("{$root}/art/tiles/stone/half.png", "{$root}/art/tiles/grass/half.png");
             File::put("{$root}/art/provenance.json", '{"art/tiles/*/*.png": {"by": "our artist"}, "art/ui/*.png": {"by": "us"}}');
         },
-        'art/tiles/stone/half.png has no slot. Add "stone/half" to the end of tiles/tiles.json.',
+        'art/tiles/grass/half.png has no slot. Add "grass/half" to the end of tiles/tiles.json.',
     ],
     'a file nobody claimed' => [
         function (string $root) {
-            File::ensureDirectoryExists("{$root}/art/tiles/sand");
-            File::copy("{$root}/art/tiles/stone/full.png", "{$root}/art/tiles/sand/full.png");
+            File::ensureDirectoryExists("{$root}/art/tiles/hedge");
+            File::copy("{$root}/art/tiles/grass/full.png", "{$root}/art/tiles/hedge/full.png");
         },
-        'No entry in art/provenance.json for: art/tiles/sand/full.png.',
+        'No entry in art/provenance.json for: art/tiles/hedge/full.png.',
+    ],
+    'a tile drawn at full size' => [
+        fn (string $root) => File::put("{$root}/art/tiles/bricks/full.png", Png::encode(Image::blank(64, 64)->paste(new Image(1, 1, "\xFF\x00\x00\xFF"), 31, 40))),
+        'art/tiles/bricks/full.png is 64×64; it must be 32×32.',
     ],
     'a name that is not a slug' => [
-        fn (string $root) => File::copy("{$root}/art/tiles/stone/full.png", "{$root}/art/tiles/stone/Full Final.png"),
+        fn (string $root) => File::copy("{$root}/art/tiles/stone/half.png", "{$root}/art/tiles/stone/Full Final.png"),
         "art/tiles/stone/Full Final.png isn't a file the build knows.",
     ],
     'a tile outside its type folder' => [
-        fn (string $root) => File::copy("{$root}/art/tiles/stone/full.png", "{$root}/art/tiles/stone.png"),
+        fn (string $root) => File::copy("{$root}/art/tiles/stone/half.png", "{$root}/art/tiles/stone.png"),
         "art/tiles/stone.png isn't a file the build knows.",
     ],
 ]);

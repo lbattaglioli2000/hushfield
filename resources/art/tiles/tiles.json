@@ -4,5 +4,9 @@
     "stone/full",
     "water/full",
     "hedge/full",
-    "wood/full"
+    "wood/full",
+    "asphalt/full",
+    "asphalt-lines/full",
+    "bricks/full",
+    "stone/half"
 ]

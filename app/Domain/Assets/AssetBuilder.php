@@ -22,11 +22,15 @@ final class AssetBuilder
     /** A ground tile's block in game pixels: as wide as a tile, and as tall. */
     public const int TILE = 64;
 
-    /** How far down the block its top face begins, in game pixels. */
-    public const int FACE_TOP = 16;
+    /**
+     * Tiled's tileoffset for the tileset: Tiled stands a 64-tall tile on the
+     * bottom of its 32-tall cell, so a full cube, its top face on the canvas's
+     * top rows, is shifted down 32 to put that face on the grid.
+     */
+    private const int TILED_OFFSET_Y = 32;
 
     /** The art-pixel row each slab height's top face begins on, in its 32 × 32 source. */
-    private const array SLAB_TOP = ['full' => 7, 'half' => 11];
+    private const array SLAB_TOP = ['full' => 0, 'half' => 8];
 
     /** Tiles per row of the packed sheet. */
     public const int COLUMNS = 16;
@@ -47,11 +51,21 @@ final class AssetBuilder
     /** Wall panel parts, by side: plain, a doorway, and (not drawn yet) a window. */
     public const string WALL_PART = '(left|right)(-door|-window)?';
 
+    /** @var list<string> What the last build let through but wants fixed. */
+    private array $warnings = [];
+
     public function __construct(private readonly TileRegistry $tiles) {}
+
+    /** @return list<string> */
+    public function warnings(): array
+    {
+        return $this->warnings;
+    }
 
     /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>} */
     public function build(bool $maps = true): array
     {
+        $this->warnings = [];
         $sources = (string) config('hushfield.assets.sources');
         $files = $this->sourceFiles($sources);
         $this->checkProvenance($sources, $files);
@@ -180,6 +194,14 @@ final class AssetBuilder
             $file = "tiles/{$name}.png";
             [$type, $height] = explode('/', $name);
             $half = str_starts_with($height, 'half');
+
+            // Until a type has a full cube, its half slab stands in, sunk to the floor of the cube.
+            if (! in_array($file, $files, true) && $height === 'full' && in_array("tiles/{$type}/half.png", $files, true)) {
+                $this->warnings[] = "tiles/{$name} has no art yet: packing tiles/{$type}/half.png in its slot, so it reads sunken.";
+                $file = "tiles/{$type}/half.png";
+                $half = true;
+            }
+
             $tile = in_array($file, $files, true)
                 ? $this->checkSlab($file, $this->scaled($sources, $file, 'tiles', self::TILE, self::TILE), $half)
                 : $this->placeholderTile($type, $half);
@@ -414,7 +436,8 @@ final class AssetBuilder
      * A stand-in for a tile with no art yet: the block shape her tiles share,
      * drawn on the 32 × 32 grid of a half-size tile and doubled, its top face
      * tinted by the tile's type and its sides shaded as light from the top
-     * left falls. A half slab's top face sits 4 art pixels lower.
+     * left falls. A full cube's top face is on the canvas's top rows; a half
+     * slab's sits 8 art pixels lower.
      */
     private function placeholderTile(string $type, bool $half): Image
     {
@@ -443,10 +466,11 @@ final class AssetBuilder
      * Checks a ground tile has the block shape of its height, in art pixels on
      * its 32 × 32 canvas: bottom-aligned, so nothing hangs below the block's
      * bottom edge (the V from row 24 at the sides to row 31 in the middle), and
-     * its sides reach that edge; a full block's sides stand 8 tall at the
-     * canvas's left and right edges, a half slab's 4, its top face 4 lower.
-     * Art drawn by hand is a pixel off here and there, so each test allows a
-     * little.
+     * its sides reach that edge. A full cube's sides stand 16 tall at the
+     * canvas's left and right edges (rows 8 to 24), its top face on rows 0 to
+     * 15; a half slab's sides stand 8 tall, its top face 8 lower. Tufts may
+     * poke above the top face, and hand-drawn edges stray by a pixel, so each
+     * test allows a little.
      */
     private function checkSlab(string $file, Image $tile, bool $half): Image
     {
@@ -468,12 +492,12 @@ final class AssetBuilder
             throw new InvalidAssetException("art/{$file}'s sides don't reach the bottom of the canvas. Blocks stand on the bottom edge, rows 24 to 31.");
         }
 
-        if (! $half && $rows(15, 18) < 3) {
-            throw new InvalidAssetException("art/{$file} is too short for a full block: its sides should stand 8 pixels tall at the canvas's edges. Is it a half slab?");
+        if (! $half && $rows(9, 12) < 3) {
+            throw new InvalidAssetException("art/{$file} is too short for a full cube: its sides should stand 16 pixels tall at the canvas's edges, its top face on rows 0 to 15. Is it a half slab?");
         }
 
-        if ($half && $rows(11, 16) > 1) {
-            throw new InvalidAssetException("art/{$file} is too tall for a half slab: its sides should stand 4 pixels tall, its top face 4 pixels lower than a full block's.");
+        if ($half && $rows(9, 12) > 1) {
+            throw new InvalidAssetException("art/{$file} is too tall for a half slab: its sides should stand 8 pixels tall, its top face 8 pixels lower than a full cube's.");
         }
 
         return $tile;
@@ -592,7 +616,7 @@ final class AssetBuilder
                         'tilecount' => count($slots),
                         'margin' => 0,
                         'spacing' => 0,
-                        'tileoffset' => ['x' => 0, 'y' => self::FACE_TOP],
+                        'tileoffset' => ['x' => 0, 'y' => self::TILED_OFFSET_Y],
                         'tiles' => $tiles,
                     ];
                 }

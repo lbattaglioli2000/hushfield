@@ -22,6 +22,10 @@ final class BuildAssetsCommand extends Command
             return self::FAILURE;
         }
 
+        foreach ($builder->warnings() as $warning) {
+            $this->warn($warning);
+        }
+
         $this->info('Built '.count($index['files'])." assets, version {$index['version']}.");
 
         return self::SUCCESS;

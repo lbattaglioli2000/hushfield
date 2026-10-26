@@ -166,10 +166,10 @@ resources/
     provenance.json            # who drew each file, when it arrived (§10)
     tiles/
       tiles.json               # slot registry: type/height, append-only (§5)
-      grass/full.png           # 32×32 full block; one folder per tile type
+      grass/full.png           # 32×32 full cube; one folder per tile type
       grass/full.aseprite      # optional working file, same name
       stone/full.png
-      stone/half.png           # half slab: same canvas, sides half as tall
+      stone/half.png           # half slab: same canvas, sides half as tall (8 px)
                                # room later for full-2.png, edge pieces
     buildings/
       library.png              # one whole image per building slug
@@ -577,7 +577,7 @@ and tell us its path.
 
 ```
 handover-2026-11-02/
-  tiles/grass/full.png            32×32 full block, a folder per tile type
+  tiles/grass/full.png            32×32 full cube, a folder per tile type
   tiles/stone/half.png            32×32 half slab of the same tile
   buildings/library.png           one whole image per building
   walls/brick/left.png            16×56 panel; right.png, and left-door.png / right-door.png if any
@@ -594,8 +594,8 @@ change size on your own: the build rejects any file that doesn't match.
 
 | Kind                      | Your canvas                                                                                                                                                                                                                              |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ground tile, full block   | 32×32, standing on the bottom edge: top face a 32×16 diamond from row 7, sides 8 tall at the canvas's edges (rows 15–24), bottom edge from row 24 at the sides to row 31 in the middle                                                   |
-| Ground tile, half slab    | The same 32×32 canvas, top face and bottom edge, with sides 4 tall (rows 19–24), so the top face starts on row 11                                                                                                                        |
+| Ground tile, full cube    | 32×32: top face a 32×16 diamond on rows 0–15 (top corner on row 0), sides 16 tall at the canvas's edges (rows 8–24), bottom corner on row 31. Tufts may poke above the top face.                                                         |
+| Ground tile, half slab    | The same 32×32 canvas, top face and bottom edge, with sides 8 tall (rows 16–24), so the top face starts on row 8. Bottom-aligned.                                                                                                        |
 | Building or furniture     | (wide + deep) × 16 across, with the footprint diamond (wide + deep) × 8 tall touching the bottom edge, its bottom corner wide × 16 from the left. A 1×1 stool is 32 across, a 2×1 love seat 48, a 7×5 building 192. As tall as it needs. |
 | Wall panel                | 16 wide × 56 tall (or taller): the floor edge climbs 8 across the bottom, and the face is 48 tall above it. `walls/{style}/left.png`, `right.png`, optional `left-door.png`, `right-door.png`                                            |
 | Avatar and wearable frame | 48×72                                                                                                                                                                                                                                    |
