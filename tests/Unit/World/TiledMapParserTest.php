@@ -252,3 +252,50 @@ it('rejects buildings that run off the map, stand on places players need, or hid
         $layers['buildings']['objects'][] = [...$shed, 'id' => 9, 'name' => 'annex', 'x' => 0.0, 'width' => 96.0];
     }, 'Buildings "shed" and "annex" overlap.'],
 ]);
+
+/**
+ * test-home with its back row and column blocked, as a room with walls has them,
+ * the door moved onto the back row and the given "walls" property.
+ */
+function walledHome(mixed $walls, bool $blockBack = true): string
+{
+    $map = json_decode(fixtureMap('test-home'), true);
+    $layers = collect($map['layers'])->keyBy('name')->all();
+
+    foreach ($layers['walkable']['data'] as $i => $gid) {
+        $back = intdiv($i, 5) === 0 || $i % 5 === 0;
+        $layers['walkable']['data'][$i] = $blockBack && $back && $i !== 2 ? 0 : $gid;
+    }
+
+    $layers['exits']['objects'][0]['y'] = 16;
+    $layers['arrivals']['objects'][0]['y'] = 32 + 16;
+    $map['layers'] = array_values($layers);
+
+    if ($walls !== null) {
+        $map['properties'][] = ['name' => 'walls', 'type' => is_string($walls) ? 'string' : 'int', 'value' => $walls];
+    }
+
+    return (string) json_encode($map);
+}
+
+it('reads the style of a room\'s back walls, with a door opening in them', function () {
+    $map = (new TiledMapParser)->parse(walledHome('plaster'));
+
+    expect($map->walls)->toBe('plaster')
+        // Walls change nothing about walking: the door in the back row stays open.
+        ->and($map->grid->isWalkable(2, 0))->toBeTrue()
+        ->and($map->grid->isExit(2, 0))->toBeTrue()
+        ->and((new TiledMapParser)->parse(walledHome(null))->walls)->toBeNull()
+        // Without walls the back row may be walkable, as outdoors.
+        ->and((new TiledMapParser)->parse(fixtureMap('test-home'))->walls)->toBeNull();
+});
+
+it('rejects walls it cannot draw', function (string $map, string $message) {
+    expect(fn () => (new TiledMapParser)->parse($map))
+        ->toThrow(InvalidMapException::class, $message);
+})->with([
+    'not a slug' => [fn () => walledHome('Plaster Walls'), 'The map property "walls" must name a wall style'],
+    'empty' => [fn () => walledHome(''), 'The map property "walls" must name a wall style'],
+    'a number' => [fn () => walledHome(3), 'The map property "walls" must name a wall style'],
+    'floor under the wall' => [fn () => walledHome('plaster', blockBack: false), 'Tile (0, 0) is walkable, but the walls stand on the map\'s back row and column.'],
+]);

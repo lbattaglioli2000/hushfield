@@ -6,7 +6,8 @@ namespace App\Domain\World;
  * A parsed map file. Name, kind, capacity, the frequencies and the town map
  * position come from the map's custom properties in Tiled; null means the map
  * does not set them. Buildings are already walled off in the grid; the list
- * says where they stand.
+ * says where they stand. $walls is the style of the room's back walls, which
+ * only the client draws.
  */
 final readonly class ImportedMap
 {
@@ -24,5 +25,6 @@ final readonly class ImportedMap
         public ?float $homeFrequency = null,
         public ?array $townPosition = null,
         public array $buildings = [],
+        public ?string $walls = null,
     ) {}
 }

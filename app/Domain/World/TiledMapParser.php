@@ -11,7 +11,7 @@ use JsonException;
  * tile is walkable) and an object layer named "spawns" with at least one
  * object on a walkable tile. Optional: object layers "exits", "arrivals",
  * "fixtures" and "buildings", and the map properties "name", "kind",
- * "capacity", "frequency", "home_frequency", "town_x" and "town_y".
+ * "capacity", "frequency", "home_frequency", "town_x", "town_y" and "walls".
  * resources/maps/README.md describes each one.
  */
 final class TiledMapParser
@@ -85,6 +85,8 @@ final class TiledMapParser
             throw new InvalidMapException('The map property "capacity" must be a positive integer.');
         }
 
+        $walls = $this->walls($properties, $cells, $width, $height, $exits);
+
         return new ImportedMap(
             version: substr(hash('sha256', $contents), 0, 16),
             grid: new WalkabilityGrid($width, $height, $cells, $spawns, $exits, $arrivals, $fixtures),
@@ -95,7 +97,41 @@ final class TiledMapParser
             homeFrequency: $this->frequency($properties, 'home_frequency'),
             townPosition: $this->townPosition($properties),
             buildings: array_values($buildings),
+            walls: $walls,
         );
+    }
+
+    /**
+     * The wall style named by the "walls" property, or null for a room without
+     * walls. The walls stand on the back row and column, so only doors may be
+     * walkable there; anyone else would stand inside them.
+     *
+     * @param  array<string, mixed>  $properties
+     * @param  array<string, MapExit>  $exits
+     */
+    private function walls(array $properties, string $cells, int $width, int $height, array $exits): ?string
+    {
+        $style = $properties['walls'] ?? null;
+
+        if ($style === null) {
+            return null;
+        }
+
+        if (! is_string($style) || ! preg_match('/^[a-z0-9-]+$/', $style)) {
+            throw new InvalidMapException('The map property "walls" must name a wall style: a slug such as "plaster", which also names its art.');
+        }
+
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < ($y === 0 ? $width : 1); $x++) {
+                $door = array_any($exits, fn (MapExit $exit): bool => $exit->covers($x, $y));
+
+                if ($cells[$y * $width + $x] === '1' && ! $door) {
+                    throw new InvalidMapException("Tile ({$x}, {$y}) is walkable, but the walls stand on the map's back row and column. Only doors may open there.");
+                }
+            }
+        }
+
+        return $style;
     }
 
     /**
