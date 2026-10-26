@@ -112,7 +112,9 @@ export type GameEvents = {
     'remove-friend': { userId: number };
     'set-friend-requests': { allowed: boolean };
     /** In decorate mode taps place the armed item, or put away the piece tapped, instead of walking. */
-    decorate: { active: boolean; armedItemId: number | null };
+    decorate: { active: boolean; armed: Item | null };
+    /** Turn a placed piece a quarter turn clockwise, where it stands. */
+    'turn-furniture': { itemId: number };
     /** No payload: any input that keeps the player from being shown as away. */
     'input-activity': Record<string, never>;
 };

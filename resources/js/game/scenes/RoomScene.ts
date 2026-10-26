@@ -10,18 +10,27 @@ import type {
     PathState,
     PlacedFurniture,
     PlayerMovedEvent,
+    Item,
     PlayerState,
     Snapshot,
     Tile,
 } from '../protocol/types';
 import { pathState } from '../protocol/types';
-import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
+import type { Grid } from '../shared/astar';
+import { isWalkable } from '../shared/astar';
+import {
+    blocksWalking,
+    FACINGS,
+    footprintOf,
+    withFurniture,
+} from '../shared/furniture';
+import { TILE_HEIGHT, TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { positionOf } from '../shared/pathClock';
-import { CAMERA, COLORS, DEPTH, FISHING, TRAVEL } from '../theme';
+import { CAMERA, COLORS, DEPTH, FISHING, FURNITURE, TRAVEL } from '../theme';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
 import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
 import { FishingLine } from '../world/FishingLine';
-import { FurnitureLayer } from '../world/FurnitureLayer';
+import { FurnitureLayer, furnitureTexture } from '../world/FurnitureLayer';
 import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
 import { KeyboardMovement } from '../world/KeyboardMovement';
@@ -33,7 +42,11 @@ export type RoomPort = MovementPort & {
     /** Ends the game with a fatal screen, for failures the scene can't recover from. */
     abort(error: unknown): void;
     useExit(name: string): Promise<void>;
-    placeFurniture(itemId: number, tile: Tile): Promise<void>;
+    placeFurniture(
+        itemId: number,
+        tile: Tile,
+        rotation?: number,
+    ): Promise<void>;
     putAwayFurniture(itemId: number): Promise<void>;
 };
 
@@ -72,10 +85,16 @@ export class RoomScene
     private selfId = 0;
     private map: IsoMap | null = null;
     private furniture: FurnitureLayer | null = null;
+    /** The current home's arrangement, as the server last said. */
+    private placed: PlacedFurniture[] = [];
+    /** Where players may walk: the map, less the tiles under furniture in a home. */
+    private walkGrid: Grid | null = null;
     private buildings: BuildingLayer | null = null;
     /** Whether the drawn instance is the player's own home. */
     private ownHome = false;
-    private decorating: { armedItemId: number | null } | null = null;
+    private decorating: { armed: Item | null } | null = null;
+    /** While decorating, the outline of where the chosen piece would go. */
+    private ghost!: Phaser.GameObjects.Graphics;
     /** Between leaving one room and drawing the next: the screen is faded and taps are ignored. */
     private travelling = false;
     /** The path whose arrival at a door was already acted on, so each walk goes through at most once. */
@@ -102,7 +121,7 @@ export class RoomScene
             port,
             maxPathSteps: options.maxPathSteps,
             self: () => this.avatars.get(this.selfId),
-            grid: () => this.map?.grid ?? null,
+            grid: () => this.walkGrid,
             showMarker: (tile) => this.showMarker(tile),
             hideMarker: () => this.marker.setVisible(false),
             notice: (message) => this.bus.emit('notice', { message }),
@@ -124,6 +143,12 @@ export class RoomScene
         )) {
             this.load.image(buildingTexture(slug), url);
         }
+
+        for (const [name, url] of Object.entries(
+            this.options.manifest.furniture,
+        )) {
+            this.load.image(furnitureTexture(name), url);
+        }
     }
 
     create(): void {
@@ -136,6 +161,7 @@ export class RoomScene
             .image(0, 0, 'marker')
             .setVisible(false)
             .setDepth(DEPTH.marker);
+        this.ghost = this.add.graphics().setDepth(DEPTH.hover);
 
         this.fishingLine = new FishingLine(this);
 
@@ -153,7 +179,7 @@ export class RoomScene
         this.keyboard = new KeyboardMovement({
             movement: this.movement,
             maxPathSteps: this.options.maxPathSteps,
-            grid: () => this.map?.grid ?? null,
+            grid: () => this.walkGrid,
             blocked: () =>
                 this.travelling || (this.decorating !== null && this.ownHome),
             activity: () => this.bus.emit('input-activity', {}),
@@ -221,12 +247,12 @@ export class RoomScene
         this.map.hideLabelsNear(positions);
 
         const self = this.avatars.get(this.selfId);
-        this.buildings?.update(
+        const seen =
             self && selfAt
                 ? { at: selfAt, box: self.bounds, depthY: self.target.y }
-                : null,
-            delta,
-        );
+                : null;
+        this.buildings?.update(seen, delta);
+        this.furniture?.update(seen, delta);
 
         this.fishingLine?.update(time, self?.target ?? null);
     }
@@ -245,6 +271,7 @@ export class RoomScene
 
         this.travelling = true;
         this.decorating = null;
+        this.ghost.clear();
         this.marker.setVisible(false);
         this.cameras.main.fadeOut(TRAVEL.fadeMs, ...NIGHT_RGB);
 
@@ -255,8 +282,25 @@ export class RoomScene
     }
 
     /** UI → game: decorate mode is only honoured in the player's own home. */
-    setDecorating(active: boolean, armedItemId: number | null): void {
-        this.decorating = active ? { armedItemId } : null;
+    setDecorating(active: boolean, armed: Item | null): void {
+        this.decorating = active ? { armed } : null;
+
+        if (!this.decorating?.armed) this.ghost?.clear();
+    }
+
+    /** UI → game: a placed piece turns a quarter turn where it stands. The server says if it fits. */
+    turnFurniture(itemId: number): void {
+        const piece = this.placed.find((p) => p.item.id === itemId);
+
+        if (!piece || !this.ownHome) return;
+
+        this.port
+            .placeFurniture(
+                itemId,
+                [piece.x, piece.y],
+                (piece.rotation + 1) % FACINGS,
+            )
+            .catch((error: unknown) => this.options.refused(error));
     }
 
     // ── WorldListener ─────────────────────────────────────────────────
@@ -290,10 +334,10 @@ export class RoomScene
             this.buildings = new BuildingLayer(this, this.map);
         }
 
-        this.furniture?.set(snapshot.furniture);
+        this.setFurniture(snapshot.furniture);
         this.ownHome = snapshot.home?.owner_id === selfId;
 
-        if (!this.ownHome) this.decorating = null;
+        if (!this.ownHome) this.setDecorating(false, null);
 
         // Replace local state wholesale: the snapshot is the truth.
         const seen = new Set<number>();
@@ -351,7 +395,7 @@ export class RoomScene
     }
 
     furnitureChanged(placed: PlacedFurniture[]): void {
-        this.whenDrawable(() => this.furniture?.set(placed));
+        this.whenDrawable(() => this.setFurniture(placed));
     }
 
     /** Shows the player's own line straight away, including when muted (only they see it then). */
@@ -371,11 +415,14 @@ export class RoomScene
         this.buildings?.hover(pointer.wasTouch ? null : building);
         this.input.setDefaultCursor(building ? 'pointer' : 'default');
 
+        const decorating = this.decorating !== null && this.ownHome;
+        this.showGhost(decorating ? tile : null);
+
         const show =
             !building &&
             tile !== null &&
-            this.map !== null &&
-            this.map.isWalkable(tile);
+            this.walkGrid !== null &&
+            (decorating || isWalkable(this.walkGrid, tile[0], tile[1]));
         this.hover.setVisible(show && !pointer.wasTouch);
 
         if (show && tile && this.map) {
@@ -444,18 +491,71 @@ export class RoomScene
         if (tile) void this.movement.walkTo(tile);
     }
 
-    /** A tap while decorating: put away the piece on the tile, or place the armed one there. */
+    /**
+     * A tap while decorating: put away the piece on the tile, or place the armed
+     * one with its back corner there. A rug under the tap takes the armed piece on top.
+     */
     private decorateAt(tile: Tile | null): void {
         if (!tile || !this.decorating) return;
 
-        const placed = this.furniture?.at(tile);
-        const request = placed
-            ? this.port.putAwayFurniture(placed.item.id)
-            : this.decorating.armedItemId !== null
-              ? this.port.placeFurniture(this.decorating.armedItemId, tile)
-              : null;
+        const placed = this.furniture?.at(tile) ?? null;
+        const armed = this.decorating.armed;
+        const request =
+            placed && (blocksWalking(placed) || !armed)
+                ? this.port.putAwayFurniture(placed.item.id)
+                : armed
+                  ? this.port.placeFurniture(armed.id, tile)
+                  : null;
 
         request?.catch((error: unknown) => this.options.refused(error));
+    }
+
+    /** Outlines the tiles the armed piece would cover with its back corner on a tile. */
+    private showGhost(tile: Tile | null): void {
+        this.ghost.clear();
+
+        const armed = this.decorating?.armed;
+
+        const map = this.map;
+
+        if (!tile || !armed || !map) return;
+
+        const rotation =
+            this.placed.find((p) => p.item.id === armed.id)?.rotation ?? 0;
+        const { x, y, wide, deep } = footprintOf(
+            armed.furniture ?? { wide: 1, deep: 1 },
+            tile[0],
+            tile[1],
+            rotation,
+        );
+        // Corners of the footprint: its back, right, front and left, on the ground.
+        const corner = (gx: number, gy: number) => {
+            const centre = map.toWorld(gx, gy);
+
+            return new Phaser.Math.Vector2(
+                centre.x,
+                centre.y - TILE_HEIGHT / 2,
+            );
+        };
+        const outline = [
+            corner(x, y),
+            corner(x + wide, y),
+            corner(x + wide, y + deep),
+            corner(x, y + deep),
+        ];
+
+        this.ghost
+            .fillStyle(FURNITURE.ghostColor, 0.18)
+            .fillPoints(outline, true)
+            .lineStyle(2, FURNITURE.ghostColor, 0.9)
+            .strokePoints(outline, true);
+    }
+
+    /** Draws a home's arrangement, and walls its blocking pieces off from walking. */
+    private setFurniture(placed: PlacedFurniture[]): void {
+        this.placed = placed;
+        this.furniture?.set(placed);
+        this.walkGrid = this.map ? withFurniture(this.map.grid, placed) : null;
     }
 
     private arrived(): void {

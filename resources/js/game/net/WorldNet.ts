@@ -284,11 +284,16 @@ export class WorldNet {
         });
     }
 
-    async placeFurniture(itemId: number, tile: Tile): Promise<void> {
+    /** Places, moves or turns a piece. Without a rotation, a placed piece keeps its turn. */
+    async placeFurniture(
+        itemId: number,
+        tile: Tile,
+        rotation?: number,
+    ): Promise<void> {
         const body = await this.request<{ furniture: PlacedFurniture[] }>(
             'POST',
             `/world/home/furniture/${itemId}`,
-            { x: tile[0], y: tile[1] },
+            { x: tile[0], y: tile[1], rotation },
         );
         this.showFurniture(body.furniture);
     }

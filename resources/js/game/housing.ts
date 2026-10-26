@@ -38,8 +38,11 @@ export function connectHousing(
                 })
                 .catch(fail);
         }),
-        bus.on('decorate', ({ active, armedItemId }) => {
-            scene()?.setDecorating(active, armedItemId);
+        bus.on('decorate', ({ active, armed }) => {
+            scene()?.setDecorating(active, armed);
+        }),
+        bus.on('turn-furniture', ({ itemId }) => {
+            scene()?.turnFurniture(itemId);
         }),
     ];
 

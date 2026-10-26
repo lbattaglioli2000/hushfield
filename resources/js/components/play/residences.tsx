@@ -22,6 +22,13 @@ const VISITOR_OPTIONS: Array<{ value: HomeVisitors; label: string }> = [
     { value: 'everyone', label: 'Everyone' },
 ];
 
+/** "2×1", or "2×2 rug": how much floor a piece takes. */
+function sizeOf(item: Item): string {
+    const size = item.furniture ?? { wide: 1, deep: 1, floor: false };
+
+    return `${size.wide}×${size.deep}${size.floor ? ' rug' : ''}`;
+}
+
 /**
  * The Residences and Decorate keys, the directory, and decorate mode in the
  * player's own home. Renders into the set's key grid; hidden until the game has drawn a room.
@@ -59,12 +66,13 @@ export default function Residences({
         ),
     );
 
+    const armedItem = decorating
+        ? (furniture.find((item) => item.id === armed) ?? null)
+        : null;
+
     useEffect(() => {
-        bus.emit('decorate', {
-            active: decorating,
-            armedItemId: decorating ? armed : null,
-        });
-    }, [bus, decorating, armed]);
+        bus.emit('decorate', { active: decorating, armed: armedItem });
+    }, [bus, decorating, armedItem]);
 
     useEffect(() => {
         if (!result) return;
@@ -124,7 +132,7 @@ export default function Residences({
                         ) : (
                             <ul className="flex max-h-[40vh] flex-col gap-1 overflow-y-auto">
                                 {furniture.map((item) => (
-                                    <li key={item.id}>
+                                    <li key={item.id} className="flex gap-1">
                                         <button
                                             type="button"
                                             onClick={() =>
@@ -134,7 +142,7 @@ export default function Residences({
                                                         : item.id,
                                                 )
                                             }
-                                            className={`flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-amber ${armed === item.id ? 'bg-amber text-glass' : 'text-amber hover:bg-amber/10'}`}
+                                            className={`flex min-w-0 flex-1 items-center justify-between rounded-sm px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-amber ${armed === item.id ? 'bg-amber text-glass' : 'text-amber hover:bg-amber/10'}`}
                                             aria-pressed={armed === item.id}
                                             data-test={`arm-${item.slug}`}
                                         >
@@ -142,11 +150,27 @@ export default function Residences({
                                                 {item.name}
                                             </span>
                                             <span className="text-xs opacity-70">
+                                                {sizeOf(item)}
                                                 {placedIds.has(item.id)
-                                                    ? 'Placed · move'
-                                                    : 'Place'}
+                                                    ? ' · placed · move'
+                                                    : ' · place'}
                                             </span>
                                         </button>
+                                        {placedIds.has(item.id) && (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    bus.emit('turn-furniture', {
+                                                        itemId: item.id,
+                                                    })
+                                                }
+                                                className="rounded-sm px-2 py-1.5 text-xs tracking-wide text-amber uppercase outline-none hover:bg-amber/10 focus-visible:ring-2 focus-visible:ring-amber"
+                                                aria-label={`Turn the ${item.name}`}
+                                                data-test={`turn-${item.slug}`}
+                                            >
+                                                Turn ↻
+                                            </button>
+                                        )}
                                     </li>
                                 ))}
                             </ul>

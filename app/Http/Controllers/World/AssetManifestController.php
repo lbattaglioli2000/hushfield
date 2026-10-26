@@ -8,8 +8,10 @@ use Illuminate\Http\JsonResponse;
 /**
  * Every game asset URL comes from here, so assets can move to a CDN by changing HUSHFIELD_ASSET_URL.
  * The images themselves are listed in config/hushfield.php. Building art is
- * whatever PNGs are under buildings/, by building slug; buildings without art
- * are drawn as placeholder blocks.
+ * whatever PNGs are under buildings/, by building slug, and furniture art
+ * whatever PNGs are under furniture/, by file name ({slug} or
+ * {slug}-{rotation}, see resources/js/game/shared/furniture.ts). Anything
+ * without art is drawn as a placeholder block.
  */
 final class AssetManifestController extends Controller
 {
@@ -21,16 +23,21 @@ final class AssetManifestController extends Controller
         /** @var array<string, string> $images */
         $images = config('hushfield.assets.images');
 
-        $buildings = [];
+        $art = function (string $folder) use ($version, $base): object {
+            $found = [];
 
-        foreach (glob(public_path("assets/v{$version}/buildings/*.png")) ?: [] as $file) {
-            $buildings[basename($file, '.png')] = "{$base}/buildings/".basename($file);
-        }
+            foreach (glob(public_path("assets/v{$version}/{$folder}/*.png")) ?: [] as $file) {
+                $found[basename($file, '.png')] = "{$base}/{$folder}/".basename($file);
+            }
+
+            return (object) $found;
+        };
 
         return response()->json([
             'version' => $version,
             'images' => array_map(fn (string $file): string => "{$base}/{$file}", $images),
-            'buildings' => (object) $buildings,
+            'buildings' => $art('buildings'),
+            'furniture' => $art('furniture'),
         ])->header('Cache-Control', 'no-cache');
     }
 }

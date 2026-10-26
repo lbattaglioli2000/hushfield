@@ -13,6 +13,8 @@ export const FONT_FAMILY = 'Instrument Sans, system-ui, sans-serif';
 export const DEPTH = {
     ground: 0,
     door: 0.5,
+    /** Rugs lie on the floor: over doors, under everything that stands. */
+    rugs: 0.75,
     hover: 1,
     marker: 2,
     avatars: 10,
@@ -27,15 +29,24 @@ export const DOOR = {
     labelGapY: 60,
 } as const;
 
-/** Placeholder furniture, until items have artwork: a tinted block on its tile. */
+/** Placeholder furniture, until items have artwork: a tinted block on its footprint. */
 export const FURNITURE = {
-    /** Share of a tile's diamond the block's footprint covers. */
-    footprint: 0.7,
+    /** How far the block stands in from the edges of its footprint, in tiles. */
+    insetTiles: 0.1,
+    /** For items that don't say how tall they are. */
     heightPx: 18,
     saturation: 0.35,
     lightness: 0.55,
     /** How much darker the left and right faces are than the top. */
     shade: [0.8, 0.65],
+    /** The pale edge along the side a piece faces. */
+    frontColor: 0xfbf7ee,
+    frontWidthPx: 3,
+    /** Like buildings: how see-through a piece turns while it hides the player's own avatar. */
+    fadedAlpha: 0.45,
+    fadeMs: 120,
+    /** The outline of where the chosen piece would go, while decorating. */
+    ghostColor: 0xffd27a,
 } as const;
 
 /** Placeholder buildings, until they have artwork: a tinted block with a door and lit windows. */

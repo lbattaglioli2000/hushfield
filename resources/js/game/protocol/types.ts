@@ -38,8 +38,16 @@ export type HomeInfo = {
     visitors: HomeVisitors;
 };
 
-/** An owned furniture item standing on a tile of a home. */
-export type PlacedFurniture = { x: number; y: number; item: Item };
+/**
+ * An owned furniture item standing in a home: its back corner on tile (x, y),
+ * turned `rotation` quarter turns (see shared/furniture.ts).
+ */
+export type PlacedFurniture = {
+    x: number;
+    y: number;
+    rotation: number;
+    item: Item;
+};
 
 export type Snapshot = {
     protocol: number;
@@ -88,6 +96,8 @@ export type AssetManifest = {
     images: Record<'tiles' | 'resident' | 'marker' | 'hover', string>;
     /** Art for buildings that have it, by building slug. The rest are drawn as placeholders. */
     buildings: Record<string, string>;
+    /** Art for furniture that has it, by file name: `{slug}` or `{slug}-{rotation}`. */
+    furniture: Record<string, string>;
 };
 
 export type ItemSlot =
@@ -113,6 +123,16 @@ export type Item = {
     price: number;
     sprite_layers: string[];
     members_only: boolean;
+    /** How a furniture item stands in a home; null for everything else. */
+    furniture: {
+        /** Tiles along x and along y, before any turn. */
+        wide: number;
+        deep: number;
+        /** How tall its placeholder block stands, in pixels. */
+        height: number;
+        /** Lies flat like a rug: walked over, and one other piece may stand on it. */
+        floor: boolean;
+    } | null;
 };
 
 /** A resident's coins, stipend status and inventory, as every economy response carries them. */
