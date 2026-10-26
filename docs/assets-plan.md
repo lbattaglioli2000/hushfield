@@ -14,8 +14,8 @@ ships. It packs the tile sheet in a fixed slot order, doubles everything,
 checks canvases, gives each output a content hash in its name, and writes the
 index the manifest is served from. Built files aren't committed. Production
 serves them from the public Laravel Cloud bucket with immutable caching.
-Locally the app serves them itself, and an orb can run MinIO to test the
-bucket path. Item art ships with code for now. Filament uploads come later,
+Locally the app serves them itself, and an orb can run Adobe's S3Mock to test
+the bucket path. Masters go in a separate private bucket. Item art ships with code for now. Filament uploads come later,
 when we want to require art.
 
 ---
@@ -52,9 +52,27 @@ Two latent bugs the plan fixes along the way:
 
 ## 2. Pixel scale: draw at half size, double at build
 
-Decided: everything is drawn at half size and doubled, so one art pixel is
-always 2×2 game pixels. These are the things that have to hold for it to look
-right.
+Decided for now: everything is drawn at half size and doubled, so one art
+pixel is always 2×2 game pixels. These are the things that have to hold for it
+to look right.
+
+**Scale is one build setting, so it can change.** The game's geometry is fixed
+in game pixels: 64×32 tiles and the canvas rules in the README. The art's
+scale is a single setting, `config('hushfield.assets.scale')`, set to `2`. The
+build expects each source to be its game size divided by the scale, and
+multiplies by the scale with nearest-neighbour. Nothing else reads it.
+
+- To try larger art while iterating, set the scale to `1`, and sources are
+  drawn at full game size. No code changes.
+- The setting can be overridden per kind (`scale_overrides: { avatars: 1 }`),
+  so avatars can be tried at full size while the ground stays doubled. The
+  catch: different scales mean different pixel sizes side by side, which is
+  exactly what §1 called a bug. Use overrides to experiment, not to ship.
+- Changing a kind's scale means redrawing its art at the new source size. The
+  build rejects any source whose size doesn't match, so nothing stretches by
+  accident. Outputs get new hashes, so caches clear themselves.
+- Only integer scales are allowed. The tables below show the canvases at
+  scale 2.
 
 **What she draws (art pixels) and what the game shows:**
 
@@ -116,9 +134,10 @@ Before more of the avatar brief is written, have her draw one base front
 strip and one hat at half size, and look at them in the game over the ground.
 
 **Guards in the build.** It rejects any file whose size breaks its kind's
-rule in art pixels. It also rejects a file that is already doubled (twice the
-expected size, with every 2×2 block one colour), which is the easy mistake of
-exporting at 200%.
+rule in art pixels at its scale. When the scale is above 1, it also rejects
+a file that is already scaled up (scale × the expected size, with every
+block of that size one colour), which is the easy mistake of exporting at
+200%.
 
 **Ordering.** Until the build doubles buildings, furniture and walls
 (step 3), art for them drawn at half size would show at half size. Hold any
@@ -323,28 +342,70 @@ live:    manifest = HUSHFIELD_ASSET_URL + paths from assets.json
 stay on the `public` disk, with no S3 needed. To test publishing, CORS and
 cross-origin loading before they reach production:
 
-- `.agents/setup` installs the MinIO server and `mc`. `.amp/services.yaml`
-  runs `minio server` on port 9000 behind a portal, so the browser can reach
-  it.
-- Setup creates `hushfield-assets` (anonymous read, with a CORS rule) and
-  `hushfield-masters` (private).
-- Switch on with `AWS_ENDPOINT=http://127.0.0.1:9000`,
-  `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_BUCKET=hushfield-assets`, and
-  `HUSHFIELD_ASSET_URL` set to the MinIO portal URL plus `/hushfield-assets`.
-- Not verified: whether a portal answers cross-origin image requests from
-  the app's portal without the viewer's Amp sign-in getting in the way. If it
-  doesn't, the orb test proves upload and indexing, and CORS is checked on
-  staging instead.
+We use [Adobe S3Mock](https://github.com/adobe/S3Mock) (Apache-2.0), not
+MinIO, because MinIO's licensing changed. The orb has no Docker daemon, so it
+runs as S3Mock's executable jar:
 
-**Masters go in a second, private bucket, not the public one.** Every file
-in the public bucket can be downloaded by anyone who guesses its path. PSDs
-and unreleased items would leak, and their size would count against public
-egress. Create a private Cloud bucket for masters, laid out under the same
-paths as `resources/`. Upload with any S3 client (Cyberduck, rclone) using
-that bucket's keys. The orb's `hushfield-masters` bucket exists only to test
-tooling; real masters stay in production's private bucket. Not verified:
-whether Cloud issues access keys usable outside the app, and how it names
-env vars when two buckets are attached. Step 5 checks both.
+- `.agents/setup` installs a Java 21 runtime (Temurin JRE, about 50 MB) and a
+  pinned `s3mock-<version>-exec.jar` from Maven Central (about 30 MB).
+- `.amp/services.yaml` runs it on port 9090 behind a portal, with
+  `COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS=hushfield-assets,hushfield-masters`,
+  `COM_ADOBE_TESTING_S3MOCK_STORE_ROOT=storage/s3mock` (gitignored) and
+  `COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT=true`.
+- Switch it on with `AWS_ENDPOINT=http://127.0.0.1:9090`,
+  `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_BUCKET=hushfield-assets`, and
+  `HUSHFIELD_ASSET_URL` set to the S3Mock portal URL plus
+  `/hushfield-assets`.
+
+Checked against S3Mock 5.2.3 in this orb, through Laravel's own `s3` driver
+and with curl:
+
+| Need                                                    | Result                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path-style access                                       | ✅ Works. It's the only style it supports; virtual-host requests return 404.                                                                                                                                                                                                                                                        |
+| What `publish-assets` uses (put, exists, list, `url()`) | ✅ All work. `Cache-Control: …immutable` and `Content-Type` set on upload come back on GET.                                                                                                                                                                                                                                         |
+| CORS for cross-origin image loads                       | ✅ Every response, preflight included, sends `Access-Control-Allow-Origin: *`. Gap: it can't be configured, so a wrong CORS rule can't be tested locally, only that `crossOrigin` loads work.                                                                                                                                       |
+| Public versus private buckets                           | ❌ **Not enforced.** It ignores credentials, so unsigned uploads succeed, and an object uploaded as `private` reads back anonymously. Bucket policies and bucket ACLs aren't implemented. The two buckets show that the right files go to the right bucket, not that masters are hidden. That has to be checked on Cloud.           |
+| Presigned URLs                                          | ⚠️ `temporaryUrl()` builds one, but S3Mock doesn't check signature or expiry: a bogus one returns 200. The plan uses none today. When Filament uploads arrive, test signatures on staging.                                                                                                                                          |
+| Persisting to a folder                                  | ✅ Store root plus retain-on-exit kept both buckets and their objects across a restart. Caveat: upstream says reusing data across restarts isn't officially supported, and the format changed in 5.x. Treat the folder as a cache: pin the version, and let `hushfield:publish-assets` (which uploads anything missing) rebuild it. |
+
+S3Mock covers what the orb test needs. Its one real gap, unenforced privacy,
+is shared by every lightweight mock. If something more faithful is needed
+later, the next licence-safe choice is
+[S3Proxy](https://github.com/gaul/s3proxy) (Apache-2.0, also a Java jar). It
+has a filesystem backend, configurable CORS, real auth, and `private` versus
+`public-read` object ACLs. It has no bucket policies either. Avoid Garage
+(AGPL) and LocalStack (now needs an account).
+
+Not verified: whether a portal answers cross-origin image requests from the
+app's portal without the viewer's Amp sign-in getting in the way. If it
+doesn't, the orb test proves upload and indexing, and cross-origin loading is
+checked on staging instead.
+
+**Masters go in a second, private bucket (decided).** Every file in the
+public bucket can be downloaded by anyone who guesses its path, so PSDs and
+unreleased items would leak, and their size would count against public
+egress. Masters are laid out under the same paths as `resources/`, and
+uploaded with any S3 client (Cyberduck, rclone) using that bucket's own
+keys. The orb's `hushfield-masters` bucket exists only to test tooling; real
+masters live only in Cloud.
+
+**What you set up in Laravel Cloud yourself:**
+
+1. **Create the private bucket**: Laravel Object Storage, visibility
+   **Private**, named something like `hushfield-masters`.
+2. **Create credentials for it**: an access key and secret scoped to that
+   bucket, read/write. Keep them in a password manager, and give them to the
+   artist's S3 client. They don't go in the app's environment. The app
+   doesn't read masters, so the bucket doesn't need attaching to the app.
+3. **Public bucket** (already attached): note its public URL for
+   `HUSHFIELD_ASSET_URL`, add a custom domain if you want one, and add a CORS
+   rule allowing `GET` from the app's origins.
+
+Not verified: whether Cloud offers per-bucket keys usable outside the app,
+and whether it supports bucket CORS rules and custom domains. If it doesn't
+offer such keys, the fallback is to attach the masters bucket to the app
+under its own disk and add an upload command. Step 5 checks all of this.
 
 | Option                                       | For                                                                                                | Against                                                                                            |
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -442,15 +503,15 @@ allowed, one entry per handover:
 
 ## 11. Decisions
 
-|     | Decision                   | Outcome                                                                                                    |
-| --- | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| A   | Pixel scale                | **Half size, doubled at build**, for every kind (§2). Prove it on one avatar strip and one wearable first. |
-| B   | Third-party pack           | **Removed.** Its slots pack as placeholders until she draws them.                                          |
-| C   | Item art through Filament  | **Later.** Item art ships with code for now (§8).                                                          |
-| D   | Who publishes              | **One staff member**, with an audit log, once uploads exist.                                               |
-| E   | Bucket                     | **Use the public bucket already attached in Cloud.** MinIO in the orb for testing.                         |
-| F   | Masters                    | **A second, private bucket**, not the public one (§7). Still needs your OK.                                |
-| G   | Art-less items in the shop | **Allowed for now.** Enforced when Filament uploads land.                                                  |
+|     | Decision                   | Outcome                                                                                                                                                                                                 |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | Pixel scale                | **Half size, doubled at build, for now** (§2). Scale is one build setting (`assets.scale`), so larger art can be tried later without code changes. Prove it on one avatar strip and one wearable first. |
+| B   | Third-party pack           | **Removed.** Its slots pack as placeholders until she draws them.                                                                                                                                       |
+| C   | Item art through Filament  | **Later.** Item art ships with code for now (§8).                                                                                                                                                       |
+| D   | Who publishes              | **One staff member**, with an audit log, once uploads exist.                                                                                                                                            |
+| E   | Bucket                     | **Use the public bucket already attached in Cloud.** Adobe S3Mock in the orb for testing (§7); not MinIO.                                                                                               |
+| F   | Masters                    | **A second, private bucket** (§7). You create it and its keys in Cloud.                                                                                                                                 |
+| G   | Art-less items in the shop | **Allowed for now.** Enforced when Filament uploads land.                                                                                                                                               |
 
 ## 12. Migration, in shippable steps
 
@@ -462,7 +523,8 @@ Each step is its own PR and leaves the game working.
    for files over 1 MB. The pack tiles get no source file. Nothing changes at
    runtime yet.
 2. **Build command and hashes.** Add `hushfield:build-assets` for tiles (with
-   placeholders for slots that have no art) and UI. It rewrites the tileset
+   placeholders for slots that have no art) and UI, scaled by
+   `assets.scale` (2). It rewrites the tileset
    blocks in the maps, hashes outputs and writes `assets.json`. The manifest
    reads the index; `v{n}` and `HUSHFIELD_ASSET_VERSION` go, and
    `public/assets/` is gitignored. Add immutable headers for `/assets/*`, and
@@ -483,9 +545,9 @@ Each step is its own PR and leaves the game working.
    `crossOrigin = 'anonymous'` on the loader.
 5. **Bucket.** Add the `assets` disk and `hushfield:publish-assets` as a
    deploy command to the attached public bucket. Point `HUSHFIELD_ASSET_URL`
-   at it, add the CORS rule and the scheduled prune. Create the private
-   masters bucket. Add MinIO to the orb (`.agents/setup`,
-   `.amp/services.yaml`). Verify on staging: an old tab keeps working across
+   at it, add the CORS rule and the scheduled prune. You create the private
+   masters bucket and its keys in Cloud (§7). Add S3Mock to the orb
+   (`.agents/setup`, `.amp/services.yaml`). Verify on staging: an old tab keeps working across
    a deploy, cross-origin loads pass CORS, and building hover still
    hit-tests.
 6. **Avatars and wearables.** Start with the one-strip-and-one-hat test from
@@ -516,8 +578,9 @@ handover-2026-11-02/
   NOTES.txt                       anything you want us to know
 ```
 
-**Draw at half size.** Everything is doubled in the game, to match the
-ground.
+**Draw at half size, for now.** Everything is doubled in the game, to match
+the ground. If we try a larger size later, we'll send new canvas sizes. Don't
+change size on your own: the build rejects any file that doesn't match.
 
 | Kind                      | Your canvas                                                                                                                                                                                   |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
