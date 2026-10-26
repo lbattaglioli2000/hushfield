@@ -7,7 +7,6 @@ import type {
     ChatMessageSentEvent,
     PlayerJoinedEvent,
     PlayerLeftEvent,
-    PathState,
     PlacedFurniture,
     PlayerMovedEvent,
     Item,
@@ -18,18 +17,16 @@ import type {
 import { pathState } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
-import {
-    blocksWalking,
-    FACINGS,
-    footprintOf,
-    withFurniture,
-} from '../shared/furniture';
-import { TILE_HEIGHT, TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
+import { withFurniture } from '../shared/furniture';
+import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { positionOf } from '../shared/pathClock';
-import { CAMERA, COLORS, DEPTH, FISHING, FURNITURE, TRAVEL } from '../theme';
+import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
+import { Arrivals } from '../world/Arrivals';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
 import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
-import { FishingLine } from '../world/FishingLine';
+import type { DecoratePort } from '../world/DecorateMode';
+import { DecorateMode } from '../world/DecorateMode';
+import { FishingLine, waterBeside } from '../world/FishingLine';
 import { FurnitureLayer, furnitureTexture } from '../world/FurnitureLayer';
 import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
@@ -38,17 +35,12 @@ import type { MovementPort } from '../world/MovementController';
 import { MovementController } from '../world/MovementController';
 
 /** The slice of the network layer the scene needs. */
-export type RoomPort = MovementPort & {
-    /** Ends the game with a fatal screen, for failures the scene can't recover from. */
-    abort(error: unknown): void;
-    useExit(name: string): Promise<void>;
-    placeFurniture(
-        itemId: number,
-        tile: Tile,
-        rotation?: number,
-    ): Promise<void>;
-    putAwayFurniture(itemId: number): Promise<void>;
-};
+export type RoomPort = MovementPort &
+    DecoratePort & {
+        /** Ends the game with a fatal screen, for failures the scene can't recover from. */
+        abort(error: unknown): void;
+        useExit(name: string): Promise<void>;
+    };
 
 export type RoomSceneOptions = {
     manifest: AssetManifest;
@@ -72,6 +64,12 @@ const NIGHT_RGB = (() => {
  * Draws whichever room the latest snapshot describes, map included. Every position
  * is evaluated from server-confirmed paths through PathClock each frame; the scene
  * never invents positions of its own beyond the player's own predicted walk.
+ *
+ * The scene owns the room's lifecycle (snapshots, live events, travel) and
+ * routes input; each feature lives in its own part: the map and its layers
+ * (IsoMap, BuildingLayer, FurnitureLayer), walking (MovementController,
+ * KeyboardMovement), what a walk ends on (Arrivals), decorating
+ * (DecorateMode) and the fishing line (FishingLine).
  */
 export class RoomScene
     extends Phaser.Scene
@@ -85,22 +83,13 @@ export class RoomScene
     private selfId = 0;
     private map: IsoMap | null = null;
     private furniture: FurnitureLayer | null = null;
-    /** The current home's arrangement, as the server last said. */
-    private placed: PlacedFurniture[] = [];
     /** Where players may walk: the map, less the tiles under furniture in a home. */
     private walkGrid: Grid | null = null;
     private buildings: BuildingLayer | null = null;
-    /** Whether the drawn instance is the player's own home. */
-    private ownHome = false;
-    private decorating: { armed: Item | null } | null = null;
-    /** While decorating, the outline of where the chosen piece would go. */
-    private ghost!: Phaser.GameObjects.Graphics;
+    private readonly decorate: DecorateMode;
+    private readonly arrivals: Arrivals;
     /** Between leaving one room and drawing the next: the screen is faded and taps are ignored. */
     private travelling = false;
-    /** The path whose arrival at a door was already acted on, so each walk goes through at most once. */
-    private doorTriedFor: PathState | null = null;
-    /** Likewise for fixtures: each walk onto one uses it once. */
-    private fixtureUsedFor: PathState | null = null;
     private fishingLine: FishingLine | null = null;
     private hover!: Phaser.GameObjects.Image;
     private marker!: Phaser.GameObjects.Image;
@@ -125,6 +114,11 @@ export class RoomScene
             showMarker: (tile) => this.showMarker(tile),
             hideMarker: () => this.marker.setVisible(false),
             notice: (message) => this.bus.emit('notice', { message }),
+        });
+        this.decorate = new DecorateMode(port, options.refused);
+        this.arrivals = new Arrivals({
+            door: (door) => this.travel(() => this.port.useExit(door.name)),
+            fixture: ({ kind }) => this.bus.emit('use-fixture', { kind }),
         });
     }
 
@@ -161,7 +155,7 @@ export class RoomScene
             .image(0, 0, 'marker')
             .setVisible(false)
             .setDepth(DEPTH.marker);
-        this.ghost = this.add.graphics().setDepth(DEPTH.hover);
+        this.decorate.create(this);
 
         this.fishingLine = new FishingLine(this);
 
@@ -180,8 +174,7 @@ export class RoomScene
             movement: this.movement,
             maxPathSteps: this.options.maxPathSteps,
             grid: () => this.walkGrid,
-            blocked: () =>
-                this.travelling || (this.decorating !== null && this.ownHome),
+            blocked: () => this.travelling || this.decorate.on,
             activity: () => this.bus.emit('input-activity', {}),
         });
         const fitCamera = () => this.map?.fitCamera(this.cameras.main);
@@ -229,19 +222,7 @@ export class RoomScene
 
             if (this.marker.visible) this.marker.setVisible(false);
 
-            const door = this.map.doorAt(pos.tile);
-
-            if (door && this.doorTriedFor !== avatar.state) {
-                this.doorTriedFor = avatar.state;
-                this.travel(() => this.port.useExit(door.name));
-            }
-
-            const fixture = this.map.fixtureAt(pos.tile);
-
-            if (fixture && this.fixtureUsedFor !== avatar.state) {
-                this.fixtureUsedFor = avatar.state;
-                this.bus.emit('use-fixture', { kind: fixture.kind });
-            }
+            this.arrivals.arrived(this.map, avatar.state, pos.tile);
         }
 
         this.map.hideLabelsNear(positions);
@@ -259,7 +240,15 @@ export class RoomScene
 
     /** Game → scene: where the player's line is. The bobber lands on the water beside them. */
     showFishing(phase: FishingPhase, landed?: boolean): void {
-        this.fishingLine?.set(phase, this.time.now, this.waterBeside(), landed);
+        const self = this.avatars.get(this.selfId);
+        const water =
+            self && this.map
+                ? waterBeside(
+                      this.map,
+                      positionOf(self.state, this.port.serverNow()).tile,
+                  )
+                : null;
+        this.fishingLine?.set(phase, this.time.now, water, landed);
     }
 
     /**
@@ -270,8 +259,7 @@ export class RoomScene
         if (this.travelling) return;
 
         this.travelling = true;
-        this.decorating = null;
-        this.ghost.clear();
+        this.decorate.set(false, null);
         this.marker.setVisible(false);
         this.cameras.main.fadeOut(TRAVEL.fadeMs, ...NIGHT_RGB);
 
@@ -283,24 +271,12 @@ export class RoomScene
 
     /** UI → game: decorate mode is only honoured in the player's own home. */
     setDecorating(active: boolean, armed: Item | null): void {
-        this.decorating = active ? { armed } : null;
-
-        if (!this.decorating?.armed) this.ghost?.clear();
+        this.decorate.set(active, armed);
     }
 
     /** UI → game: a placed piece turns a quarter turn where it stands. The server says if it fits. */
     turnFurniture(itemId: number): void {
-        const piece = this.placed.find((p) => p.item.id === itemId);
-
-        if (!piece || !this.ownHome) return;
-
-        this.port
-            .placeFurniture(
-                itemId,
-                [piece.x, piece.y],
-                (piece.rotation + 1) % FACINGS,
-            )
-            .catch((error: unknown) => this.options.refused(error));
+        this.decorate.turn(itemId);
     }
 
     // ── WorldListener ─────────────────────────────────────────────────
@@ -335,9 +311,7 @@ export class RoomScene
         }
 
         this.setFurniture(snapshot.furniture);
-        this.ownHome = snapshot.home?.owner_id === selfId;
-
-        if (!this.ownHome) this.setDecorating(false, null);
+        this.decorate.enter(snapshot.home?.owner_id === selfId);
 
         // Replace local state wholesale: the snapshot is the truth.
         const seen = new Set<number>();
@@ -415,14 +389,13 @@ export class RoomScene
         this.buildings?.hover(pointer.wasTouch ? null : building);
         this.input.setDefaultCursor(building ? 'pointer' : 'default');
 
-        const decorating = this.decorating !== null && this.ownHome;
-        this.showGhost(decorating ? tile : null);
+        this.decorate.hover(this.map, tile);
 
         const show =
             !building &&
             tile !== null &&
             this.walkGrid !== null &&
-            (decorating || isWalkable(this.walkGrid, tile[0], tile[1]));
+            (this.decorate.on || isWalkable(this.walkGrid, tile[0], tile[1]));
         this.hover.setVisible(show && !pointer.wasTouch);
 
         if (show && tile && this.map) {
@@ -450,8 +423,8 @@ export class RoomScene
 
         this.bus.emit('input-activity', {});
 
-        if (this.decorating && this.ownHome) {
-            this.decorateAt(this.pointerTile(pointer));
+        if (this.decorate.on) {
+            this.decorate.tap(this.pointerTile(pointer));
 
             return;
         }
@@ -491,69 +464,9 @@ export class RoomScene
         if (tile) void this.movement.walkTo(tile);
     }
 
-    /**
-     * A tap while decorating: put away the piece on the tile, or place the armed
-     * one with its back corner there. A rug under the tap takes the armed piece on top.
-     */
-    private decorateAt(tile: Tile | null): void {
-        if (!tile || !this.decorating) return;
-
-        const placed = this.furniture?.at(tile) ?? null;
-        const armed = this.decorating.armed;
-        const request =
-            placed && (blocksWalking(placed) || !armed)
-                ? this.port.putAwayFurniture(placed.item.id)
-                : armed
-                  ? this.port.placeFurniture(armed.id, tile)
-                  : null;
-
-        request?.catch((error: unknown) => this.options.refused(error));
-    }
-
-    /** Outlines the tiles the armed piece would cover with its back corner on a tile. */
-    private showGhost(tile: Tile | null): void {
-        this.ghost.clear();
-
-        const armed = this.decorating?.armed;
-
-        const map = this.map;
-
-        if (!tile || !armed || !map) return;
-
-        const rotation =
-            this.placed.find((p) => p.item.id === armed.id)?.rotation ?? 0;
-        const { x, y, wide, deep } = footprintOf(
-            armed.furniture ?? { wide: 1, deep: 1 },
-            tile[0],
-            tile[1],
-            rotation,
-        );
-        // Corners of the footprint: its back, right, front and left, on the ground.
-        const corner = (gx: number, gy: number) => {
-            const centre = map.toWorld(gx, gy);
-
-            return new Phaser.Math.Vector2(
-                centre.x,
-                centre.y - TILE_HEIGHT / 2,
-            );
-        };
-        const outline = [
-            corner(x, y),
-            corner(x + wide, y),
-            corner(x + wide, y + deep),
-            corner(x, y + deep),
-        ];
-
-        this.ghost
-            .fillStyle(FURNITURE.ghostColor, 0.18)
-            .fillPoints(outline, true)
-            .lineStyle(2, FURNITURE.ghostColor, 0.9)
-            .strokePoints(outline, true);
-    }
-
     /** Draws a home's arrangement, and walls its blocking pieces off from walking. */
     private setFurniture(placed: PlacedFurniture[]): void {
-        this.placed = placed;
+        this.decorate.arrange(placed);
         this.furniture?.set(placed);
         this.walkGrid = this.map ? withFurniture(this.map.grid, placed) : null;
     }
@@ -575,39 +488,6 @@ export class RoomScene
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
 
         return this.buildings?.at(world.x, world.y) ?? null;
-    }
-
-    /**
-     * A point out over the water from the fishing spot nearest the player: past
-     * the spot's first unwalkable neighbouring tile, preferring the far side.
-     */
-    private waterBeside(): { x: number; y: number } | null {
-        const self = this.avatars.get(this.selfId);
-
-        if (!self || !this.map) return null;
-
-        const [px, py] = positionOf(self.state, this.port.serverNow()).tile;
-        const distance = ([x, y]: Tile) =>
-            Math.max(Math.abs(x - px), Math.abs(y - py));
-        const spot = this.map.fixtures
-            .filter((fixture) => fixture.kind === 'fishing')
-            .map((fixture) => fixture.tile)
-            .sort((a, b) => distance(a) - distance(b))[0] ?? [px, py];
-        const [x, y] = spot;
-        const map = this.map;
-        const [dx, dy] = (
-            [
-                [0, 1],
-                [1, 0],
-                [-1, 0],
-                [0, -1],
-            ] as const
-        ).find(([dx, dy]) => !map.isWalkable([x + dx, y + dy])) ?? [0, 1];
-
-        return map.toWorld(
-            x + dx * FISHING.reachTiles,
-            y + dy * FISHING.reachTiles,
-        );
     }
 
     private showMarker(tile: Tile): void {

@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import type { FishingPhase } from '../bus';
+import type { Tile } from '../protocol/types';
+import { distanceTo } from '../shared/footprint';
 import { DEPTH, FISHING } from '../theme';
+import type { IsoMap } from './IsoMap';
 
 type Point = { x: number; y: number };
 
@@ -242,4 +245,29 @@ export class FishingLine {
             radius,
         );
     }
+}
+
+/**
+ * Where the bobber lands for a player at `at`: out over the water from the
+ * fishing spot nearest them, past the spot's first unwalkable neighbouring
+ * tile, preferring the far side.
+ */
+export function waterBeside(map: IsoMap, at: Tile): { x: number; y: number } {
+    const spot = map.fixtures
+        .filter((fixture) => fixture.kind === 'fishing')
+        .sort((a, b) => distanceTo(a, at) - distanceTo(b, at))[0];
+    const [x, y] = spot?.tile ?? at;
+    const [dx, dy] = (
+        [
+            [0, 1],
+            [1, 0],
+            [-1, 0],
+            [0, -1],
+        ] as const
+    ).find(([dx, dy]) => !map.isWalkable([x + dx, y + dy])) ?? [0, 1];
+
+    return map.toWorld(
+        x + dx * FISHING.reachTiles,
+        y + dy * FISHING.reachTiles,
+    );
 }

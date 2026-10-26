@@ -1,14 +1,9 @@
 import Phaser from 'phaser';
-import type { PlacedFurniture, Tile } from '../protocol/types';
+import type { PlacedFurniture } from '../protocol/types';
 import type { Placement } from '../shared/buildings';
 import type { Footprint } from '../shared/footprint';
 import { hides, placeBuilding } from '../shared/buildings';
-import {
-    blocksWalking,
-    facingArt,
-    pieceAt,
-    placedFootprint,
-} from '../shared/furniture';
+import { blocksWalking, facingArt, placedFootprint } from '../shared/furniture';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { DEPTH, FURNITURE } from '../theme';
 import type { IsoMap } from './IsoMap';
@@ -43,14 +38,6 @@ export class FurnitureLayer {
     set(placed: PlacedFurniture[]): void {
         this.clear();
         this.pieces = placed.map((piece) => this.draw(piece));
-    }
-
-    /** The piece standing on a tile, if any: the one on top when a piece stands on a rug. */
-    at(tile: Tile): PlacedFurniture | null {
-        return pieceAt(
-            this.pieces.map(({ placed }) => placed),
-            tile,
-        );
     }
 
     /** Fades any piece tall enough to hide the player's own avatar, as buildings do. */
