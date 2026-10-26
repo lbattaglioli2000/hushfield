@@ -2,6 +2,7 @@
 
 namespace App\Domain\Economy;
 
+use App\Domain\World\Clock;
 use App\Models\LedgerEntry;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -37,6 +38,6 @@ final class DailyStipend
 
     private function today(): CarbonImmutable
     {
-        return CarbonImmutable::now((string) config('hushfield.timezone'));
+        return Clock::hushfieldNow();
     }
 }

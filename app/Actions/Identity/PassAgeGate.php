@@ -4,6 +4,7 @@ namespace App\Actions\Identity;
 
 use App\Domain\Identity\AgeGateCookie;
 use App\Domain\Identity\AgePolicy;
+use App\Domain\World\Clock;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -29,7 +30,7 @@ final readonly class PassAgeGate
             throw ValidationException::withMessages(['underage' => __('hushfield.underage')]);
         }
 
-        $currentYear = (int) now((string) config('hushfield.timezone'))->year;
+        $currentYear = Clock::hushfieldNow()->year;
 
         /** @var array{birth_month: int|string, birth_year: int|string} $validated */
         $validated = Validator::make($input, [

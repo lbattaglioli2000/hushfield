@@ -2,6 +2,7 @@
 
 namespace App\Domain\Identity;
 
+use App\Domain\World\Clock;
 use Carbon\CarbonImmutable;
 
 /**
@@ -38,6 +39,6 @@ final class AgePolicy
 
     private function today(): CarbonImmutable
     {
-        return CarbonImmutable::now((string) config('hushfield.timezone'));
+        return Clock::hushfieldNow();
     }
 }

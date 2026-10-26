@@ -18,7 +18,6 @@ use App\Exceptions\WorldActionRefused;
 use App\Features\WorldFlag;
 use App\Models\LedgerEntry;
 use App\Models\User;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -73,7 +72,7 @@ final readonly class ReelIn
         return DB::transaction(function () use ($user, $cast, $catch): int {
             $this->wallet->lockedBalance($user);
 
-            $startOfDay = CarbonImmutable::now((string) config('hushfield.timezone'))->startOfDay()->utc();
+            $startOfDay = Clock::hushfieldNow()->startOfDay()->utc();
             $paidToday = (int) LedgerEntry::query()
                 ->where('user_id', $user->id)
                 ->where('reason', LedgerReason::Fishing)
