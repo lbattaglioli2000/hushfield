@@ -67,7 +67,7 @@ return [
 
     'housing' => [
         // Pieces one home may have out at once.
-        'max_furniture' => 50,
+        'max_furniture' => 100,
     ],
 
     'economy' => [
