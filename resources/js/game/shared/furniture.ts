@@ -3,29 +3,7 @@ import type { Grid } from './astar';
 import type { Footprint } from './footprint';
 import { covers, tilesOf } from './footprint';
 
-/*
- * Furniture art
- * -------------
- * Until a piece has art it is drawn as a placeholder block the size of its
- * footprint and `height`, tinted by its slug. To replace it, drop PNGs into
- * public/assets/v{version}/furniture/ (the current asset version,
- * HUSHFIELD_ASSET_VERSION); the asset manifest picks them up with no code change.
- *
- * - Names: `{slug}-{rotation}.png`, one per facing (0–3, see FACINGS), or a
- *   single `{slug}.png` (or `{slug}-0.png`) for facing 0. Missing facings are
- *   mirrored or borrowed, see facingArt.
- * - Canvas: (wide + deep) × 32 px across, for the footprint as it lies at that
- *   facing (a 2 × 1 love seat is 96 px across at every facing). The footprint
- *   diamond sits at the bottom of the canvas, (wide + deep) × 16 px tall, its
- *   bottom corner touching the bottom edge at x = wide × 32; the piece rises
- *   above it as tall as it needs. Nothing may hang below or beside the diamond.
- * - Front: at facing 0, the lower-left edge of the diamond.
- * - Light from the top left; 1:1 pixels with the 64 × 32 tiles; transparent background.
- *
- * Templates for 1 × 1, 2 × 1 and 2 × 2 show the diamond, its tiles and the front edge.
- * The game slices each image into strips and sorts them against avatars like
- * buildings (see resources/maps/README.md); rugs lie flat under everything.
- */
+/* How furniture is sized, turned and drawn, and its art: resources/maps/README.md. */
 
 /**
  * Facings. A piece turned 0 faces the viewer's lower left (+y). Each turn is a

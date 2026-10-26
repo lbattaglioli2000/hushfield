@@ -6,7 +6,7 @@ namespace App\Domain\World;
  * What a fixture on a map is for. Each kind is one entry here; FixtureReach
  * enforces it, and its refusals read lang/en/hushfield.php "{kind}_elsewhere"
  * (no such fixture in the player's room) and "{kind}_too_far" (not near one).
- * The client side is FIXTURES in resources/js/game/fixtures.ts.
+ * See resources/maps/README.md, "Fixtures", for the client side.
  */
 enum FixtureKind: string
 {

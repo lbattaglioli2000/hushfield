@@ -9,20 +9,10 @@ use JsonException;
  *
  * Requirements: an uncompressed tile layer named "walkable" (any non-zero
  * tile is walkable) and an object layer named "spawns" with at least one
- * object on a walkable tile.
- *
- * Optional: an object layer named "exits" of doors, each a point (one tile) or
- * a rectangle snapped to whole tiles (a wide door), with custom properties
- * "to", the target room slug, and "arrive", an arrival point name in the
- * target map, an object layer named "arrivals" of named points where
- * players come in through a door, an object layer named "fixtures" of named
- * points players can use (custom property "kind": "shop" for a shop
- * counter, "fishing" for a fishing spot), an object layer named "buildings" of
- * tile-aligned rectangles (see resources/maps/README.md), and map properties "name", "kind"
- * (public or residence), "capacity", "frequency" (the room's place on the
- * radio's tuning dial, in MHz), "home_frequency" (where a residence room's
- * homes sit on the dial) and "town_x" and "town_y" (the room's square on the
- * town map, in whole grid cells; a room without them is off the map).
+ * object on a walkable tile. Optional: object layers "exits", "arrivals",
+ * "fixtures" and "buildings", and the map properties "name", "kind",
+ * "capacity", "frequency", "home_frequency", "town_x" and "town_y".
+ * resources/maps/README.md describes each one.
  */
 final class TiledMapParser
 {
