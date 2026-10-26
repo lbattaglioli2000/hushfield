@@ -11,6 +11,11 @@ export const TILE_HEIGHT = 32;
 export const TILE_IMAGE_HEIGHT = 64;
 export const TILE_FACE_TOP = 16;
 
+/** The nearest even game pixel: where one art pixel (2 × 2 game pixels) of the ground's grid begins. */
+export function evenPixel(value: number): number {
+    return Math.round(value / 2) * 2;
+}
+
 /** Centre of a (possibly fractional) tile in world pixels, given the map origin x. */
 export function tileToScreen(
     x: number,

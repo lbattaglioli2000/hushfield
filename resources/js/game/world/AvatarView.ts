@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { AvatarLook, PathState, PlayerState } from '../protocol/types';
 import { pathState } from '../protocol/types';
 import type { PathPosition } from '../shared/pathClock';
+import { evenPixel } from '../shared/iso';
 import { positionOf } from '../shared/pathClock';
 import { AVATAR, BUBBLE, COLORS, DEPTH, FONT_FAMILY } from '../theme';
 import type { IsoMap } from './IsoMap';
@@ -103,6 +104,12 @@ export class AvatarView {
 
         const p = map.toWorld(this.drawn.x, this.drawn.y);
         this.container.setPosition(p.x, p.y);
+        // The sprite alone lands on even game pixels, so its art pixels (2 × 2)
+        // line up with the ground's; the name and chat bubble glide unsnapped.
+        this.body.setPosition(
+            evenPixel(p.x) - p.x,
+            AVATAR.feetOffsetY + evenPixel(p.y) - p.y,
+        );
         // Draw nearer (lower on screen) avatars on top.
         this.container.setDepth(DEPTH.avatars + p.y);
         this.body.setFlipX(pos.to[0] - pos.from[0] < pos.to[1] - pos.from[1]);

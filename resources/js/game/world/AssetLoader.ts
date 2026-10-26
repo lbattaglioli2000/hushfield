@@ -12,10 +12,13 @@ export type AssetFile = {
  * Loads textures through the scene's loader, one batch at a time. A file that
  * fails to load is tried once more against a freshly fetched manifest: its
  * name carries a content hash, so after a deploy an old URL can be gone
- * while the new manifest names the file that replaced it.
+ * while the new manifest names the file that replaced it. Art is filtered
+ * NEAREST, so anything that scales it keeps its pixels square.
  */
 export class AssetLoader {
     private queue: Promise<void> = Promise.resolve();
+    /** Keys already loaded or given up on, so a missing file isn't fetched on every snapshot. */
+    private readonly tried = new Set<string>();
 
     constructor(
         private readonly scene: Phaser.Scene,
@@ -23,20 +26,36 @@ export class AssetLoader {
         private readonly refetch: () => Promise<AssetManifest>,
     ) {}
 
+    /** The files that have art and haven't been tried yet. */
+    missing(files: AssetFile[]): AssetFile[] {
+        return files.filter(
+            (file) =>
+                !this.tried.has(file.key) &&
+                !this.scene.textures.exists(file.key) &&
+                file.url(this.manifest) !== undefined,
+        );
+    }
+
+    /** Forgets a texture, so it is loaded again if it is wanted again. */
+    forget(key: string): void {
+        this.tried.delete(key);
+    }
+
     /** Resolves once every file is loaded, or has failed twice (it is then drawn as a placeholder). */
     load(files: AssetFile[]): Promise<void> {
         const run = async () => {
             const failed = await this.batch(files);
 
-            if (failed.length === 0) return;
-
-            try {
-                this.manifest = await this.refetch();
-            } catch {
-                return;
+            if (failed.length > 0) {
+                try {
+                    this.manifest = await this.refetch();
+                    await this.batch(failed);
+                } catch {
+                    // Drawn as placeholders.
+                }
             }
 
-            await this.batch(failed);
+            files.forEach((file) => this.tried.add(file.key));
         };
 
         this.queue = this.queue.then(run, run);
@@ -64,9 +83,19 @@ export class AssetLoader {
                 if (asset) failed.push(asset);
             };
 
+            const onLoad = (key: string) => {
+                if (wanted.some((w) => w.key === key)) {
+                    this.scene.textures
+                        .get(key)
+                        .setFilter(Phaser.Textures.FilterMode.NEAREST);
+                }
+            };
+
             loader.on(Phaser.Loader.Events.FILE_LOAD_ERROR, onError);
+            this.scene.textures.on(Phaser.Textures.Events.ADD, onLoad);
             loader.once(Phaser.Loader.Events.COMPLETE, () => {
                 loader.off(Phaser.Loader.Events.FILE_LOAD_ERROR, onError);
+                this.scene.textures.off(Phaser.Textures.Events.ADD, onLoad);
                 resolve(failed);
             });
 

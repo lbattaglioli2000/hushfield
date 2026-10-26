@@ -29,7 +29,11 @@ import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
 import type { DecoratePort } from '../world/DecorateMode';
 import { DecorateMode } from '../world/DecorateMode';
 import { FishingLine, waterBeside } from '../world/FishingLine';
-import { FurnitureLayer, itemTexture } from '../world/FurnitureLayer';
+import {
+    FurnitureLayer,
+    itemTexture,
+    mirroredTexture,
+} from '../world/FurnitureLayer';
 import { WallLayer, wallTexture } from '../world/WallLayer';
 import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
@@ -37,19 +41,8 @@ import { KeyboardMovement } from '../world/KeyboardMovement';
 import type { MovementPort } from '../world/MovementController';
 import { MovementController } from '../world/MovementController';
 
-/** The textures loaded before anything is drawn. */
-function bootAssets(manifest: AssetManifest): AssetFile[] {
-    const parts = (
-        kind: 'walls' | 'items',
-        texture: (name: string) => string,
-    ): AssetFile[] =>
-        Object.entries(manifest[kind]).flatMap(([slug, files]) =>
-            Object.keys(files).map((part) => ({
-                key: texture(`${slug}/${part}`),
-                url: (m: AssetManifest) => m[kind][slug]?.[part],
-            })),
-        );
-
+/** The textures every room needs, loaded before anything is drawn. Each room's own art loads with it. */
+function bootAssets(): AssetFile[] {
     return [
         {
             key: TILES_TEXTURE,
@@ -62,12 +55,6 @@ function bootAssets(manifest: AssetManifest): AssetFile[] {
         { key: AVATAR_TEXTURE, url: (m) => m.images.resident },
         { key: 'marker', url: (m) => m.images.marker },
         { key: 'hover', url: (m) => m.images.hover },
-        ...Object.keys(manifest.buildings).map((slug) => ({
-            key: buildingTexture(slug),
-            url: (m: AssetManifest) => m.buildings[slug],
-        })),
-        ...parts('items', itemTexture),
-        ...parts('walls', wallTexture),
     ];
 }
 
@@ -129,6 +116,10 @@ export class RoomScene
     private readonly decorate: DecorateMode;
     private readonly arrivals: Arrivals;
     private readonly assets: AssetLoader;
+    /** Texture keys of the art the current room loaded. */
+    private roomArt = new Set<string>();
+    /** The arrangement drawn last, for redrawing once late art arrives. */
+    private placed: PlacedFurniture[] = [];
     /** Between leaving one room and drawing the next: the screen is faded and taps are ignored. */
     private travelling = false;
     private fishingLine: FishingLine | null = null;
@@ -170,9 +161,7 @@ export class RoomScene
 
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.night);
-        void this.assets
-            .load(bootAssets(this.assets.manifest))
-            .then(() => this.start());
+        void this.assets.load(bootAssets()).then(() => this.start());
     }
 
     /** Sets the room up once the textures every room needs are in. */
@@ -336,9 +325,23 @@ export class RoomScene
             this.furniture?.destroy();
             this.buildings?.destroy();
             this.walls?.destroy();
+            this.furniture = this.buildings = this.walls = null;
             this.map?.destroy();
             this.fishingLine?.reset();
             this.map = new IsoMap(this, key);
+        }
+
+        // The room's own art loads with it, before its layers are drawn.
+        const files = this.roomFiles(this.map, snapshot.furniture);
+
+        if (this.assets.missing(files).length > 0) {
+            this.loadRoomArt(files, snapshot);
+
+            return;
+        }
+
+        if (!this.furniture) {
+            this.dropArtExcept(files);
             this.furniture = new FurnitureLayer(this, this.map);
             this.buildings = new BuildingLayer(this, this.map);
             this.walls = new WallLayer(this, this.map);
@@ -498,11 +501,97 @@ export class RoomScene
         if (tile) void this.movement.walkTo(tile);
     }
 
-    /** Draws a home's arrangement, and walls its blocking pieces off from walking. */
+    /**
+     * Draws a home's arrangement, and walls its blocking pieces off from
+     * walking. A piece whose art isn't loaded yet is drawn as a placeholder
+     * and redrawn once its art is in.
+     */
     private setFurniture(placed: PlacedFurniture[]): void {
+        this.placed = placed;
         this.decorate.arrange(placed);
         this.furniture?.set(placed);
         this.walkGrid = this.map ? withFurniture(this.map.grid, placed) : null;
+
+        const files = this.itemFiles(placed);
+
+        if (this.assets.missing(files).length === 0) return;
+
+        files.forEach((file) => this.roomArt.add(file.key));
+        void this.assets.load(files).then(() =>
+            this.whenDrawable(() => {
+                // Whatever stands there by now, which may have changed meanwhile.
+                if (this.map && this.furniture) this.setFurniture(this.placed);
+            }),
+        );
+    }
+
+    /** The art a room draws: its buildings, its wall style, and the furniture placed in it. */
+    private roomFiles(map: IsoMap, placed: PlacedFurniture[]): AssetFile[] {
+        const { manifest } = this.assets;
+        const walls = map.walls
+            ? Object.keys(manifest.walls[map.walls] ?? {}).map((part) => {
+                  const style = map.walls as string;
+
+                  return {
+                      key: wallTexture(`${style}/${part}`),
+                      url: (m: AssetManifest) => m.walls[style]?.[part],
+                  };
+              })
+            : [];
+
+        return [
+            ...map.buildings.map(({ name }) => ({
+                key: buildingTexture(name),
+                url: (m: AssetManifest) => m.buildings[name],
+            })),
+            ...walls,
+            ...this.itemFiles(placed),
+        ];
+    }
+
+    private itemFiles(placed: PlacedFurniture[]): AssetFile[] {
+        const slugs = new Set(placed.map((piece) => piece.item.slug));
+
+        return [...slugs].flatMap((slug) =>
+            Object.keys(this.assets.manifest.items[slug] ?? {}).map((part) => ({
+                key: itemTexture(`${slug}/${part}`),
+                url: (m: AssetManifest) => m.items[slug]?.[part],
+            })),
+        );
+    }
+
+    /** Waits for a room's art like a map: the newest snapshot is drawn when it is in. */
+    private loadRoomArt(files: AssetFile[], snapshot: Snapshot): void {
+        this.loadingMap = true;
+        this.pendingSnapshot = snapshot;
+        void this.assets.load(files).then(() => {
+            this.loadingMap = false;
+            const pending = this.pendingSnapshot;
+            this.pendingSnapshot = null;
+
+            if (pending) this.snapshot(pending, this.selfId);
+        });
+    }
+
+    /**
+     * Frees the art of the room just left, flipped copies included, unless the
+     * room being drawn uses it too. Textures cost 4 bytes a pixel on the GPU.
+     */
+    private dropArtExcept(files: AssetFile[]): void {
+        const keep = new Set(files.map((file) => file.key));
+
+        for (const key of this.roomArt) {
+            if (keep.has(key)) continue;
+
+            for (const texture of [key, mirroredTexture(key)]) {
+                if (this.textures.exists(texture))
+                    this.textures.remove(texture);
+            }
+
+            this.assets.forget(key);
+        }
+
+        this.roomArt = keep;
     }
 
     private arrived(): void {

@@ -216,7 +216,13 @@ export function startGame(
             parent,
             backgroundColor: COLORS.night,
             scale: { mode: Phaser.Scale.RESIZE, width: '100%', height: '100%' },
+            // Text stays smooth; art is filtered NEAREST as it loads (AssetLoader).
             render: { antialias: true, roundPixels: true },
+            // On high-DPI screens the browser scales the canvas up: keep its pixels square.
+            canvasStyle: 'image-rendering: pixelated',
+            // Art may come from the asset bucket, another origin: building hover reads its
+            // pixels and furniture is mirrored on a canvas, which CORS-less images would taint.
+            loader: { crossOrigin: 'anonymous' },
             input: { activePointers: 2 },
             fps: { target: 60 },
         });

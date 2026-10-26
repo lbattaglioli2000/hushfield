@@ -14,6 +14,11 @@ export function itemTexture(name: string): string {
     return `item:${name}`;
 }
 
+/** The key of a texture's left-to-right flipped copy (see FurnitureLayer.mirrored). */
+export function mirroredTexture(key: string): string {
+    return `${key}:mirrored`;
+}
+
 type DrawnPiece = {
     placed: PlacedFurniture;
     placement: Placement;
@@ -137,7 +142,7 @@ export class FurnitureLayer {
 
     /** Art flipped left to right, for a facing that has none of its own (see facingArt). */
     private mirrored(key: string): string {
-        const flipped = `${key}:mirrored`;
+        const flipped = mirroredTexture(key);
 
         if (this.scene.textures.exists(flipped)) return flipped;
 
@@ -155,6 +160,7 @@ export class FurnitureLayer {
         context.scale(-1, 1);
         context.drawImage(image as CanvasImageSource, 0, 0);
         canvas.refresh();
+        canvas.setFilter(Phaser.Textures.FilterMode.NEAREST);
 
         return flipped;
     }
