@@ -433,11 +433,8 @@ export class RoomScene
             return;
         }
 
+        // A fixture is used on arrival (see update()), so tapping one just walks there.
         const tile = this.pointerTile(pointer);
-        const fixture = tile && this.map?.fixtureAt(tile);
-
-        // Tapping a fixture uses it straight away; the player still walks up to it.
-        if (fixture) this.bus.emit('use-fixture', { kind: fixture.kind });
 
         if (tile) void this.movement.walkTo(tile);
     }
