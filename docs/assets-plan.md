@@ -2,18 +2,21 @@
 
 Where Hushfield's art and audio live, how they're named, built, versioned and
 delivered, and how we get there from today. Written against `github/main` at
-`27a65a2`. This is a plan: nothing in it is built yet.
+`bf34fbc` and revised with the decisions in §11. This is a plan: nothing in it
+is built yet.
 
-**In one paragraph:** Keep the artist's source files in the repo under
-`resources/art/` (and `resources/audio/`), one file per tile, building or
-frame, named by slug. Track every file's origin in one `provenance.json`. An
-artisan command builds what ships: it packs the tile sheet in a fixed slot
-order, gives every output file a content hash in its name, and writes the
-index the manifest is served from. Built files aren't committed. Art that a
-map or the code refers to ships with the code. Art that a catalog row refers
-to (furniture and wearables) is uploaded through Filament to a bucket, so a
-new item never needs a deploy. Production serves everything from one public
-bucket with immutable caching. Locally, the app serves the files itself.
+**In one paragraph:** The artist draws everything at half size: tiles,
+buildings, furniture, walls, avatars and wearables. The build doubles it, so
+every pixel in the game matches the ground's. Her source files live in the
+repo under `resources/art/` (and `resources/audio/`), one file per tile,
+building, panel or strip, named by slug. An artisan command builds what
+ships. It packs the tile sheet in a fixed slot order, doubles everything,
+checks canvases, gives each output a content hash in its name, and writes the
+index the manifest is served from. Built files aren't committed. Production
+serves them from the public Laravel Cloud bucket with immutable caching.
+Locally the app serves them itself, and an orb can run MinIO to test the
+bucket path. Item art ships with code for now. Filament uploads come later,
+when we want to require art.
 
 ---
 
@@ -21,140 +24,221 @@ bucket with immutable caching. Locally, the app serves the files itself.
 
 Checked against the code, not the brief.
 
-| What                 | Where                                                                                              | Notes                                                                                                                                                                                                                            |
-| -------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ground tiles         | `public/assets/v2/tiles.png`, 384×64                                                               | 6 slots, each a 32×32 block doubled to 64×64 (checked: it's an exact nearest-neighbour 2×, so it splits back losslessly). Slot `n` is Tiled GID `n+1`.                                                                           |
-| Other images         | `public/assets/v2/resident.png` (28×44), `marker.png`, `hover.png` (64×32)                         | Listed by name in `config/hushfield.php` → `assets.images`.                                                                                                                                                                      |
-| Buildings, furniture | `buildings/{slug}.png`, `furniture/{slug}[-{rotation}].png`                                        | **Neither folder exists yet.** The convention is only in code and the README.                                                                                                                                                    |
-| Manifest             | `AssetManifestController` at `/assets/manifest.json`, `no-cache`                                   | URLs are `{HUSHFIELD_ASSET_URL or /assets}/v{HUSHFIELD_ASSET_VERSION}/…`. Building and furniture entries come from **globbing `public/assets/v{n}/` on the app server**, so a CDN-only file never shows up.                      |
-| Client loading       | `RoomScene.preload()`                                                                              | Loads the tile sheet, the avatar, marker, hover and **every building and furniture image in the manifest, at boot**. Map JSON is already lazy, per room, and served immutable by `MapController`.                                |
-| Maps                 | `resources/maps/*.json`                                                                            | Each embeds a `placeholder` tileset that is **out of date**: it says `imageheight: 32, tileheight: 32`, but the sheet is 64 tall. It works only because `IsoMap` passes the real sizes to `addTilesetImage`.                     |
-| Versioning           | Folder rename `v1` → `v2` and a new default for `HUSHFIELD_ASSET_VERSION`                          | Every file's URL changes on every bump, and a server whose env still pins `1` breaks.                                                                                                                                            |
-| S3                   | `aws/aws-sdk-php` and `league/flysystem-aws-s3-v3` installed; default `s3` disk                    | Nothing uses them. Production is Laravel Cloud, which offers R2-backed public and private buckets.                                                                                                                               |
-| CORS                 | No `crossOrigin` anywhere in `resources/js`                                                        | **This breaks a cross-origin CDN.** `BuildingLayer` reads pixel alpha and `FurnitureLayer` draws flipped copies onto a canvas, and both fail on images loaded without CORS.                                                      |
-| Tile sheet assembly  | By hand: crop, double, paste with Pillow or ImageMagick                                            | Done by hand three times so far.                                                                                                                                                                                                 |
-| Provenance           | **Nowhere.**                                                                                       | Slots 0 (grass) and 2 (stone) are our artist's. Slots 1 (sand, `tile_000`), 3 (water, `tile_110`), 4 (hedge, `tile_029`) and 5 (wood, `tile_025`) come from a pack Luigi found online. Its name and licence were never recorded. |
-| Item art             | `Item.slug` (can't change once created), slots `head face body feet hand pin background furniture` | Art is found by slug. There is no upload.                                                                                                                                                                                        |
-| Audio                | None                                                                                               | Radio static is synthesised in `use-radio-sound.ts`.                                                                                                                                                                             |
+| What                        | Where                                                                                                          | Notes                                                                                                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ground tiles                | `public/assets/v2/tiles.png`, 384×64                                                                           | 6 slots, each a 32×32 block doubled to 64×64. Checked: an exact nearest-neighbour 2×, so it splits back losslessly. Slot `n` is Tiled GID `n+1`.                                                                                   |
+| Other images                | `public/assets/v2/resident.png` (28×44), `marker.png`, `hover.png` (64×32)                                     | Listed by name in `config/hushfield.php` → `assets.images`.                                                                                                                                                                        |
+| Buildings, furniture, walls | `buildings/{slug}.png`, `furniture/{slug}[-{rotation}].png`, `walls/{style}-{left\|right}[-door].png`          | **No art in any of them yet.** The conventions live in code and `resources/maps/README.md`, which specs them at 1:1 game pixels.                                                                                                   |
+| Manifest                    | `AssetManifestController` at `/assets/manifest.json`, `no-cache`                                               | URLs are `{HUSHFIELD_ASSET_URL or /assets}/v{HUSHFIELD_ASSET_VERSION}/…`. Building, furniture and wall entries come from **globbing `public/assets/v{n}/` on the app server**, so a file that exists only on a CDN never shows up. |
+| Client loading              | `RoomScene.preload()`                                                                                          | Loads the tile sheet, avatar, marker, hover and **every building, furniture and wall image in the manifest, at boot**. Map JSON already loads lazily per room and is served immutable by `MapController`.                          |
+| Rendering                   | `render: { antialias: true, roundPixels: true }`, `Scale.RESIZE`                                               | Art is drawn 1:1 and nothing zooms. The canvas is sized in CSS pixels, so **on high-DPI screens the browser stretches it and blurs every pixel**. Nothing sets `image-rendering`.                                                  |
+| Maps                        | `resources/maps/*.json`                                                                                        | Each embeds a `placeholder` tileset that is **out of date**: it says 32 px tall, but the sheet is 64. It works only because `IsoMap` passes the real sizes.                                                                        |
+| Versioning                  | Renaming the `v1` folder to `v2`, plus a new default for `HUSHFIELD_ASSET_VERSION`                             | Every URL changes on every bump, and a server whose env still pins `1` breaks.                                                                                                                                                     |
+| Storage                     | A public Cloud bucket is attached to the app; `aws/aws-sdk-php` and `league/flysystem-aws-s3-v3` are installed | Nothing uploads to it.                                                                                                                                                                                                             |
+| CORS                        | No `crossOrigin` anywhere in `resources/js`                                                                    | **Serving from the bucket would break this.** `BuildingLayer` reads pixel alpha and `FurnitureLayer` draws flipped copies on a canvas; both fail on images loaded cross-origin without CORS.                                       |
+| Tile sheet assembly         | By hand: crop, double, paste with Pillow or ImageMagick                                                        | Done by hand three times so far.                                                                                                                                                                                                   |
+| Pack tiles                  | Slots 1 sand, 3 water, 4 hedge, 5 wood                                                                         | From a pack that was only for testing. **They're being removed**; all art will be hand drawn. Slots 0 (grass) and 2 (stone) are the artist's.                                                                                      |
+| Item art                    | `Item.slug` (can't change once created); slots `head face body feet hand pin background furniture`             | Art is found by slug. There is no upload.                                                                                                                                                                                          |
+| Audio                       | None                                                                                                           | Radio static is synthesised in `use-radio-sound.ts`.                                                                                                                                                                               |
 
 Two latent bugs the plan fixes along the way:
 
-- **A furniture name can mean two things.** `chair-2.png` could be item `chair-2` at facing 0, or item `chair` at facing 2. This is fixed by giving each item its own folder (§3).
-- **Pixel density is inconsistent.** Tiles are 32-px art shown at 2×. The README says buildings and furniture are drawn 1:1 at game resolution, so their pixels would be half the size of the ground's. This needs a decision (§9, decision A).
+- **A furniture name can mean two things.** `chair-2.png` could be item
+  `chair-2` at facing 0, or item `chair` at facing 2. This is fixed by giving
+  each item its own folder (§4). Wall names have the same shape.
+- **Pixel sizes don't match.** Tiles are 32-px art shown at 2×, but the
+  README specs buildings, furniture and walls at 1:1, so their pixels would be
+  half the size of the ground's. This is resolved in §2.
 
-## 2. Size expectations
+## 2. Pixel scale: draw at half size, double at build
 
-Small pixel-art PNGs keep everything that ships small for years:
+Decided: everything is drawn at half size and doubled, so one art pixel is
+always 2×2 game pixels. These are the things that have to hold for it to look
+right.
 
-| Kind                                             | Per file       | Plausible count | Total                  |
-| ------------------------------------------------ | -------------- | --------------- | ---------------------- |
-| Ground tile (32×32 source)                       | 0.3–1 KB       | 100–300         | < 0.3 MB               |
-| Building (≈ 400×400)                             | 10–40 KB       | 30–60           | ≈ 2 MB                 |
-| Furniture facing                                 | 1–6 KB ×4      | 300–1000 items  | ≈ 6–20 MB (bucket)     |
-| Wearable (front + back strips of 96×144 frames)  | 5–20 KB        | 500–2000 items  | ≈ 10–40 MB (bucket)    |
-| `.aseprite` sources                              | ≈ 1–3× the PNG |                 | doubles the repo share |
-| Room music (shipped, Opus ≈ 96 kbps, 2-min loop) | ≈ 1.5 MB       | 10–30           | 15–45 MB               |
-| Masters (WAV, PSD, `.blend`)                     | 5–200 MB       |                 | **not in Git**         |
+**What she draws (art pixels) and what the game shows:**
 
-Git copes with everything except the masters. Item art goes to the bucket
-anyway (§6).
+| Kind                      | Source canvas                                                                                                                                                                                                      | In game                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Ground tile               | 32×32 block; its top face is a 32×16 diamond at the top                                                                                                                                                            | 64×64, lifted 16 px                                                            |
+| Building, furniture       | (wide + deep) × 16 across. The footprint diamond is (wide + deep) × 8 tall at the bottom: bottom corner at x = wide × 16, left corner wide × 8 above the bottom, right corner deep × 8 above it. Any height above. | ×2. A 1×1 stool is 32 px across in art, a 2×1 love seat 48, a 7×5 building 192 |
+| Wall panel                | 16 × 56: the floor edge climbs 8 px across it, and the face stands 48 px above that edge                                                                                                                           | 32 × 112                                                                       |
+| Avatar and wearable frame | 48 × 72, with a fixed anchor                                                                                                                                                                                       | 96 × 144                                                                       |
+| Marker, hover             | 32 × 16 diamond                                                                                                                                                                                                    | 64 × 32                                                                        |
 
-## 3. Recommended layout
+Every rule in the README's "Art" and "Wall panels" sections halves exactly,
+because they're all multiples of 16 game pixels. The 2:1 isometric edges stay
+2:1, which gives clean pixel-art lines in art pixels.
+
+**Double at build, not at runtime.** The tilemap needs full-size tiles anyway,
+and `BuildingLayer` (alpha hit-testing, strips half a tile wide),
+`FurnitureLayer` (flipped copies) and `WallLayer` all assume one texture pixel
+is one game pixel. Doubling at build changes none of them. Scaling at runtime
+would touch every layer and every hit-test.
+
+- Cost: textures take 4× the GPU memory (a 7×5 building about 0.8 MB) and
+  files grow about 1.3×. Measured on today's sheet: 1.85 KB at half size,
+  2.34 KB doubled. Revisit only if texture memory becomes a problem (§9).
+- Integer 2× with nearest-neighbour only. Never smoothing, and never any
+  other factor.
+
+**Keep the pixel grid aligned.**
+
+- Static things already land on even game pixels: the tile grid works in
+  multiples of 16 and 32, and every doubled canvas has even sizes, so anchors
+  are even.
+- Moving things don't. Avatars move continuously and `roundPixels` rounds to
+  whole pixels, so an avatar standing at an odd x sits half an art pixel off
+  the ground's grid. You barely see it while walking, but you do when they
+  stand still. Fix: snap the _drawn_ position to even game pixels. The
+  logical position, chat bubbles and name labels stay unsnapped.
+- If a camera zoom is ever added, it must be an integer.
+
+**Keep pixels crisp.**
+
+- Keep `antialias: true` so text stays smooth, and set NEAREST filtering on
+  art textures, so anything that does scale (a preview, a future zoom) stays
+  sharp.
+- High-DPI screens: set `image-rendering: pixelated` on the canvas. At DPR 2
+  or 3 that's exactly crisp. At DPR 1.25 or 1.5 (many Windows laptops),
+  pixels come out alternately 1 and 2 device pixels wide. The alternative is
+  rendering at device resolution with an integer zoom, which is more work.
+  Start with `pixelated` and check it on a 1.5× screen (step 4).
+- Text, chat bubbles, labels and door glows stay at full resolution, drawn by
+  code. Mixing resolutions like this is intended.
+
+**Detail budget.** A 1×1 piece has 32 art pixels across, every line is at
+least 2 game pixels wide, and the smallest readable sign text is about 3×5
+art pixels. That suits buildings and furniture. **Avatars are the risky
+case**: a 48×72 frame leaves a face a handful of pixels wide, and every
+wearable repeats that decision for 7 slots × 2 facings × every walk frame.
+Before more of the avatar brief is written, have her draw one base front
+strip and one hat at half size, and look at them in the game over the ground.
+
+**Guards in the build.** It rejects any file whose size breaks its kind's
+rule in art pixels. It also rejects a file that is already doubled (twice the
+expected size, with every 2×2 block one colour), which is the easy mistake of
+exporting at 200%.
+
+**Ordering.** Until the build doubles buildings, furniture and walls
+(step 3), art for them drawn at half size would show at half size. Hold any
+non-tile art until that step lands.
+
+## 3. Size expectations
+
+Sources are half-size pixel art, so Git copes for years:
+
+| Kind                                           | Per source file | Plausible count | Total in Git                     |
+| ---------------------------------------------- | --------------- | --------------- | -------------------------------- |
+| Ground tile (32×32)                            | 0.3–1 KB        | 100–300         | < 0.3 MB                         |
+| Building (≈ 200×250)                           | 3–15 KB         | 30–60           | < 1 MB                           |
+| Furniture (up to 4 facings)                    | 1–3 KB each     | 300–1000 items  | ≈ 2–10 MB                        |
+| Wearable (front + back strips of 48×72 frames) | 2–8 KB          | 500–2000 items  | ≈ 3–15 MB                        |
+| `.aseprite` working files                      | ≈ 1–3× the PNG  |                 | roughly doubles that             |
+| Room music (Opus ≈ 96 kbps, 2-min loop)        | ≈ 1.5 MB        | 10–30           | 15–45 MB                         |
+| Masters (PSD, WAV, `.blend`)                   | 5–200 MB        |                 | **private bucket, not Git** (§7) |
+
+## 4. Recommended layout
 
 ### Sources, committed
 
 ```
 resources/
   art/
-    provenance.json            # every file → author, source, licence (§8)
+    provenance.json            # who drew each file, when it arrived (§10)
     tiles/
-      tiles.json               # slot registry: ordered slugs, append-only (§4)
+      tiles.json               # slot registry: ordered slugs, append-only (§5)
       grass.png                # 32×32 block, one file per tile slug
       grass.aseprite           # optional working file, same name
       grass-flowers.png        # a variant is just another slug
       grass-edge-ne.png        # so is an edge or transition piece
       stone.png
-      …
     buildings/
-      library.png              # one whole image per building slug (canvas rule in maps README)
-      night-market.png
-    walls/                     # provisional, nothing uses walls yet
-      {slug}/left.png          # wall running along x, one tile edge long
-      {slug}/right.png         # wall running along y
-      {slug}/corner.png
+      library.png              # one whole image per building slug
+    walls/
+      {style}/left.png         # 16×56 panel for the top-left wall
+      {style}/right.png
+      {style}/left-door.png    # optional doorway panels
+      {style}/right-door.png
+      {style}/left-window.png  # reserved; the game doesn't draw windows yet
+    items/
+      {slug}/0.png … 3.png     # furniture facings; missing ones mirror or borrow (facingArt)
+      {slug}/front.png         # wearable: strip of 48×72 frames
+      {slug}/back.png
     avatars/
-      base/front.png           # strip: idle + 4 walk frames, each 96×144, fixed anchor
+      base/front.png           # strip of 48×72 frames, fixed anchor
       base/back.png
     ui/
-      marker.png
+      marker.png               # 32×16
       hover.png
       resident-placeholder.png # today's resident.png until avatars land
-      radio/…                  # art drawn by React goes through Vite, not the manifest
   audio/
-    music/{room-slug}.opus     # shipped encodes only; masters stay outside Git
-    music/{room-slug}.m4a      # AAC fallback, if Safari support needs it
+    music/{room-slug}.opus     # shipped encodes only; masters go to the private bucket
     sfx/{slug}.opus            # e.g. recorded static, if it replaces the synth
-database/seeders/art/          # sample item art for local dev, handover layout (§6)
-  items/{slug}/…
 ```
 
-### Item art, in the bucket (uploaded through Filament, §6)
+Art drawn by React (the radio's knobs and dial) goes through Vite, not the
+manifest.
 
-```
-items/{slug}/0.{hash}.png      # furniture facing 0–3; missing facings mirror or borrow (facingArt)
-items/{slug}/1.{hash}.png
-items/{slug}/front.{hash}.png  # wearable: strip of 96×144 frames
-items/{slug}/back.{hash}.png
-```
+### Built output, never committed
 
-### Built output, never committed (gitignored; local copies plus the bucket in prod)
+Gitignored. In production a copy is uploaded to the bucket.
 
 ```
 public/assets/
-  tiles.3f9a1c2b.png           # packed sheet, 64×64 cells, 16 columns
+  tiles.3f9a1c2b.png           # packed sheet: 64×64 cells, 16 columns
   marker.a1b2c3d4.png
   buildings/library.9e8d7c6b.png
-  avatars/base.front.0f1e2d3c.png + .json   # Phaser atlas per strip
+  walls/brick/left.5c4b3a29.png
+  items/love-seat/0.0a1b2c3d.png
+  avatars/base/front.0f1e2d3c.png + .json   # Phaser atlas per strip
   audio/music/pier.77aa11bb.opus
 bootstrap/cache/assets.json    # logical name → hashed path; the manifest reads this
-resources/maps/ground.png      # unhashed preview so Tiled opens maps with real tiles
+resources/maps/ground.png      # unhashed preview, gitignored, so Tiled shows real tiles
 ```
 
 **Naming rules, for every kind:**
 
-- Lowercase kebab-case slugs: `[a-z0-9-]+`. A slug is the same string as the
-  building's name in Tiled, the item's slug, or the room's slug.
-- Anything with several parts gets a folder per slug: `{kind}/{slug}/{part}.png`.
-  A part is never added to the slug with a hyphen, so names can't collide.
-- One image is one file at native pixel size. The build does any scaling.
-- A working file sits beside its PNG under the same name (`.aseprite`,
-  `.ase`). Anything over 1 MB stays out of Git (§8).
+- Lowercase kebab-case slugs, `[a-z0-9-]+`. A slug is the same string as the
+  building's name in Tiled, the wall style in the map's `walls` property, the
+  item's slug, or the room's slug.
+- Anything with several parts gets a folder per slug:
+  `{kind}/{slug}/{part}.png`. Parts are a fixed list per kind, so names can't
+  collide.
+- One image per file, at art size. The build does all scaling and packing.
+- A working file sits beside its PNG under the same name (`.aseprite`). Any
+  file over 1 MB goes to the masters bucket instead (§7).
 
-## 4. Build step
+## 5. Build step
+
+**The game still loads one tile sheet.** What goes away is pasting tiles into
+it by hand. Her individual files become the source, and the build packs them
+into the same kind of single PNG, with a hash in its name.
 
 **Recommendation:** one command, `php artisan hushfield:build-assets`. It uses
-PHP GD, which is already installed locally, so there's no new dependency. It:
+PHP GD, which is already installed, so there's no new dependency. It:
 
 1. **Packs the tile sheet** from `resources/art/tiles/*.png` in the order of
-   `tiles.json`. It scales each tile with nearest-neighbour (2× until decision
-   A changes that) into 64×64 cells, 16 columns wide.
+   `tiles.json`, doubled into 64×64 cells, 16 columns wide. A slot with no
+   source file gets a flat placeholder block in the shared block shape,
+   tinted by its slug, just as items without art are drawn today.
 2. **Writes the tileset block** (name `placeholder`, image size, columns,
    tilecount, and a `slug` property on each tile) into every
-   `resources/maps/*.json`, and the `ground.png` preview for Tiled. This also
-   fixes the out-of-date 32-px tileset in today's maps.
-3. **Packs avatar and wearable strips** into Phaser atlas JSON, checking that
-   frame sizes are exact.
-4. **Copies everything else**, checking each file against its kind's rules:
-   PNG, RGBA, the canvas width rule, nothing below the footprint diamond.
-5. **Hashes every output** (first 8 hex of its SHA-256) into its file name and
-   writes `bootstrap/cache/assets.json`.
-6. **Checks provenance**: every source must have an entry in
-   `provenance.json`. A licence of `unknown` is a warning for now and becomes a
-   build error before launch.
+   `resources/maps/*.json`, plus the `ground.png` preview for Tiled. This also
+   fixes today's out-of-date 32-px tileset.
+3. **Doubles and checks everything else**: PNG, RGBA, the canvas rule for its
+   kind in art pixels, nothing below the footprint diamond or floor edge, and
+   not already doubled (§2).
+4. **Packs avatar and wearable strips** into Phaser atlas JSON and checks
+   that frame sizes are exact.
+5. **Hashes every output** (the first 8 hex digits of its SHA-256) into its
+   file name and writes `bootstrap/cache/assets.json`.
+6. **Checks provenance**: every source file must have an entry in
+   `provenance.json` (§10).
 
-It runs in `composer setup`, `composer dev` (once at start), CI before tests,
-and the Laravel Cloud **build** commands. Build-time changes to the filesystem
-persist into the image.
+It runs in `composer setup`, once at the start of `composer dev`, in CI before
+the tests, and as a Laravel Cloud **build** command. Changes a build command
+makes to the filesystem persist into the image.
 
 **Keeping map tiles stable.** A tile's GID depends only on its position in
 `tiles/tiles.json`:
@@ -163,296 +247,297 @@ persist into the image.
 ["grass", "sand", "stone", "water", "hedge", "wood"]
 ```
 
-- The list is append-only. A new tile goes on the end, so no existing GID ever
-  moves. It matches today's slots exactly, so no map needs to change.
-- To retire a tile, replace its slug with `null`. The slot packs as a
-  transparent cell, and `hushfield:import-map` refuses any map that still uses
-  it, or any GID beyond the end of the list.
-- Each tile's `slug` property means a later tool can remap GIDs if we ever
-  compact the list. We don't plan to.
-- Swapping art (her grass for the pack's grass) keeps the slug and the slot.
-  The sheet gets a new hash and maps don't change.
+- The list is append-only. New tiles go on the end, so no existing GID ever
+  moves. It matches today's slots exactly, so no map changes.
+- Removing the pack tiles keeps their slugs. `sand`, `water`, `hedge` and
+  `wood` have no source file until she draws them, so they pack as
+  placeholders and every map keeps working.
+- Retiring a tile: replace its slug with `null`. `hushfield:import-map` then
+  refuses any map that still uses it, or any GID past the end of the list.
+- Swapping art keeps the slug and the slot. The sheet gets a new hash, and
+  maps don't change.
 
-| Option                                       | For                                                                                                                | Against                                                                                                             |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| **Generate from single files (recommended)** | No hand-pasting; a diff shows which tile changed; provenance per file; the scale and validation rules live in code | One more command to run; build-time dependency on GD                                                                |
-| Keep hand-assembling                         | Nothing to build                                                                                                   | Has already been done by hand three times; slot order lives only in the sheet; provenance can't be tracked per tile |
-| Commit built sheets as well                  | Reviewers see the sheet in the PR; no build dependency                                                             | Generated binaries pile up in Git history and can drift from the sources                                            |
-| Tiled image-collection tilesets (no sheet)   | No packing at all                                                                                                  | Phaser's tilemap layers render single-image tilesets; one request per tile                                          |
-| Have Vite import and hash the art            | Hashing comes free                                                                                                 | Ties art to the JS bundle; can't cover runtime item uploads; still needs a packer                                   |
+| Option                                       | For                                                                                                     | Against                                                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Generate from single files (recommended)** | No hand-pasting; doubling and checks live in code; a diff shows which tile changed; provenance per file | One more command to run; GD at build time                                                                       |
+| Keep assembling by hand                      | Nothing to build                                                                                        | Already done by hand three times; slot order lives only in the sheet; each kind would need doubling by hand too |
+| Commit built files as well                   | PRs show the result; no build dependency                                                                | Generated binaries pile up in history and can drift from their sources                                          |
+| Tiled image-collection tilesets (no sheet)   | No packing                                                                                              | Phaser's tilemap layers render single-image tilesets; one request per tile                                      |
+| Let Vite import and hash the art             | Hashing comes free                                                                                      | Ties art to the JS bundle; can't cover future uploads; still needs a packer and a doubler                       |
 
-## 5. Cache busting and versioning
+## 6. Cache busting and versioning
 
-**Recommendation:** a content hash per file in its name, with **no global
+**Recommendation:** a content hash per file in its name, and **no global
 `v{n}`**. Remove `HUSHFIELD_ASSET_VERSION`. The manifest's `version` becomes
 the hash of `assets.json`.
 
-- The manifest stays `Cache-Control: no-cache`, served with an ETag, so the
-  edge revalidates it cheaply. Every file it lists is
-  `public, max-age=31536000, immutable`.
-- **When one tile changes**, only `tiles.*.png` gets a new URL. Furniture,
-  buildings and avatars stay in browser caches.
-- **During a deploy**, new files are uploaded before the new release goes live
-  (§5a). An old client still holds the old manifest, keeps using old URLs, and
-  they keep working because nothing is deleted at deploy. A protocol bump
-  still forces a reload as it does today.
-- **The CDN** needs no purges, ever. Hashed URLs never change content, and the
+- The manifest stays `Cache-Control: no-cache` with an ETag, so it's cheap to
+  revalidate. Every file it lists is `public, max-age=31536000, immutable`.
+- **When one tile changes**, only `tiles.*.png` gets a new URL. Everything
+  else stays cached.
+- **During a deploy**, new files reach the bucket before the release goes
+  live (§7). Old clients keep their old manifest, and its URLs still work
+  because a deploy deletes nothing. A protocol bump still forces a reload, as
+  it does today.
+- **The CDN** never needs purging: a hashed URL never changes content, and the
   manifest is always revalidated.
 - **Safety net:** if an asset fails to load, the client refetches the manifest
-  once and retries. This covers serving from the app, where a deploy replaces
-  the whole filesystem.
+  once and retries. This covers serving from the app, where each deploy
+  replaces the files.
 - **Pruning:** a scheduled `hushfield:prune-assets` deletes bucket files that
-  no current index or item references and that are older than 30 days.
+  no current index refers to and that are older than 30 days.
 
-| Option                          | For                                                                 | Against                                                                                                                                                                                                          |
-| ------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Per-file hash (recommended)** | Busts exactly what changed; can't be forgotten; old and new coexist | Needs the build index                                                                                                                                                                                            |
-| Global `v{n}` folder            | Simple                                                              | Every bump re-downloads everything; easy to forget (a changed tile with the same frame size kept `v2`, so a cached grass could stay stale); envs pinned to an old `n` break; the old folder disappears on deploy |
-| Query string `?v=hash`          | No rename                                                           | Some CDNs ignore query strings in the cache key; with one path, old and new can't coexist                                                                                                                        |
+| Option                          | For                                                                 | Against                                                                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Per-file hash (recommended)** | Busts exactly what changed; can't be forgotten; old and new coexist | Needs the build index                                                                                                                                                                               |
+| Global `v{n}` folder            | Simple                                                              | Every bump re-downloads everything. Easy to forget: her grass replaced a tile without a bump, so a cached grass can stay stale. Envs pinned to an old `n` break. The old folder vanishes on deploy. |
+| Query string `?v=hash`          | No renames                                                          | Some CDNs leave query strings out of the cache key; with one path, old and new can't coexist                                                                                                        |
 
-## 5a. Delivery
+## 7. Delivery and storage
 
-**Recommendation:** in production, everything is served from one public
-Laravel Cloud bucket (R2), ideally on a custom domain such as
-`assets.hushfield.…`. Locally and in CI, the app serves the same hashed files
-from `public/assets/`. The client can't tell the difference, because it only
-reads manifest URLs.
+**Production:** everything is served from the public bucket already attached
+in Laravel Cloud (R2), ideally on a custom domain such as
+`assets.hushfield.…`. **Locally and in CI**, the app serves the same hashed
+files from `public/assets/`. The client can't tell the difference, because it
+only reads URLs from the manifest.
 
 ```
-build:   hushfield:build-assets        → public/assets/*.hash.*, bootstrap/cache/assets.json
-deploy:  hushfield:publish-assets      → upload to the `assets` disk, skipping keys that exist
+build:   hushfield:build-assets     → public/assets/*.{hash}.*, bootstrap/cache/assets.json
+deploy:  hushfield:publish-assets   → upload to the `assets` disk, skipping keys that exist
          migrate --force, hushfield:import-map
-live:    manifest = HUSHFIELD_ASSET_URL + paths from assets.json  (+ item art from the DB)
+live:    manifest = HUSHFIELD_ASSET_URL + paths from assets.json
 ```
 
-- A new disk, `assets`, in `config/filesystems.php`: `s3` (the bucket) in
-  production, `public` locally. `HUSHFIELD_ASSET_URL` is the bucket's public
-  URL in prod and unset locally, where it falls back to `asset('assets')`.
-- Upload runs as a **deploy** command, which Cloud runs before the release
-  goes live. Its filesystem changes don't persist, but uploads are external.
-  Uploading only keys that don't exist yet makes it idempotent and fast.
-- The bucket needs CORS (`GET` from the app's origins) and the Phaser loader
-  needs `crossOrigin = 'anonymous'`. Without both, building hit-testing and
-  furniture mirroring break (§1).
-- **Local dev needs no S3.** `composer dev` builds the assets and the app
-  serves them. Item uploads go to `storage/app/public` through `storage:link`.
+- A new `assets` disk in `config/filesystems.php`: the bucket in production,
+  `public` (served by the app) by default locally. `HUSHFIELD_ASSET_URL` is
+  the bucket's public URL in production and unset locally, where it falls
+  back to `asset('assets')`.
+- The upload runs as a **deploy** command, which Cloud runs before the
+  release goes live. Uploading only keys that don't exist yet makes it fast
+  and safe to repeat.
+- The bucket needs a CORS rule allowing `GET` from the app's origins, and the
+  Phaser loader needs `crossOrigin = 'anonymous'`. Without both, building
+  hit-testing and furniture mirroring break.
 
-| Option                                 | For                                                                                                                                                                              | Against                                                                                                                                           |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Bucket + CDN in prod (recommended)** | Old files survive deploys; static traffic stays off Octane workers; we need the bucket anyway for item uploads, because Cloud's app disk doesn't last across deploys or replicas | A bucket to pay for; CORS setup; one more deploy command                                                                                          |
-| Serve from the app only                | Nothing to set up                                                                                                                                                                | Every deploy replaces the files, so mid-session clients lose old URLs; static requests hit the app; runtime uploads have nowhere persistent to go |
+**Local S3 in the orb, for testing the bucket path.** Plain local dev and CI
+stay on the `public` disk, with no S3 needed. To test publishing, CORS and
+cross-origin loading before they reach production:
 
-Not verified: Laravel Cloud's support for bucket CORS rules and custom
-domains, and the cache headers it sets on static files in `public/`. Step 4
-checks them.
+- `.agents/setup` installs the MinIO server and `mc`. `.amp/services.yaml`
+  runs `minio server` on port 9000 behind a portal, so the browser can reach
+  it.
+- Setup creates `hushfield-assets` (anonymous read, with a CORS rule) and
+  `hushfield-masters` (private).
+- Switch on with `AWS_ENDPOINT=http://127.0.0.1:9000`,
+  `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_BUCKET=hushfield-assets`, and
+  `HUSHFIELD_ASSET_URL` set to the MinIO portal URL plus `/hushfield-assets`.
+- Not verified: whether a portal answers cross-origin image requests from
+  the app's portal without the viewer's Amp sign-in getting in the way. If it
+  doesn't, the orb test proves upload and indexing, and CORS is checked on
+  staging instead.
 
-## 6. Item art at runtime
+**Masters go in a second, private bucket, not the public one.** Every file
+in the public bucket can be downloaded by anyone who guesses its path. PSDs
+and unreleased items would leak, and their size would count against public
+egress. Create a private Cloud bucket for masters, laid out under the same
+paths as `resources/`. Upload with any S3 client (Cyberduck, rclone) using
+that bucket's keys. The orb's `hushfield-masters` bucket exists only to test
+tooling; real masters stay in production's private bucket. Not verified:
+whether Cloud issues access keys usable outside the app, and how it names
+env vars when two buckets are attached. Step 5 checks both.
 
-**Recommendation:** split by what refers to the art.
+| Option                                       | For                                                                                                | Against                                                                                            |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Bucket + CDN in production (recommended)** | Old files survive deploys; static traffic stays off Octane workers; the bucket is already attached | CORS setup; one more deploy command                                                                |
+| Serve from the app only                      | Nothing to set up                                                                                  | Every deploy replaces the files, so mid-session clients lose old URLs; static requests hit the app |
 
-- **Art that maps or code refer to** (tiles, buildings, walls, avatar base, UI,
-  audio) **ships with the code.** A map can't use a building that doesn't
-  exist, so they deploy together.
-- **Art that catalog rows refer to** (furniture, wearables) **is uploaded in
-  Filament** to the bucket, so a new item can go live without a deploy.
+## 8. Item art
 
-How it works:
+**For now, item art ships with code.** Furniture and wearables live in
+`resources/art/items/{slug}/` and go through the same build, hashing and
+publishing as everything else. A new item's art goes out with the next deploy.
+Until then the item draws as its tinted placeholder.
 
-- An `item_art` table: item, part (`0`–`3`, `front`, `back`), path, sha,
-  width, height, bytes, uploader, provenance (author, source, licence), and
-  `published_at`/`published_by`. Rows are never overwritten. A new upload is a
-  new row with a new hash, so rolling back is instant.
-- **Checks on upload:** PNG only; ≤ 256 KB; canvas exactly
-  (wide + deep) × 32 px across; height ≤ 512; no opaque pixel outside the area
-  allowed above the footprint diamond; wearable strips exactly N × 96 by 144.
-  The file is **re-encoded with GD** before it's stored, which drops metadata
-  and any payload hidden in the PNG.
-- **Moderation:** uploading needs a staff permission. Art is a draft until
-  someone presses "Publish art". Unpublishing reverts to the placeholder at
-  once, and every action is logged. If an item's `wide` or `deep` changes, its
-  art is flagged stale.
-- **Missing art:** the tinted placeholder block stays as the fallback, and the
-  item list in Filament shows an art status (missing, partial, published).
-  `facingArt` still mirrors or borrows any missing facings.
-- **Bulk:** `php artisan hushfield:import-item-art {dir}`, plus the same thing
-  as a Filament "upload zip" action. It takes the handover layout (§10)
-  without clicking through four uploads per item. It also seeds local dev
-  from `database/seeders/art/` and moves over any repo item art from before
-  this step.
-- **Payload:** each item's art URLs go into the item payload (inventory, shop,
-  placed furniture in snapshots), not the manifest. That keeps the manifest
-  small as the catalog grows, and lets rooms load only what's placed.
+- Items may be in the shop without art. The Filament item list shows an art
+  status (none, partial, complete), read from `assets.json`.
+- `facingArt` still mirrors or borrows missing facings.
+- The manifest lists item art under `items`, by slug and part. It's loaded per
+  room, not at boot (§9).
 
-| Option                                                  | For                                                                                       | Against                                                                                                             |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Uploads for items, code for world art (recommended)** | Items stay fully self-serve; artists' batches import in bulk; per-item audit and rollback | A table, a form, checks and a bucket                                                                                |
-| All art ships with code                                 | One pipeline; reviewed in PRs                                                             | Every new shop item needs a deploy, which defeats creating items in Filament                                        |
-| Everything uploaded                                     | One pipeline                                                                              | A map can arrive before its building art; tiles still need packing and slot order; nothing goes through code review |
+**Later, when we want to require art:** uploads through Filament.
 
-## 7. Loading
+- Upload to the bucket under `items/{slug}/{part}.{hash}.png`, with an
+  `item_art` row per upload: path, sha, size, uploader, `published_at` and
+  `published_by`. Rows are never overwritten, so rolling back is instant.
+- Checks on upload: the same art-pixel canvas rules as the build. The file is
+  doubled and **re-encoded with GD**, which drops metadata and anything
+  hidden in the PNG. Limits: ≤ 64 KB as uploaded, ≤ 256 art pixels tall.
+- **One staff member can publish.** Every upload, publish and unpublish is
+  logged. Unpublishing goes back to the placeholder at once. Changing an
+  item's `wide` or `deep` marks its art stale.
+- `hushfield:import-item-art {dir}` and a Filament zip action take the
+  handover layout (§13) in bulk, and move the repo's item art across.
+- Item art URLs move from the manifest into the item payload, so the manifest
+  stays small as the catalog grows.
+- Then switch on enforcement: an item can't be `in_shop` until all its parts
+  are published.
 
-| When                                                | What                                                                                                                              |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Boot                                                | Manifest, tile sheet, marker, hover, avatar base atlas, UI sprites. Aim for < 300 KB.                                             |
-| On entering a room (with its map JSON, as today)    | Art for buildings on that map; art for furniture placed there (from the snapshot)                                                 |
-| When a resident appears or changes outfit           | Their wearables' atlases, loaded once per slug                                                                                    |
-| On placing a piece or opening the shop or inventory | That item's art; React thumbnails load lazily with `loading="lazy"`                                                               |
-| After the first user gesture, on entering a room    | That room's music, streamed through an `<audio>` element rather than decoded whole into WebAudio (a decoded track is ≈ 10 MB/min) |
+| Option                                          | For                                                      | Against                                                                   |
+| ----------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Ship with code now, uploads later (decided)** | One pipeline while the catalog is small; reviewed in PRs | A new item's art needs a deploy                                           |
+| Uploads now                                     | Fully self-serve items                                   | A table, a form, checks and moderation before there's any art to moderate |
+
+## 9. Loading
+
+| When                                                   | What                                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Boot                                                   | Manifest, tile sheet, marker, hover, base avatar atlas, UI sprites. Aim for < 300 KB.                                      |
+| On entering a room (with its map JSON, as today)       | That map's buildings and wall style; the furniture placed there, taken from the snapshot                                   |
+| When a resident appears or changes outfit              | Their wearables' atlases, loaded once per slug                                                                             |
+| When placing a piece, or opening the shop or inventory | That item's art; React thumbnails use `loading="lazy"`                                                                     |
+| After the first user gesture, on entering a room       | That room's music, streamed through an `<audio>` element. Decoding a whole track into WebAudio costs about 10 MB a minute. |
 
 Limits to watch:
 
 - **Texture size:** keep any one image ≤ 2048 px per side for older phones,
-  and never above 4096. A 64-px sheet at 16 columns reaches 1024 px wide; at
-  2048×2048 it fits 1024 tiles.
-- **Texture memory** is width × height × 4 bytes. Remove building, furniture
-  and wearable textures when leaving a room (`textures.remove`), unless the
-  next room uses them too. That includes the flipped copies `FurnitureLayer`
-  makes.
-- **Requests:** HTTP/2 handles many small images well; Phaser loads 32 at
-  once by default. Pack per slug, never one atlas for the whole catalog.
-- **The manifest** stays small, since item URLs are no longer in it.
+  and never above 4096. The doubled sheet at 16 columns is 1024 px wide; at
+  2048×2048 it holds 1024 tiles.
+- **Texture memory** is width × height × 4 bytes, and doubling makes it 4×.
+  On leaving a room, remove building, furniture, wall and wearable textures
+  (`textures.remove`), unless the next room uses them too. That includes
+  the flipped copies `FurnitureLayer` makes.
+- **Requests:** HTTP/2 handles many small images well, and Phaser loads 32 at
+  once by default. Pack atlases per slug, never one for the whole catalog.
 
-## 8. Licensing and provenance
+## 10. Provenance
 
-`resources/art/provenance.json`. Keys are paths relative to `resources/`;
-globs are allowed for batches.
+All art will be hand drawn by our artist, so provenance is about catching
+anything that isn't hers: test art, references or pack tiles. The sand,
+water, hedge and wood pack tiles never enter `resources/art/`.
+
+`resources/art/provenance.json` has keys relative to `resources/`. Globs are
+allowed, one entry per handover:
 
 ```json
 {
     "art/tiles/grass.png": {
-        "by": "<artist name>",
-        "licence": "commissioned",
+        "by": "<artist>",
         "received": "2026-10-26",
         "notes": "second, calmer grass"
     },
-    "art/tiles/stone.png": {
-        "by": "<artist name>",
-        "licence": "commissioned",
-        "received": "2026-10-25"
-    },
-    "art/tiles/sand.png": {
-        "by": "unknown pack",
-        "source": "tile_000 of spritesheet.png (352×352, 32-px grid)",
-        "licence": "unknown",
-        "notes": "replace or confirm before launch"
-    },
-    "art/tiles/water.png": {
-        "by": "unknown pack",
-        "source": "tile_110",
-        "licence": "unknown"
-    },
-    "art/tiles/hedge.png": {
-        "by": "unknown pack",
-        "source": "tile_029",
-        "licence": "unknown"
-    },
-    "art/tiles/wood.png": {
-        "by": "unknown pack",
-        "source": "tile_025",
-        "licence": "unknown"
-    }
+    "art/tiles/stone.png": { "by": "<artist>", "received": "2026-10-25" },
+    "art/items/love-seat/*.png": { "by": "<artist>", "received": "2026-11-02" }
 }
 ```
 
-- The build fails on any source without an entry. A licence of `unknown` is a
-  warning until launch, then becomes an error.
-- Uploaded item art keeps the same fields in `item_art`.
-- If any licence needs attribution (CC-BY), we build a credits page from the
-  file.
-- **Masters and anything over 1 MB** (PSD, `.blend`, WAV) go in a private
-  "art-sources" bucket or shared drive, under the same paths. Their
-  provenance entry has `"master": "<location>"`. CI fails on any file over
-  1 MB under `resources/art` or `resources/audio`.
+- The build fails on a source file with no entry. A new file has to be
+  claimed by someone, so a stray test image can't ship unnoticed.
+- A master's entry adds `"master": "<path in the masters bucket>"`.
+- CI fails on any file over 1 MB under `resources/art` or `resources/audio`.
 - **No Git LFS.** Nothing that ships needs it at these sizes. Cloud's LFS
-  support during builds is unverified. Orb clones of the Amp remote filter
-  out blobs over 1 MB. GitHub LFS has bandwidth quotas.
+  support in builds is unverified, orb clones of the Amp remote filter out
+  blobs over 1 MB, and GitHub LFS has bandwidth quotas.
+- The old pack tiles stay in Git history inside earlier `tiles.png`
+  versions. The repo is private, and nothing ships from history.
 
-## 9. Decisions for you
+## 11. Decisions
 
-|     | Decision                                                                                                                                                                                           | Recommendation                                                                                                                              |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| A   | **Pixel scale.** Ground is 32-px art at 2×. Should buildings, furniture and avatars also be drawn at half size and doubled (chunky pixels that match the ground), or drawn 1:1 as the README says? | Draw everything at half size and double it at build, so pixels match. This decides the canvas rules the artist works to, so it comes first. |
-| B   | **The unknown pack.** Name it and confirm the licence, or have the artist replace sand, water, hedge and wood.                                                                                     | Ask Luigi for the pack's name today; plan for replacement either way.                                                                       |
-| C   | **Item art through Filament** rather than shipping with code.                                                                                                                                      | Yes (§6).                                                                                                                                   |
-| D   | **Publishing.** Can one staff member publish, or does it need a second?                                                                                                                            | One, with an audit log, while the staff is small.                                                                                           |
-| E   | **Bucket and domain.** Attach a public Cloud bucket and decide its domain.                                                                                                                         | Yes, when step 4 lands.                                                                                                                     |
-| F   | **Where masters live.** A private bucket or a shared drive.                                                                                                                                        | Whichever the artist already uses.                                                                                                          |
-| G   | **Shop gating.** Can an item be `in_shop` without published art?                                                                                                                                   | Allow it, with a warning in Filament.                                                                                                       |
+|     | Decision                   | Outcome                                                                                                    |
+| --- | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| A   | Pixel scale                | **Half size, doubled at build**, for every kind (§2). Prove it on one avatar strip and one wearable first. |
+| B   | Third-party pack           | **Removed.** Its slots pack as placeholders until she draws them.                                          |
+| C   | Item art through Filament  | **Later.** Item art ships with code for now (§8).                                                          |
+| D   | Who publishes              | **One staff member**, with an audit log, once uploads exist.                                               |
+| E   | Bucket                     | **Use the public bucket already attached in Cloud.** MinIO in the orb for testing.                         |
+| F   | Masters                    | **A second, private bucket**, not the public one (§7). Still needs your OK.                                |
+| G   | Art-less items in the shop | **Allowed for now.** Enforced when Filament uploads land.                                                  |
 
-## 10. Migration, in shippable steps
+## 12. Migration, in shippable steps
 
 Each step is its own PR and leaves the game working.
 
-1. **Sources and provenance.** Split `v2/tiles.png` back into
-   `resources/art/tiles/{grass,sand,stone,water,hedge,wood}.png` (exact 2×, so
-   nothing is lost). Add `tiles.json` with today's order, `provenance.json`,
-   and the >1 MB CI check. Nothing at runtime changes.
-2. **Build command plus hashes.** Add `hushfield:build-assets` (tiles packed by
-   the registry, tileset blocks rewritten in the maps, UI copied, hashes,
-   `assets.json`). The manifest reads the index, `v{n}` and
-   `HUSHFIELD_ASSET_VERSION` go, and `public/assets/` is gitignored. Immutable
-   headers for `/assets/*`. Wire the command into setup, dev, CI and the Cloud
-   build commands. The client retries a failed load once after refetching the
-   manifest. `hushfield:import-map` checks GIDs against the registry. Check:
-   the packed sheet is pixel-identical to today's `v2/tiles.png`.
-3. **Kind layout and lazy loading.** Building art and per-item folders
-   (`items/{slug}/{0-3}.png`) go in now, **before the first file arrives**,
-   while there's nothing to rename. Buildings and furniture load per room and
-   are removed on leaving. Set `crossOrigin = 'anonymous'` on the loader.
-   Until step 5, the artist's furniture goes into `database/seeders/art/items/`.
-4. **Bucket.** Add the `assets` disk, `hushfield:publish-assets` as a deploy
-   command, `HUSHFIELD_ASSET_URL` pointing at the bucket, CORS, and the
-   scheduled prune. Verify on staging: an old tab keeps working across a
-   deploy; requests from the CDN origin pass CORS; building hover still
+1. **Tile sources and registry.** Split her grass and stone out of
+   `v2/tiles.png` into `resources/art/tiles/` (losslessly). Add `tiles.json`
+   with all six slugs in today's order, `provenance.json`, and the CI check
+   for files over 1 MB. The pack tiles get no source file. Nothing changes at
+   runtime yet.
+2. **Build command and hashes.** Add `hushfield:build-assets` for tiles (with
+   placeholders for slots that have no art) and UI. It rewrites the tileset
+   blocks in the maps, hashes outputs and writes `assets.json`. The manifest
+   reads the index; `v{n}` and `HUSHFIELD_ASSET_VERSION` go, and
+   `public/assets/` is gitignored. Add immutable headers for `/assets/*`, and
+   run the command in setup, dev, CI and the Cloud build commands. The client
+   retries a failed load once after refetching the manifest, and
+   `hushfield:import-map` checks GIDs against the registry. Check: the grass
+   and stone cells are pixel-identical to today's sheet.
+3. **Art pixels for every kind.** Double buildings, furniture and walls at
+   build, with the canvas checks and the already-doubled guard. Move to
+   per-slug folders (`items/{slug}/{0-3}.png`, `walls/{style}/left.png`)
+   while there's no art to rename. Restate the README's "Art" and "Wall
+   panels" sections in art pixels, and add an art status column to the item
+   list. **This must land before her first building, furniture or wall.**
+4. **Crisp rendering and lazy loading.** Snap avatars' drawn position to even
+   pixels. Set NEAREST filtering on art textures and `image-rendering:
+   pixelated` on the canvas, and check on a 1.5× screen. Load buildings,
+   walls and furniture per room and remove them on leaving. Set
+   `crossOrigin = 'anonymous'` on the loader.
+5. **Bucket.** Add the `assets` disk and `hushfield:publish-assets` as a
+   deploy command to the attached public bucket. Point `HUSHFIELD_ASSET_URL`
+   at it, add the CORS rule and the scheduled prune. Create the private
+   masters bucket. Add MinIO to the orb (`.agents/setup`,
+   `.amp/services.yaml`). Verify on staging: an old tab keeps working across
+   a deploy, cross-origin loads pass CORS, and building hover still
    hit-tests.
-5. **Item art in Filament.** The `item_art` table, upload with its checks,
-   publish and unpublish, art status in the list, URLs in the item payload,
-   `hushfield:import-item-art` and the zip action. Import whatever furniture
-   art exists by then.
-6. **Avatars and wearables.** Base avatar strips and their atlas from the
-   repo; wearables through the step 5 pipeline (`front`/`back` parts). Load per
-   resident in the room.
-7. **Walls and audio**, when they're designed: `walls/{slug}/` packed into
-   one atlas; room music under `resources/audio/music/{room-slug}`, loaded
-   lazily after a gesture.
-8. **Before launch:** `unknown` licences become a build error.
+6. **Avatars and wearables.** Start with the one-strip-and-one-hat test from
+   §2. Then the base avatar strips and atlas, and wearables under
+   `items/{slug}/front|back.png`, loaded per resident in the room.
+7. **Audio.** Room music under `resources/audio/music/{room-slug}.opus`,
+   loaded lazily after a gesture.
+8. **Later, to enforce item art:** Filament uploads to the bucket, one-staff
+   publish, the import command, URLs in the item payload. Then the shop
+   requires published art.
 
-## 11. For the artist: how to hand over files
+## 13. For the artist: how to hand over files
 
-**Send** a zip, or a shared folder, laid out like this. Keep your working
-files: send the `.aseprite` alongside the PNG if it's under 1 MB, and tell us
-where anything bigger lives.
+**Send** a zip or a shared folder laid out like this. Send the `.aseprite`
+beside each PNG if it's under 1 MB. Put anything bigger in the masters bucket
+and tell us its path.
 
 ```
 handover-2026-11-02/
-  tiles/grass.png                 32×32, one block per file
+  tiles/grass.png                 32×32 block, one per file
   tiles/grass-flowers.png         a variant: same tile, new name
   buildings/library.png           one whole image per building
-  items/love-seat/0.png           furniture: facings 0–3 (0 faces lower left)
-  items/love-seat/1.png           leave out any facing that's a mirror of another
-  items/red-beanie/front.png      wearable: strip of 96×144 frames, in the avatar brief's order
+  walls/brick/left.png            16×56 panel; right.png, and left-door.png / right-door.png if any
+  items/love-seat/0.png           furniture facings 0–3 (0 faces lower left)
+  items/love-seat/1.png           leave out any facing that mirrors another
+  items/red-beanie/front.png      wearable: strip of 48×72 frames, in the avatar brief's order
   items/red-beanie/back.png
-  NOTES.txt                       anything not drawn by you: where it's from, its licence
+  NOTES.txt                       anything you want us to know
 ```
+
+**Draw at half size.** Everything is doubled in the game, to match the
+ground.
+
+| Kind                      | Your canvas                                                                                                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ground tile               | 32×32 block; top face a 32×16 diamond                                                                                                                                                         |
+| Building or furniture     | (wide + deep) × 16 across, with the footprint diamond (wide + deep) × 8 tall touching the bottom edge. A 1×1 stool is 32 across, a 2×1 love seat 48, a 7×5 building 192. As tall as it needs. |
+| Wall panel                | 16 wide × 56 tall: the floor edge climbs 8 across the bottom, and the face is 48 tall above it                                                                                                |
+| Avatar and wearable frame | 48×72                                                                                                                                                                                         |
 
 **Rules**
 
 - **Names:** lowercase, words joined with hyphens: `love-seat`, not
-  `Love Seat.png` or `image.png`. Ask us for the slug. For a building it's the
-  building's name in the map; for an item it's the slug in the catalog.
-- **Size:** native pixels, no scaling, no smoothing, transparent background,
-  PNG. We double tiles (and, once decision A is made, everything else) at
-  build time.
-- **Canvas:** for buildings and furniture, (wide + deep) × 32 px across, with
-  the footprint diamond touching the bottom edge. See "Art" in
-  `resources/maps/README.md`. Light comes from the top left.
+  `Love Seat.png` or `image.png`. Ask us for the slug: a building's is its
+  name in the map, an item's is its slug in the catalog.
+- **Export at 100%.** No scaling, no smoothing, transparent background, PNG.
+  The build rejects files that have already been doubled.
+- **Light** comes from the top left. Full rules are in "Art" and "Wall
+  panels" in `resources/maps/README.md`.
 - **Changing a file:** send it again under the same name. Never rename it to
-  `-v2` or `-final`; we keep the history.
-- **One thing per file.** No sheets: we pack them.
-- **Anything that isn't yours** (a reference or a pack tile) must say so in
-  `NOTES.txt`.
+  `-v2` or `-final`; Git keeps the history.
+- **One thing per file.** No sheets; we pack them.
 
-**What happens next:** world art (tiles, buildings, UI) goes into
-`resources/art/` in a PR, and the build checks the canvas and provenance.
-Item art is imported through Filament as a draft. You'll get a link to see it
-in the game before it's published.
+**What happens next:** your files go into `resources/art/` in a PR. The build
+checks every canvas, and you get a link to see them in the game.
