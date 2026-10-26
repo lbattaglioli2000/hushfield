@@ -1,0 +1,17 @@
+# Adobe S3Mock (installed by .agents/setup): a local stand-in for the Laravel
+# Cloud buckets, to test hushfield:publish-assets and cross-origin art loads.
+# To point the app at it, see "Local S3" in resources/maps/README.md.
+services:
+    s3mock:
+        command: >-
+            mkdir -p storage/s3mock &&
+            exec "$HOME/.local/share/hushfield/jre/bin/java" -jar "$HOME/.local/share/hushfield/s3mock.jar" --http.port=9090
+        port: 9090
+        review: false
+        env:
+            COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: hushfield-assets,hushfield-masters
+            COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: storage/s3mock
+            COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: 'true'
+        portal:
+            url: /hushfield-assets
+            title: S3Mock (assets bucket)

@@ -88,8 +88,6 @@ test('unverified residents cannot reach the game or the world API', function () 
 });
 
 test('the asset manifest lists every built image by its content-hashed URL', function () {
-    config(['hushfield.assets.base_url' => 'https://cdn.example.com/hf/']);
-
     $response = $this->getJson(route('assets.manifest'))
         ->assertOk()
         ->assertHeader('Cache-Control', 'no-cache, private')
@@ -97,13 +95,14 @@ test('the asset manifest lists every built image by its content-hashed URL', fun
         ->assertJsonPath('items', [])
         ->assertJsonPath('walls', []);
     $index = json_decode((string) file_get_contents(config('hushfield.assets.index')), true);
+    $base = asset('assets');
 
     expect($response->json('version'))->toBe($index['version'])
         ->and($response->json('images'))->toBe([
-            'tiles' => "https://cdn.example.com/hf/{$index['files']['tiles']}",
-            'resident' => "https://cdn.example.com/hf/{$index['files']['ui/resident-placeholder']}",
-            'marker' => "https://cdn.example.com/hf/{$index['files']['ui/marker']}",
-            'hover' => "https://cdn.example.com/hf/{$index['files']['ui/hover']}",
+            'tiles' => "{$base}/{$index['files']['tiles']}",
+            'resident' => "{$base}/{$index['files']['ui/resident-placeholder']}",
+            'marker' => "{$base}/{$index['files']['ui/marker']}",
+            'hover' => "{$base}/{$index['files']['ui/hover']}",
         ])
         ->and($index['files']['tiles'])->toMatch('/^tiles\.[0-9a-f]{8}\.png$/');
 

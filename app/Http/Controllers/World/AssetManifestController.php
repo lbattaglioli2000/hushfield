@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\World;
 
 use App\Domain\Assets\AssetIndex;
+use App\Domain\Assets\AssetPublisher;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,10 +18,14 @@ use Illuminate\Http\Request;
  */
 final class AssetManifestController extends Controller
 {
-    public function __invoke(Request $request, AssetIndex $assets): JsonResponse
+    public function __invoke(Request $request, AssetIndex $assets, AssetPublisher $publisher): JsonResponse
     {
         $index = $assets->current();
-        $base = rtrim((string) (config('hushfield.assets.base_url') ?: asset('assets')), '/');
+        // The bucket once this build is published to it, the app until then.
+        $bucket = (string) config('hushfield.assets.base_url');
+        $base = $bucket !== '' && $publisher->published($index['version'])
+            ? rtrim($bucket, '/').'/'.AssetPublisher::PREFIX
+            : asset('assets');
 
         /** @var array<string, string> $images */
         $images = config('hushfield.assets.images');

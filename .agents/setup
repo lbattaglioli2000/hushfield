@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Orb setup: a Java runtime and Adobe S3Mock, to test publishing art to an
+# S3 bucket locally (docs/assets-plan.md §7). It runs as the s3mock service in
+# .amp/services.yaml. Postgres, Redis, PHP and Node come with the orb template.
+set -euo pipefail
+
+JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jre_x64_linux_hotspot_21.0.13_9.tar.gz"
+JRE_SHA256="a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd"
+S3MOCK_VERSION="5.2.3"
+S3MOCK_SHA1="6a1bc60e6a37aaecc93181414933b2ed75738f43"
+TOOLS="$HOME/.local/share/hushfield"
+
+mkdir -p "$TOOLS"
+
+if [ ! -x "$TOOLS/jre/bin/java" ]; then
+  echo "== Installing Temurin JRE 21"
+  time {
+    curl -fsSL "$JRE_URL" -o "$TOOLS/jre.tar.gz"
+    echo "$JRE_SHA256  $TOOLS/jre.tar.gz" | sha256sum -c -
+    rm -rf "$TOOLS/jre" && mkdir -p "$TOOLS/jre"
+    tar -xzf "$TOOLS/jre.tar.gz" -C "$TOOLS/jre" --strip-components=1
+    rm "$TOOLS/jre.tar.gz"
+  }
+fi
+
+JAR="$TOOLS/s3mock-$S3MOCK_VERSION-exec.jar"
+
+if [ ! -f "$JAR" ]; then
+  echo "== Downloading S3Mock $S3MOCK_VERSION"
+  time {
+    curl -fsSL "https://repo1.maven.org/maven2/com/adobe/testing/s3mock/$S3MOCK_VERSION/s3mock-$S3MOCK_VERSION-exec.jar" -o "$JAR.tmp"
+    echo "$S3MOCK_SHA1  $JAR.tmp" | sha1sum -c -
+    mv "$JAR.tmp" "$JAR"
+  }
+fi
+
+ln -sf "$JAR" "$TOOLS/s3mock.jar"
+echo "== S3Mock ready: $TOOLS/s3mock.jar"

@@ -123,8 +123,16 @@ return [
      * The client only ever reads URLs from the asset manifest.
      */
     'assets' => [
-        // Where browsers fetch built art from. Unset: the app serves it at /assets.
+        /*
+         * The public bucket's URL, once it serves art cross-origin (a CORS rule
+         * allowing GET from the app). Art is fetched from {base_url}/assets/
+         * only once the running build has been published there
+         * (hushfield:publish-assets); until then, or when unset, the app serves it.
+         */
         'base_url' => env('HUSHFIELD_ASSET_URL'),
+        // The disk built art is published to, and how long prune keeps files no recent build names.
+        'disk' => 'public',
+        'keep_days' => 30,
         // Art is drawn at 1/scale of its size in the game, and multiplied up at build.
         'scale' => 2,
         // Per kind, to try another size. The marker, hover and resident are

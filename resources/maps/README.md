@@ -181,7 +181,39 @@ a placeholder, tinted by its slug. Every source needs an entry in
 `resources/art/provenance.json` (who drew it, when it arrived), and none may
 be over 1 MB. The plan behind all this is `docs/assets-plan.md`.
 
-### Ground tiles
+### Where art is served from
+
+Built files are named by content hash, so a URL never changes what it
+serves. The app serves them at `/assets/` until two things are true: the
+running build has been published to the public bucket (the `public` disk;
+`php artisan hushfield:publish-assets`, a deploy command), and
+`HUSHFIELD_ASSET_URL` names that bucket. Then the manifest points browsers at
+`{HUSHFIELD_ASSET_URL}/assets/`. A publish never deletes, so a tab still
+running an older build keeps its files; `hushfield:prune-assets` runs daily
+and removes files no build from the last 30 days names. If a file is gone
+anyway, the game refetches the manifest once and tries again.
+
+**Local S3.** An orb runs Adobe S3Mock as the `s3mock` service
+(`.amp/services.yaml`, installed by `.agents/setup`), with buckets
+`hushfield-assets` and `hushfield-masters`. To publish to it, add to `.env`:
+
+```
+AWS_ACCESS_KEY_ID=s3mock
+AWS_SECRET_ACCESS_KEY=s3mock
+AWS_ENDPOINT=http://127.0.0.1:9090
+AWS_USE_PATH_STYLE_ENDPOINT=true
+PUBLIC_DISK_BUCKET=hushfield-assets
+PRIVATE_DISK_BUCKET=hushfield-masters
+HUSHFIELD_ASSET_URL=http://localhost:9090/hushfield-assets
+```
+
+then `php artisan hushfield:publish-assets` and restart the app. The bucket
+is on another origin than the app, so this tests cross-origin loading in the
+orb's own browser. S3Mock allows every origin and enforces no privacy, so
+the bucket's CORS rule and the private bucket's privacy can only be checked
+on Laravel Cloud. Without those variables both disks are local folders.
+
+
 
 One folder per tile type, `resources/art/tiles/{type}/`, with one file per
 slab height. Each is drawn at half size on a 32 × 32 canvas (the build

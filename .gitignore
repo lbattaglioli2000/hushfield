@@ -31,8 +31,11 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-/.agents
-/.amp
+/.agents/*
+!/.agents/setup
+/.amp/*
+!/.amp/services.yaml
+/storage/s3mock
 /.claude
 /.codex
 /.cursor

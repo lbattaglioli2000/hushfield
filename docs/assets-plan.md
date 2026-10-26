@@ -332,15 +332,19 @@ only reads URLs from the manifest.
 
 ```
 build:   hushfield:build-assets     → public/assets/*.{hash}.*, bootstrap/cache/assets.json
-deploy:  hushfield:publish-assets   → upload to the `assets` disk, skipping keys that exist
+deploy:  hushfield:publish-assets   → upload to the `public` disk under assets/, skipping keys that exist
          migrate --force, hushfield:import-map
 live:    manifest = HUSHFIELD_ASSET_URL + paths from assets.json
 ```
 
-- A new `assets` disk in `config/filesystems.php`: the bucket in production,
-  `public` (served by the app) by default locally. `HUSHFIELD_ASSET_URL` is
-  the bucket's public URL in production and unset locally, where it falls
-  back to `asset('assets')`.
+- The `public` disk is the public bucket (Laravel Cloud attaches it under
+  that name, replacing Laravel's local `public` disk, which nothing in the
+  app uses) and `private` the masters bucket. Locally both are folders, or
+  S3Mock buckets when `PUBLIC_DISK_BUCKET` and `PRIVATE_DISK_BUCKET` are
+  set. `HUSHFIELD_ASSET_URL` is the bucket's public URL; the manifest uses
+  `{HUSHFIELD_ASSET_URL}/assets/` only once the running build is published
+  (a flag publish sets in the cache), and `asset('assets')` until then, so
+  a deploy without the publish command or the URL still works.
 - The upload runs as a **deploy** command, which Cloud runs before the
   release goes live. Uploading only keys that don't exist yet makes it fast
   and safe to repeat.
@@ -553,8 +557,8 @@ Each step is its own PR and leaves the game working.
    pixelated` on the canvas, and check on a 1.5× screen. Load buildings,
    walls and furniture per room and remove them on leaving. Set
    `crossOrigin = 'anonymous'` on the loader.
-5. **Bucket.** Add the `assets` disk and `hushfield:publish-assets` as a
-   deploy command to the attached public bucket. Point `HUSHFIELD_ASSET_URL`
+5. **Bucket.** Publish to the `public` disk (the attached public bucket)
+   with `hushfield:publish-assets` as a deploy command. Point `HUSHFIELD_ASSET_URL`
    at it, add the CORS rule and the scheduled prune. You create the private
    masters bucket and its keys in Cloud (§7). Add S3Mock to the orb
    (`.agents/setup`, `.amp/services.yaml`). Verify on staging: an old tab keeps working across
