@@ -25,6 +25,7 @@ export type { RealtimeConfig } from './net/realtime';
 export { PROTOCOL } from './protocol/types';
 export type {
     FishingCatch,
+    FixtureKind,
     Friend,
     FriendsList,
     HomeInfo,

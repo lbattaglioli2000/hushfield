@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { OnTray } from '@/components/play/signal-tray';
 import RadioDialog from '@/components/radio/radio-dialog';
 import RadioKey from '@/components/radio/radio-key';
-import SignalCard from '@/components/radio/signal-card';
+import SignalCard, { ResultCard } from '@/components/radio/signal-card';
 import type {
     Copy,
     EventBus,
@@ -12,6 +12,7 @@ import type {
     Item,
     PlacedFurniture,
 } from '@/game';
+import { useFleeting } from '@/hooks/use-fleeting';
 import { useGameBus } from '@/hooks/use-game-bus';
 
 const RESULT_MS = 5000;
@@ -47,9 +48,8 @@ export default function Residences({
     const [placed, setPlaced] = useState<PlacedFurniture[]>([]);
     const [decorating, setDecorating] = useState(false);
     const [armed, setArmed] = useState<number | null>(null);
-    const [result, setResult] = useState<GameEvents['home-result'] | null>(
-        null,
-    );
+    const [result, setResult] =
+        useFleeting<GameEvents['home-result']>(RESULT_MS);
 
     useGameBus(bus, 'room', (next) => {
         setRoom(next);
@@ -73,14 +73,6 @@ export default function Residences({
     useEffect(() => {
         bus.emit('decorate', { active: decorating, armed: armedItem });
     }, [bus, decorating, armedItem]);
-
-    useEffect(() => {
-        if (!result) return;
-
-        const timer = setTimeout(() => setResult(null), RESULT_MS);
-
-        return () => clearTimeout(timer);
-    }, [result]);
 
     if (!room) return null;
 
@@ -179,7 +171,7 @@ export default function Residences({
                 )}
 
                 {!open && result && !result.ok && (
-                    <SignalCard role="status">{result.message}</SignalCard>
+                    <ResultCard result={result} />
                 )}
             </OnTray>
 
@@ -190,14 +182,7 @@ export default function Residences({
                 description={copy.residences_intro}
                 data-test="residences-panel"
             >
-                {result && (
-                    <SignalCard
-                        role="status"
-                        tone={result.ok ? 'amber' : 'red'}
-                    >
-                        {result.message}
-                    </SignalCard>
-                )}
+                {result && <ResultCard result={result} />}
 
                 {homes === null ? (
                     <p className="text-bakelite/60">Knocking…</p>

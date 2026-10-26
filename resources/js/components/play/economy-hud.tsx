@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import InventoryPanel from '@/components/play/inventory-panel';
 import ShopPanel from '@/components/play/shop-panel';
 import { OnTray } from '@/components/play/signal-tray';
 import AmberReadout from '@/components/radio/amber-readout';
 import RadioKey from '@/components/radio/radio-key';
-import SignalCard from '@/components/radio/signal-card';
+import SignalCard, { ResultCard } from '@/components/radio/signal-card';
 import type { Copy, EventBus, GameEvents, Wallet } from '@/game';
-import { useGameBus } from '@/hooks/use-game-bus';
+import { useFleeting } from '@/hooks/use-fleeting';
+import { useFixture, useGameBus } from '@/hooks/use-game-bus';
 
 const RESULT_MS = 5000;
 
@@ -26,9 +27,8 @@ export default function EconomyHud({
     const [wallet, setWallet] = useState<Wallet | null>(null);
     const [panel, setPanel] = useState<'shop' | 'inventory' | null>(null);
     const [busy, setBusy] = useState(false);
-    const [result, setResult] = useState<GameEvents['economy-result'] | null>(
-        null,
-    );
+    const [result, setResult] =
+        useFleeting<GameEvents['economy-result']>(RESULT_MS);
 
     // The room the shop was opened in; leaving it closes the panel.
     const shopRoom = useRef<string | null>(null);
@@ -42,9 +42,7 @@ export default function EconomyHud({
             setPanel((open) => (open === 'shop' ? null : open));
         }
     });
-    useGameBus(bus, 'use-fixture', ({ kind }) => {
-        if (kind !== 'shop') return;
-
+    useFixture(bus, 'shop', () => {
         shopRoom.current = room.current;
         setPanel('shop');
         bus.emit('load-shop', {});
@@ -54,14 +52,6 @@ export default function EconomyHud({
         setBusy(false);
         setResult(next);
     });
-
-    useEffect(() => {
-        if (!result) return;
-
-        const timer = setTimeout(() => setResult(null), RESULT_MS);
-
-        return () => clearTimeout(timer);
-    }, [result]);
 
     if (!wallet) return null;
 
@@ -75,13 +65,7 @@ export default function EconomyHud({
     };
 
     const resultLine = result && (
-        <SignalCard
-            role="status"
-            tone={result.ok ? 'amber' : 'red'}
-            data-test="economy-result"
-        >
-            {result.message}
-        </SignalCard>
+        <ResultCard result={result} data-test="economy-result" />
     );
 
     return (

@@ -66,3 +66,17 @@ export default function SignalCard({
         </div>
     );
 }
+
+/** The outcome of something the player asked for: amber when it went through, red when refused. */
+export function ResultCard({
+    result,
+    ...props
+}: Omit<ComponentProps<typeof SignalCard>, 'tone' | 'role'> & {
+    result: { ok: boolean; message: string };
+}) {
+    return (
+        <SignalCard role="status" tone={result.ok ? 'amber' : 'red'} {...props}>
+            {result.message}
+        </SignalCard>
+    );
+}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { OnTray } from '@/components/play/signal-tray';
 import RadioKey from '@/components/radio/radio-key';
 import SignalCard from '@/components/radio/signal-card';
 import type { Copy, EventBus, FishingPhase, GameEvents } from '@/game';
-import { useGameBus } from '@/hooks/use-game-bus';
+import { useFleeting } from '@/hooks/use-fleeting';
+import { useFixture, useGameBus } from '@/hooks/use-game-bus';
 import { cn } from '@/lib/utils';
 
 const RESULT_MS = 7000;
@@ -16,39 +17,20 @@ const HINT_MS = 8000;
  */
 export default function Fishing({ bus, copy }: { bus: EventBus; copy: Copy }) {
     const [phase, setPhase] = useState<FishingPhase>('idle');
-    const [result, setResult] = useState<GameEvents['fishing-result'] | null>(
-        null,
-    );
-    const [hint, setHint] = useState(false);
+    const [result, setResult] =
+        useFleeting<GameEvents['fishing-result']>(RESULT_MS);
+    const [hint, setHint] = useFleeting<true>(HINT_MS);
 
     useGameBus(bus, 'fishing', ({ phase: next }) => {
         setPhase(next);
 
         if (next === 'casting') {
             setResult(null);
-            setHint(false);
+            setHint(null);
         }
     });
     useGameBus(bus, 'fishing-result', setResult);
-    useGameBus(bus, 'use-fixture', ({ kind }) => {
-        if (kind === 'fishing') setHint(true);
-    });
-
-    useEffect(() => {
-        if (!result) return;
-
-        const timer = setTimeout(() => setResult(null), RESULT_MS);
-
-        return () => clearTimeout(timer);
-    }, [result]);
-
-    useEffect(() => {
-        if (!hint) return;
-
-        const timer = setTimeout(() => setHint(false), HINT_MS);
-
-        return () => clearTimeout(timer);
-    }, [hint]);
+    useFixture(bus, 'fishing', () => setHint(true));
 
     const lineOut = phase === 'waiting' || phase === 'bite';
 

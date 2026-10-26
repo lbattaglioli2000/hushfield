@@ -3,7 +3,7 @@ import { useState } from 'react';
 import RadioDialog from '@/components/radio/radio-dialog';
 import RadioKey from '@/components/radio/radio-key';
 import GlassInput from '@/components/radio/glass-input';
-import SignalCard, { SignalBars } from '@/components/radio/signal-card';
+import { ResultCard, SignalBars } from '@/components/radio/signal-card';
 import ToggleSwitch from '@/components/radio/toggle-switch';
 import type { Copy, EventBus, Friend, FriendsList, GameEvents } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
@@ -84,13 +84,7 @@ export default function Friends({ bus, copy }: { bus: EventBus; copy: Copy }) {
                 </form>
 
                 {result && (
-                    <SignalCard
-                        role="status"
-                        tone={result.ok ? 'amber' : 'red'}
-                        data-test="friends-result"
-                    >
-                        {result.message}
-                    </SignalCard>
+                    <ResultCard result={result} data-test="friends-result" />
                 )}
 
                 <div className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
