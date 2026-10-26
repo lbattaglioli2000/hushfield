@@ -100,6 +100,9 @@ export type AssetManifest = {
     furniture: Record<string, string>;
 };
 
+/** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */
+export type FixtureKind = 'shop' | 'fishing';
+
 export type ItemSlot =
     | 'head'
     | 'face'

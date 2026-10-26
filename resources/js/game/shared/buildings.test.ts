@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
-import type { Footprint } from './buildings';
-import { covers, hides, hidesPlayer, placeBuilding } from './buildings';
+import { hides, hidesPlayer, placeBuilding } from './buildings';
+import type { Footprint } from './footprint';
+import { covers } from './footprint';
 import { tileToScreen } from './iso';
 
 const ORIGIN_X = 512;

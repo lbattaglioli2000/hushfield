@@ -147,7 +147,7 @@ export class BuildingLayer {
         for (const drawn of this.drawn) {
             drawn.faded =
                 self !== null &&
-                hidesPlayer(drawn.placement, drawn.building.door.area, self);
+                hidesPlayer(drawn.placement, drawn.building.door, self);
             const target = drawn.faded ? BUILDING.fadedAlpha : 1;
 
             if (drawn.alpha === target) continue;
@@ -213,14 +213,12 @@ export class BuildingLayer {
                       at(wide, to, top),
                   ];
         const doorFace =
-            door.area.deep === 1 && door.area.y === building.y + deep - 1
-                ? 'sw'
-                : 'se';
+            door.deep === 1 && door.y === building.y + deep - 1 ? 'sw' : 'se';
         // Where the door starts along its face, and how many tiles it spans.
         const [doorAlong, doorSpan] =
             doorFace === 'sw'
-                ? [door.area.x - building.x, door.area.wide]
-                : [door.area.y - building.y, door.area.deep];
+                ? [door.x - building.x, door.wide]
+                : [door.y - building.y, door.deep];
         const doorTop = Math.min(BUILDING.doorHeightPx, height * 0.8);
 
         const g = this.scene.make.graphics({}, false);

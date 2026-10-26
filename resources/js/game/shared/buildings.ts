@@ -1,8 +1,5 @@
-import type { Tile } from '../protocol/types';
+import type { Footprint } from './footprint';
 import { TILE_HEIGHT, TILE_WIDTH } from './iso';
-
-/** A building's tiles: `wide` along x and `deep` along y from its back corner at (x, y). */
-export type Footprint = { x: number; y: number; wide: number; deep: number };
 
 /** One vertical slice of a building's image, sorted against avatars on its own. */
 export type Strip = {
@@ -27,15 +24,6 @@ export type Placement = {
 
 const HALF_W = TILE_WIDTH / 2;
 const HALF_H = TILE_HEIGHT / 2;
-
-export function covers(footprint: Footprint, [x, y]: Tile): boolean {
-    return (
-        x >= footprint.x &&
-        x < footprint.x + footprint.wide &&
-        y >= footprint.y &&
-        y < footprint.y + footprint.deep
-    );
-}
 
 /**
  * Lays an image (wide + deep) × 32 px across over the footprint, bottom corner

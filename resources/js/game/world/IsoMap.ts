@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import type { Tile } from '../protocol/types';
+import type { FixtureKind, Tile } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
-import type { Footprint } from '../shared/buildings';
-import { covers } from '../shared/buildings';
+import type { Footprint } from '../shared/footprint';
+import { centreOf, covers, tilesOf } from '../shared/footprint';
 import {
     screenToTile,
     TILE_FACE_TOP,
@@ -26,31 +26,28 @@ export const MAP_LAYERS = {
 export const TILES_TEXTURE = 'tiles';
 
 /**
+ * A named place on the map, standing on a footprint. `tile` is its middle,
+ * where its label goes and taps walk to.
+ */
+type MapPlace = Footprint & {
+    name: string;
+    tile: Tile;
+    label: string | null;
+};
+
+/**
  * A door on the map: one tile, or a row of them drawn in Tiled as a rectangle.
  * Walking onto any of its tiles takes the player through it; the server checks.
- * `tile` is its middle, where its label goes and taps walk to.
  */
-export type MapDoor = {
-    name: string;
-    tile: Tile;
-    area: Footprint;
-    label: string | null;
-};
+export type MapDoor = MapPlace;
 
-/** Something on the map a player can use, such as the shop counter. Walking onto it or tapping it uses it. */
-export type MapFixture = {
-    name: string;
-    tile: Tile;
-    kind: string;
-    label: string | null;
-};
+/** Something on the map a player can use, such as the shop counter. Walking onto it uses it. */
+export type MapFixture = MapPlace & { kind: FixtureKind };
 
 /** A building on the map: walls nobody walks through, and a door on its front edge into the room inside. */
-export type MapBuilding = Footprint & {
-    name: string;
+export type MapBuilding = MapPlace & {
     /** How tall the placeholder block stands, in pixels. */
     height: number;
-    label: string | null;
     door: MapDoor;
 };
 
@@ -107,71 +104,34 @@ export class IsoMap {
         );
 
         this.grid = { width: map.width, height: map.height, walkable: cells };
-        // Tiled positions objects on isometric maps in tile-height units on both axes.
-        this.doors = (map.getObjectLayer(MAP_LAYERS.exits)?.objects ?? []).map(
-            (object) => {
-                const area = {
-                    x: Math.floor((object.x ?? 0) / TILE_HEIGHT),
-                    y: Math.floor((object.y ?? 0) / TILE_HEIGHT),
-                    wide: Math.max(
-                        1,
-                        Math.round((object.width ?? 0) / TILE_HEIGHT),
-                    ),
-                    deep: Math.max(
-                        1,
-                        Math.round((object.height ?? 0) / TILE_HEIGHT),
-                    ),
-                };
-
-                return {
-                    name: object.name,
-                    tile: [
-                        area.x + Math.floor(area.wide / 2),
-                        area.y + Math.floor(area.deep / 2),
-                    ],
-                    area,
-                    label: property(object, 'label'),
-                };
-            },
-        );
-        this.fixtures = (
-            map.getObjectLayer(MAP_LAYERS.fixtures)?.objects ?? []
-        ).map((object) => ({
-            name: object.name,
-            tile: [
-                Math.floor((object.x ?? 0) / TILE_HEIGHT),
-                Math.floor((object.y ?? 0) / TILE_HEIGHT),
-            ],
-            kind: property(object, 'kind') ?? '',
-            label: property(object, 'label'),
+        const objects = (layer: string) =>
+            map.getObjectLayer(layer)?.objects ?? [];
+        this.doors = objects(MAP_LAYERS.exits).map(place);
+        this.fixtures = objects(MAP_LAYERS.fixtures).map((object) => ({
+            ...place(object),
+            // The server checked every fixture's kind when it imported the map.
+            kind: property(object, 'kind') as FixtureKind,
         }));
         // The server checked the map: every building has a door, which is one of the exits.
-        this.buildings = (
-            map.getObjectLayer(MAP_LAYERS.buildings)?.objects ?? []
-        ).map((object) => {
+        this.buildings = objects(MAP_LAYERS.buildings).map((object) => {
             const door = this.doors.find(
                 (d) => d.name === property(object, 'door'),
             ) as MapDoor;
+            const building = place(object);
 
             return {
-                name: object.name,
-                x: Math.round((object.x ?? 0) / TILE_HEIGHT),
-                y: Math.round((object.y ?? 0) / TILE_HEIGHT),
-                wide: Math.round((object.width ?? 0) / TILE_HEIGHT),
-                deep: Math.round((object.height ?? 0) / TILE_HEIGHT),
+                ...building,
                 height: numberProperty(object, 'height') ?? TILE_WIDTH,
-                label: property(object, 'label') ?? door.label,
+                label: building.label ?? door.label,
                 door,
             };
         });
 
         // Walls block walking, as on the server; the door is the way in.
         for (const building of this.buildings) {
-            for (let y = building.y; y < building.y + building.deep; y++) {
-                for (let x = building.x; x < building.x + building.wide; x++) {
-                    if (!covers(building.door.area, [x, y])) {
-                        cells[y * map.width + x] = 0;
-                    }
+            for (const [x, y] of tilesOf(building)) {
+                if (!covers(building.door, [x, y])) {
+                    cells[y * map.width + x] = 0;
                 }
             }
         }
@@ -185,15 +145,7 @@ export class IsoMap {
                         covers(building, door.tile),
                     ),
             ),
-            ...this.fixtures.map((fixture) => ({
-                ...fixture,
-                area: {
-                    x: fixture.tile[0],
-                    y: fixture.tile[1],
-                    wide: 1,
-                    deep: 1,
-                },
-            })),
+            ...this.fixtures,
         ].forEach((place) => this.drawDoor(scene, place));
 
         this.sizePx = {
@@ -223,24 +175,18 @@ export class IsoMap {
     }
 
     doorAt(tile: Tile): MapDoor | null {
-        return this.doors.find((door) => covers(door.area, tile)) ?? null;
+        return this.doors.find((door) => covers(door, tile)) ?? null;
     }
 
     fixtureAt(tile: Tile): MapFixture | null {
-        return (
-            this.fixtures.find(
-                (fixture) =>
-                    fixture.tile[0] === tile[0] && fixture.tile[1] === tile[1],
-            ) ?? null
-        );
+        return this.fixtures.find((fixture) => covers(fixture, tile)) ?? null;
     }
 
     /** The building a door tile belongs to, if any. */
     buildingAt(tile: Tile): MapBuilding | null {
         return (
-            this.buildings.find((building) =>
-                covers(building.door.area, tile),
-            ) ?? null
+            this.buildings.find((building) => covers(building.door, tile)) ??
+            null
         );
     }
 
@@ -287,11 +233,8 @@ export class IsoMap {
     }
 
     /** A glowing threshold across all its tiles, and once, over its middle, the name of where it leads. */
-    private drawDoor(
-        scene: Phaser.Scene,
-        door: { tile: Tile; area: Footprint; label: string | null },
-    ): void {
-        const { x: ax, y: ay, wide, deep } = door.area;
+    private drawDoor(scene: Phaser.Scene, door: MapPlace): void {
+        const { x: ax, y: ay, wide, deep } = door;
         // Tile centres are half a tile in from the corners of the area.
         const corner = (gx: number, gy: number) => {
             const p = this.toWorld(gx - 0.5, gy - 0.5);
@@ -339,6 +282,26 @@ export function placeLabel(
         })
         .setOrigin(0.5, 1)
         .setDepth(DEPTH.labels);
+}
+
+/**
+ * A point, or a rectangle snapped to whole tiles, as a named place. Tiled
+ * positions objects on isometric maps in tile-height units on both axes.
+ */
+function place(object: Phaser.Types.Tilemaps.TiledObject): MapPlace {
+    const area = {
+        x: Math.floor((object.x ?? 0) / TILE_HEIGHT),
+        y: Math.floor((object.y ?? 0) / TILE_HEIGHT),
+        wide: Math.max(1, Math.round((object.width ?? 0) / TILE_HEIGHT)),
+        deep: Math.max(1, Math.round((object.height ?? 0) / TILE_HEIGHT)),
+    };
+
+    return {
+        ...area,
+        name: object.name,
+        tile: centreOf(area),
+        label: property(object, 'label'),
+    };
 }
 
 function numberProperty(

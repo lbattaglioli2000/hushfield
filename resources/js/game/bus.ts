@@ -1,5 +1,6 @@
 import type {
     FishingCatch,
+    FixtureKind,
     FriendsList,
     HomeInfo,
     HomeVisitors,
@@ -68,8 +69,8 @@ export type GameEvents = {
     'report-result': { ok: boolean; message: string };
     /** After entering the world and after every purchase or stipend claim. */
     wallet: Wallet;
-    /** The player walked onto or tapped a fixture on the map, such as the shop counter. */
-    'use-fixture': { kind: string };
+    /** The player walked onto a fixture on the map, such as the shop counter. */
+    'use-fixture': { kind: FixtureKind };
     /** The answer to a 'load-shop'. */
     shop: { items: Item[]; open: boolean };
     /** The answer to a 'purchase-item' or 'claim-stipend', and failures of 'load-shop'. */

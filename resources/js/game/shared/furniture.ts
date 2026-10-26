@@ -1,7 +1,7 @@
 import type { PlacedFurniture } from '../protocol/types';
 import type { Grid } from './astar';
-import type { Footprint } from './buildings';
-import { covers } from './buildings';
+import type { Footprint } from './footprint';
+import { covers, tilesOf } from './footprint';
 
 /*
  * Furniture art
@@ -78,13 +78,9 @@ export function withFurniture(grid: Grid, placed: PlacedFurniture[]): Grid {
     for (const piece of placed) {
         if (!blocksWalking(piece)) continue;
 
-        const { x, y, wide, deep } = placedFootprint(piece);
-
-        for (let ty = y; ty < y + deep; ty++) {
-            for (let tx = x; tx < x + wide; tx++) {
-                if (tx < grid.width && ty < grid.height) {
-                    walkable[ty * grid.width + tx] = 0;
-                }
+        for (const [tx, ty] of tilesOf(placedFootprint(piece))) {
+            if (tx < grid.width && ty < grid.height) {
+                walkable[ty * grid.width + tx] = 0;
             }
         }
     }

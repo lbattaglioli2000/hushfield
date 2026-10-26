@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { PlacedFurniture, Tile } from '../protocol/types';
-import type { Footprint, Placement } from '../shared/buildings';
+import type { Placement } from '../shared/buildings';
+import type { Footprint } from '../shared/footprint';
 import { hides, placeBuilding } from '../shared/buildings';
 import {
     blocksWalking,
