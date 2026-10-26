@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { Item, PlacedFurniture, Tile } from '../protocol/types';
+import { covers, tilesOf } from '../shared/footprint';
 import { TILE_HEIGHT } from '../shared/iso';
 import {
     blocksWalking,
@@ -116,13 +117,13 @@ export class DecorateMode {
 
         const rotation =
             this.placed.find((p) => p.item.id === armed.id)?.rotation ?? 0;
-        const { x, y, wide, deep } = footprintOf(
+        const footprint = footprintOf(
             armed.furniture ?? { wide: 1, deep: 1 },
             tile[0],
             tile[1],
             rotation,
         );
-        // Corners of the footprint: its back, right, front and left, on the ground.
+        // A corner of a tile on the ground.
         const corner = (gx: number, gy: number) => {
             const centre = map.toWorld(gx, gy);
 
@@ -131,17 +132,52 @@ export class DecorateMode {
                 centre.y - TILE_HEIGHT / 2,
             );
         };
-        const outline = [
-            corner(x, y),
-            corner(x + wide, y),
-            corner(x + wide, y + deep),
-            corner(x, y + deep),
-        ];
 
-        ghost
-            .fillStyle(FURNITURE.ghostColor, 0.18)
-            .fillPoints(outline, true)
-            .lineStyle(2, FURNITURE.ghostColor, 0.9)
-            .strokePoints(outline, true);
+        ghost.fillStyle(FURNITURE.ghostColor, 0.18);
+        ghost.lineStyle(2, FURNITURE.ghostColor, 0.9);
+
+        // Each covered tile, outlined only where the shape ends.
+        for (const [x, y] of tilesOf(footprint)) {
+            ghost.fillPoints(
+                [
+                    corner(x, y),
+                    corner(x + 1, y),
+                    corner(x + 1, y + 1),
+                    corner(x, y + 1),
+                ],
+                true,
+            );
+
+            const edges: Array<[Tile, [number, number], [number, number]]> = [
+                [
+                    [x, y - 1],
+                    [x, y],
+                    [x + 1, y],
+                ],
+                [
+                    [x + 1, y],
+                    [x + 1, y],
+                    [x + 1, y + 1],
+                ],
+                [
+                    [x, y + 1],
+                    [x, y + 1],
+                    [x + 1, y + 1],
+                ],
+                [
+                    [x - 1, y],
+                    [x, y],
+                    [x, y + 1],
+                ],
+            ];
+
+            for (const [beside, [ax, ay], [bx, by]] of edges) {
+                if (covers(footprint, beside)) continue;
+
+                const a = corner(ax, ay);
+                const b = corner(bx, by);
+                ghost.lineBetween(a.x, a.y, b.x, b.y);
+            }
+        }
     }
 }

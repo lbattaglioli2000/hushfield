@@ -149,6 +149,44 @@ test('an admin sizes a piece of furniture and marks it as a rug', function () {
         ->assertFormFieldIsHidden('wide');
 });
 
+test('an admin shapes a piece of furniture tile by tile', function () {
+    $sofa = Item::factory()->furniture()->create(['wide' => 2, 'deep' => 2]);
+
+    Livewire::test(EditItem::class, ['record' => $sofa->getRouteKey()])
+        ->assertFormSet(['shape' => ['0,0', '1,0', '0,1', '1,1']])
+        ->fillForm(['shape' => ['0,0', '1,0', '0,1']])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($sofa->fresh()->shape)->toBe(['##', '#.']);
+
+    Livewire::test(EditItem::class, ['record' => $sofa->getRouteKey()])
+        ->assertFormSet(['shape' => ['0,0', '1,0', '0,1']])
+        ->fillForm(['shape' => ['0,0', '1,0', '0,1', '1,1']])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    // Every tile ticked is a plain block.
+    expect($sofa->fresh()->shape)->toBeNull();
+});
+
+test('a shape that is not one connected piece filling its block is refused', function (array $ticked) {
+    $piece = Item::factory()->furniture()->create(['wide' => 3, 'deep' => 2]);
+
+    Livewire::test(EditItem::class, ['record' => $piece->getRouteKey()])
+        ->fillForm(['shape' => $ticked])
+        ->call('save')
+        ->assertHasFormErrors(['shape']);
+
+    expect($piece->fresh()->shape)->toBeNull();
+})->with([
+    'no tiles' => [[]],
+    'two pieces' => [['0,0', '0,1', '2,0', '2,1']],
+    'joined only at a corner' => [['0,0', '1,1', '2,0']],
+    'an empty last column' => [['0,0', '1,0', '0,1', '1,1']],
+    'an empty back row' => [['0,1', '1,1', '2,1']],
+]);
+
 test('items cannot be deleted once in the catalog', function () {
     $item = Item::factory()->create();
 

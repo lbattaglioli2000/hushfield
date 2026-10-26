@@ -156,6 +156,18 @@ above, so 1 faces the upper left (−x), 2 the upper right (−y), 3 the lower
 right (+x). An odd turn swaps how wide and how deep it is; the back corner
 stays put.
 
+A piece need not fill its block. Its **shape** (`shape` on the item, the
+Shape grid in the admin catalog) says which of its `wide × deep` tiles it
+covers: one row per tile along y, back row first, one character per tile
+along x, `#` covered and `.` empty. The Corner Sofa, 2 × 2, is `##` over `#.`.
+No shape is a plain block, as every piece was before shapes. Empty tiles are
+not part of the piece at all: players walk on them, other pieces stand on
+them (a side table tucks into an L), and they must stay reachable from the
+door. A shape must be one piece, joined along tile edges, and touch all four
+sides of its block; blocks go up to 8 × 8. The shape turns with the piece: a
+quarter turn clockwise seen from above takes `##` over `#.` to `##` over `.#`.
+`Footprint` holds the shape as its `mask`, on both sides.
+
 ## Art
 
 Art is found by name, with no code change: the asset manifest lists whatever
@@ -171,7 +183,14 @@ placeholder block, tinted by its slug.
 
 A facing without its own furniture image mirrors its mirror image (facing r
 mirrors 3 − r), or borrows the opposite facing; see `facingArt` in
-`resources/js/game/shared/furniture.ts`.
+`resources/js/game/shared/furniture.ts`. A stand-in must stand on the same
+tiles, which a plain block always does but a shaped piece mostly does not:
+flipping a picture left to right swaps x and y, so a mirrored image is used
+only when the borrowed facing's shape, flipped, is the shape of the facing
+it stands in for (a U-shaped booth, symmetric left to right, mirrors facing
+0 for facing 3), and an opposite facing only when the shape looks the same
+from behind. Otherwise the placeholder is drawn. A Corner Sofa never
+mirrors: give it all four facings.
 
 Buildings and furniture share one canvas rule, for the footprint as it lies
 (a 2 × 1 love seat is 96 px across at every facing):
@@ -194,6 +213,17 @@ Deliver one whole image per building or facing. The game slices it into
 vertical strips half a tile wide and sorts each strip on its own, so players
 walking behind a long building are hidden and players in front are drawn over
 it. Rugs lie flat under everything.
+
+A shaped piece is drawn over its whole block, empty tiles included; leave
+them transparent. Where a strip runs over an empty tile with the piece both
+behind and in front of it (the inner corner of an L, seen from the side),
+the strip is cut into slices 8 px wide, and each slice is cut across where
+the front part's art can begin: its back edge, raised by the art's height
+above the footprint. The part above sorts as the back arm and the part below
+as the front arm, so someone standing in the corner is drawn over one and
+under the other. Anything of the back arm below that line sorts with the
+front arm, so a sliver of the back arm's foot, a pixel or two, can be drawn
+over someone in the corner.
 
 ### Wall panels
 

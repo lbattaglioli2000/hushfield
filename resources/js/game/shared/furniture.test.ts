@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { Item, PlacedFurniture } from '../protocol/types';
 import { findPath } from './astar';
+import { covers, distanceTo, tilesOf } from './footprint';
 import { facingArt, footprintOf, pieceAt, withFurniture } from './furniture';
 
 function piece(
     x: number,
     y: number,
     rotation: number,
-    size: { wide: number; deep: number; floor?: boolean },
+    size: { wide: number; deep: number; floor?: boolean; shape?: string[] },
 ): PlacedFurniture {
     return {
         x,
@@ -16,7 +17,7 @@ function piece(
         item: {
             id: x * 100 + y,
             slug: 'piece',
-            furniture: { height: 18, floor: false, ...size },
+            furniture: { height: 18, floor: false, shape: null, ...size },
         } as Item,
     };
 }
@@ -39,6 +40,60 @@ describe('footprintOf', () => {
         });
         expect(footprintOf(seat, 3, 4, 2)).toMatchObject({ wide: 2, deep: 1 });
         expect(footprintOf(seat, 3, 4, 3)).toMatchObject({ wide: 1, deep: 2 });
+    });
+});
+
+describe('footprintOf a shaped piece', () => {
+    const sofa = { wide: 2, deep: 2, shape: ['##', '#.'] };
+    // A long arm along the back and a short leg at the left, 3 × 2.
+    const bench = { wide: 3, deep: 2, shape: ['###', '#..'] };
+
+    it('turns the shape a quarter turn clockwise seen from above with each turn', () => {
+        expect(footprintOf(sofa, 0, 0, 1).mask).toEqual(['##', '.#']);
+        expect(footprintOf(sofa, 0, 0, 2).mask).toEqual(['.#', '##']);
+        expect(footprintOf(sofa, 0, 0, 3).mask).toEqual(['#.', '##']);
+
+        // The back arm ends up down the right side, the leg at the back left.
+        expect(footprintOf(bench, 3, 4, 1)).toEqual({
+            x: 3,
+            y: 4,
+            wide: 2,
+            deep: 3,
+            mask: ['##', '.#', '.#'],
+        });
+        expect(footprintOf(bench, 3, 4, 2).mask).toEqual(['..#', '###']);
+        expect(footprintOf(bench, 3, 4, 4)).toEqual(
+            footprintOf(bench, 3, 4, 0),
+        );
+    });
+
+    it('covers only its filled tiles', () => {
+        const turned = footprintOf(bench, 3, 4, 1);
+
+        expect(tilesOf(turned)).toEqual([
+            [3, 4],
+            [4, 4],
+            [4, 5],
+            [4, 6],
+        ]);
+        expect(covers(turned, [3, 5])).toBe(false);
+        expect(distanceTo(turned, [3, 6])).toBe(1);
+    });
+
+    it('blocks walking only on its filled tiles, so a table fits in the corner', () => {
+        const open = {
+            width: 3,
+            height: 3,
+            walkable: new Uint8Array(9).fill(1),
+        };
+        const corner = piece(0, 0, 0, sofa);
+        const table = piece(1, 1, 0, { wide: 1, deep: 1 });
+
+        expect(Array.from(withFurniture(open, [corner]).walkable)).toEqual([
+            0, 0, 1, 0, 1, 1, 1, 1, 1,
+        ]);
+        expect(pieceAt([corner, table], [1, 1])).toBe(table);
+        expect(pieceAt([corner], [1, 1])).toBeNull();
     });
 });
 
@@ -142,6 +197,31 @@ describe('facingArt', () => {
             name: 'bed-0',
             mirrored: false,
         });
+    });
+
+    it('mirrors or borrows a shaped piece’s art only onto the same tiles', () => {
+        // A corner sofa mirrored or seen from behind never stands on the tiles
+        // of the facing it would stand in for.
+        const sofa = { wide: 2, deep: 2, shape: ['##', '#.'] };
+
+        for (const rotation of [1, 2, 3]) {
+            expect(facingArt('sofa', rotation, art('sofa'), sofa)).toBeNull();
+        }
+        expect(facingArt('sofa', 0, art('sofa'), sofa)).toEqual({
+            name: 'sofa',
+            mirrored: false,
+        });
+
+        // A U-shaped booth is symmetric left to right: facing 0 mirrored
+        // (#.# over ###, transposed) stands on facing 3's tiles.
+        const booth = { wide: 3, deep: 2, shape: ['#.#', '###'] };
+
+        expect(facingArt('booth', 3, art('booth'), booth)).toEqual({
+            name: 'booth',
+            mirrored: true,
+        });
+        expect(facingArt('booth', 1, art('booth'), booth)).toBeNull();
+        expect(facingArt('booth', 2, art('booth'), booth)).toBeNull();
     });
 
     it('has nothing to draw without art', () => {

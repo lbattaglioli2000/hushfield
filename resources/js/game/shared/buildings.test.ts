@@ -83,6 +83,97 @@ describe('hides', () => {
         },
     );
 
+    describe('around an L-shaped piece', () => {
+        // 26 px tall, so (2 + 2) × 16 px of footprint below that.
+        const HEIGHT = 26;
+        const imageHeight = HEIGHT + 64;
+
+        /** The strip drawing a point of the image, by world position. */
+        function stripAt(
+            placement: ReturnType<typeof placeBuilding>,
+            point: { x: number; y: number },
+        ) {
+            return placement.strips.find(
+                (strip) =>
+                    point.x >= placement.left + strip.offsetX &&
+                    point.x < placement.left + strip.offsetX + strip.width &&
+                    point.y >= placement.top + strip.offsetY &&
+                    point.y < placement.top + strip.offsetY + strip.height,
+            );
+        }
+
+        /** A point on a tile's top face, just right of its middle. */
+        function topOf(x: number, y: number) {
+            const centre = tileToScreen(x, y, ORIGIN_X);
+
+            return { x: centre.x + 8, y: centre.y - HEIGHT };
+        }
+
+        it('sorts an avatar in its inner corner in front of the back arm and behind the side arm', () => {
+            // #. over ##: the empty corner (5, 3) is on the right, between the
+            // back arm's tile (4, 3) and the side arm's (5, 4) straight down the screen.
+            const placement = placeBuilding(
+                { x: 4, y: 3, wide: 2, deep: 2, mask: ['#.', '##'] },
+                imageHeight,
+                ORIGIN_X,
+            );
+            const { box, depthY } = avatarOn(5, 3);
+            const backArm = stripAt(placement, topOf(4, 3));
+            const sideArm = stripAt(placement, topOf(5, 4));
+
+            expect(backArm).toBeDefined();
+            expect(sideArm).toBeDefined();
+            expect(backArm).not.toBe(sideArm);
+            expect(backArm!.depthY).toBeLessThan(depthY);
+            expect(sideArm!.depthY).toBeGreaterThan(depthY);
+            expect(hides(placement, box, depthY)).toBe(true);
+
+            // The foot of the back arm's lower-right face, right beside the
+            // corner, sorts with the back arm too, not with the side arm in front.
+            const centre = tileToScreen(4, 3, ORIGIN_X);
+            const foot = stripAt(placement, {
+                x: centre.x + 28,
+                y: centre.y - 1,
+            });
+
+            expect(foot!.depthY).toBeLessThan(depthY);
+        });
+
+        it('draws an avatar in an empty front corner over the piece, and one in an empty back corner under it', () => {
+            const front = placeBuilding(
+                { x: 4, y: 3, wide: 2, deep: 2, mask: ['##', '#.'] },
+                imageHeight,
+                ORIGIN_X,
+            );
+            const back = placeBuilding(
+                { x: 4, y: 3, wide: 2, deep: 2, mask: ['.#', '##'] },
+                imageHeight,
+                ORIGIN_X,
+            );
+            const inFront = avatarOn(5, 4);
+            const behind = avatarOn(4, 3);
+
+            expect(hides(front, inFront.box, inFront.depthY)).toBe(false);
+            expect(hides(back, behind.box, behind.depthY)).toBe(true);
+        });
+
+        it('leaves a plain block in whole strips', () => {
+            const placement = placeBuilding(
+                { x: 4, y: 3, wide: 2, deep: 2 },
+                imageHeight,
+                ORIGIN_X,
+            );
+
+            expect(placement.strips).toHaveLength(4);
+            expect(
+                placement.strips.every(
+                    (strip) =>
+                        strip.offsetY === 0 && strip.height === imageHeight,
+                ),
+            ).toBe(true);
+        });
+    });
+
     it('ignores avatars well above or below the image', () => {
         const placement = placeBuilding(
             { x: 4, y: 4, wide: 3, deep: 3 },

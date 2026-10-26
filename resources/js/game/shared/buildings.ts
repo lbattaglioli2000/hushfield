@@ -1,14 +1,23 @@
 import type { Footprint } from './footprint';
+import { covers } from './footprint';
 import { TILE_HEIGHT, TILE_WIDTH } from './iso';
 
-/** One vertical slice of a building's image, sorted against avatars on its own. */
+/**
+ * One piece of a building's image, sorted against avatars on its own: a
+ * vertical slice half a tile wide, or part of one where a shaped footprint
+ * leaves a gap along it.
+ */
 export type Strip = {
     /** Left edge within the image, in pixels. */
     offsetX: number;
+    /** Top edge within the image, in pixels. */
+    offsetY: number;
     width: number;
+    height: number;
     /**
-     * World y of the footprint's front edge under the strip's centre. An avatar
-     * whose tile centre is lower on screen than this stands in front of the strip.
+     * World y of the front edge, under the strip's centre, of the tiles it
+     * draws. An avatar whose tile centre is lower on screen than this stands
+     * in front of the strip.
      */
     depthY: number;
 };
@@ -24,6 +33,8 @@ export type Placement = {
 
 const HALF_W = TILE_WIDTH / 2;
 const HALF_H = TILE_HEIGHT / 2;
+/** How many slices a strip with a gap in its tiles is cut into, 8 px each. */
+const GAP_SLICES = 4;
 
 /**
  * Lays an image (wide + deep) × 32 px across over the footprint, bottom corner
@@ -32,7 +43,14 @@ const HALF_H = TILE_HEIGHT / 2;
  * One depth for the whole image is wrong for anything longer than a tile: an
  * avatar beside the far end of a long wall would be sorted against its near
  * end. Each strip only spans the tiles directly below it, so the front edge
- * under its centre says who is in front.
+ * of those tiles under its centre says who is in front.
+ *
+ * A shaped footprint can leave a gap along a strip, as the inner corner of
+ * an L does: an arm behind the gap and an arm in front of it, and someone
+ * standing in it is between the two. Such a strip is cut into narrow slices,
+ * each cut across where the front arm's art can begin (its back edge,
+ * raised by the art's height), and each part sorts by the front edge of its
+ * own arm.
  */
 export function placeBuilding(
     footprint: Footprint,
@@ -45,23 +63,83 @@ export function placeBuilding(
     const bottomX = originX + (x + wide - (y + deep)) * HALF_W;
     const bottomY = (x + wide + y + deep) * HALF_H;
     const left = bottomX - wide * HALF_W;
+    // World y of the back corner; image y is world y less the image's top.
+    const backY = (x + y) * HALF_H;
+    const top = bottomY - imageHeight;
+    const strips: Strip[] = [];
 
-    return {
-        left,
-        top: bottomY - imageHeight,
-        width,
-        height: imageHeight,
-        strips: Array.from({ length: wide + deep }, (_, i) => {
-            const centreX = left + i * HALF_W + HALF_W / 2;
+    // A tile's back and front edges at u pixels right of the back corner: a
+    // tile n rows down (n = dx + dy) whose dx − dy is k has its top corner at
+    // u = k × 32 and its edges rise half a pixel per pixel away from it.
+    const edge = ({ n, k }: { n: number; k: number }, u: number) => ({
+        back: backY + n * HALF_H + Math.abs(u - k * HALF_W) / 2,
+        front: backY + (n + 2) * HALF_H - Math.abs(u - k * HALF_W) / 2,
+    });
+    const artHeight = imageHeight - (wide + deep) * HALF_H;
 
-            // The front edge rises half a pixel per pixel away from the bottom corner.
-            return {
-                offsetX: i * HALF_W,
-                width: HALF_W,
-                depthY: bottomY - Math.abs(centreX - bottomX) / 2,
-            };
-        }),
-    };
+    for (let i = 0; i < wide + deep; i++) {
+        // Going down the strip, tile by tile: the tile n rows down is the one
+        // of the two diagonals under the strip whose dx − dy has n's parity.
+        type Run = {
+            first: { n: number; k: number };
+            last: { n: number; k: number };
+        };
+        const runs: Run[] = [];
+        let open = false;
+
+        for (let n = 0; n < wide + deep - 1; n++) {
+            const k = i - deep + ((((n - i + deep) % 2) + 2) % 2);
+            const dx = (n + k) / 2;
+            const dy = (n - k) / 2;
+            const filled =
+                dx >= 0 &&
+                dx < wide &&
+                dy >= 0 &&
+                dy < deep &&
+                covers(footprint, [x + dx, y + dy]);
+
+            if (filled && open) runs[runs.length - 1].last = { n, k };
+            if (filled && !open) runs.push({ first: { n, k }, last: { n, k } });
+
+            open = filled;
+        }
+
+        // A strip with a gap is cut along the front part's top edge, which
+        // slopes; in narrower slices the straight cuts follow it closely.
+        const slices = runs.length > 1 ? GAP_SLICES : 1;
+        const sliceWidth = HALF_W / slices;
+
+        for (let slice = 0; slice < slices; slice++) {
+            const u = (i - deep) * HALF_W + (slice + 0.5) * sliceWidth;
+            let from = 0;
+
+            runs.forEach((run, r) => {
+                const to =
+                    r === runs.length - 1
+                        ? imageHeight
+                        : Math.min(
+                              imageHeight,
+                              Math.max(
+                                  from,
+                                  edge(runs[r + 1].first, u).back -
+                                      artHeight -
+                                      top,
+                              ),
+                          );
+
+                strips.push({
+                    offsetX: i * HALF_W + slice * sliceWidth,
+                    offsetY: from,
+                    width: sliceWidth,
+                    height: to - from,
+                    depthY: edge(run.last, u).front,
+                });
+                from = to;
+            });
+        }
+    }
+
+    return { left, top, width, height: imageHeight, strips };
 }
 
 /**
@@ -84,7 +162,9 @@ export function hides(
         (strip) =>
             strip.depthY > depthY &&
             box.right > placement.left + strip.offsetX &&
-            box.left < placement.left + strip.offsetX + strip.width,
+            box.left < placement.left + strip.offsetX + strip.width &&
+            box.bottom > placement.top + strip.offsetY &&
+            box.top < placement.top + strip.offsetY + strip.height,
     );
 }
 

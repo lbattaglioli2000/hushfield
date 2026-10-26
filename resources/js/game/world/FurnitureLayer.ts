@@ -3,6 +3,7 @@ import type { PlacedFurniture } from '../protocol/types';
 import type { Placement } from '../shared/buildings';
 import type { Footprint } from '../shared/footprint';
 import { hides, placeBuilding } from '../shared/buildings';
+import { covers } from '../shared/footprint';
 import { blocksWalking, facingArt, placedFootprint } from '../shared/furniture';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { DEPTH, FURNITURE } from '../theme';
@@ -23,9 +24,10 @@ type DrawnPiece = {
 /**
  * The furniture standing in a home, replaced wholesale on every change. Each
  * piece is drawn like a building (see BuildingLayer): from its art for the
- * way it faces, or as a placeholder block the size of its footprint, cut
- * into strips half a tile wide that sort against avatars on their own. Rugs
- * lie under everything.
+ * way it faces, or as a placeholder block the shape of its footprint, cut
+ * into strips half a tile wide that sort against avatars on their own (and
+ * cut across where a shaped piece leaves a gap; see placeBuilding). Rugs lie
+ * under everything.
  */
 export class FurnitureLayer {
     private pieces: DrawnPiece[] = [];
@@ -80,8 +82,11 @@ export class FurnitureLayer {
 
     private draw(placed: PlacedFurniture): DrawnPiece {
         const footprint = placedFootprint(placed);
-        const art = facingArt(placed.item.slug, placed.rotation, (name) =>
-            this.scene.textures.exists(furnitureTexture(name)),
+        const art = facingArt(
+            placed.item.slug,
+            placed.rotation,
+            (name) => this.scene.textures.exists(furnitureTexture(name)),
+            placed.item.furniture ?? undefined,
         );
         const texture = art
             ? art.mirrored
@@ -95,24 +100,24 @@ export class FurnitureLayer {
             this.map.originX,
         );
         const flat = !blocksWalking(placed);
-        const strips = placement.strips.map((strip, i) => {
-            const frame = `strip:${i}`;
+        const strips = placement.strips.map((strip) => {
+            const frame = `strip:${strip.offsetX},${strip.offsetY},${strip.width}x${strip.height}`;
 
             if (!source.has(frame)) {
                 source.add(
                     frame,
                     0,
                     strip.offsetX,
-                    0,
+                    strip.offsetY,
                     strip.width,
-                    placement.height,
+                    strip.height,
                 );
             }
 
             return this.scene.add
                 .image(
                     placement.left + strip.offsetX,
-                    placement.top,
+                    placement.top + strip.offsetY,
                     texture,
                     frame,
                 )
@@ -149,15 +154,17 @@ export class FurnitureLayer {
 
     /**
      * Draws a stand-in for missing art to the size real art would be: a block
-     * on the footprint, `height` pixels tall, tinted by the item, with a pale
-     * edge along the side it faces so turning it shows.
+     * on each tile the footprint covers, joined where they touch, `height`
+     * pixels tall, tinted by the item, with a pale edge along the side it
+     * faces so turning it shows.
      */
     private placeholder(placed: PlacedFurniture, footprint: Footprint): string {
         const { slug, furniture } = placed.item;
         const { wide, deep } = footprint;
         const height = furniture?.height ?? FURNITURE.heightPx;
         const facing = placed.rotation % 4;
-        const key = `furniture-placeholder:${slug}:${wide}x${deep}x${height}:${facing}`;
+        const shape = footprint.mask?.join('/') ?? 'block';
+        const key = `furniture-placeholder:${slug}:${wide}x${deep}x${height}:${shape}:${facing}`;
 
         if (this.scene.textures.exists(key)) return key;
 
@@ -174,52 +181,155 @@ export class FurnitureLayer {
                 (gx - gy + deep) * (TILE_WIDTH / 2),
                 (gx + gy) * (TILE_HEIGHT / 2) + height - up,
             );
+        const filled = (dx: number, dy: number) =>
+            covers({ ...footprint, x: 0, y: 0 }, [dx, dy]);
         // Inset a little, so neighbouring pieces read as separate blocks.
         const near = FURNITURE.insetTiles;
-        const farX = wide - near;
-        const farY = deep - near;
+
+        // The inset shape, as boxes on a finer grid: each covered tile's core,
+        // the joins to its covered neighbours, and the middle of any covered
+        // 2 × 2. Drawn back to front, each box hides the faces behind it.
+        type Box = {
+            order: number;
+            x0: number;
+            x1: number;
+            y0: number;
+            y1: number;
+        };
+        const boxes: Box[] = [];
+        const core = (d: number) => [d + near, d + 1 - near];
+        const join = (d: number) => [d + 1 - near, d + 1 + near];
+
+        for (let dy = 0; dy < deep; dy++) {
+            for (let dx = 0; dx < wide; dx++) {
+                if (!filled(dx, dy)) continue;
+
+                const right = filled(dx + 1, dy);
+                const front = filled(dx, dy + 1);
+                const spans: Array<[number[], number[], number]> = [
+                    [core(dx), core(dy), 2],
+                    ...(right
+                        ? [
+                              [join(dx), core(dy), 3] as [
+                                  number[],
+                                  number[],
+                                  number,
+                              ],
+                          ]
+                        : []),
+                    ...(front
+                        ? [
+                              [core(dx), join(dy), 3] as [
+                                  number[],
+                                  number[],
+                                  number,
+                              ],
+                          ]
+                        : []),
+                    ...(right && front && filled(dx + 1, dy + 1)
+                        ? [
+                              [join(dx), join(dy), 4] as [
+                                  number[],
+                                  number[],
+                                  number,
+                              ],
+                          ]
+                        : []),
+                ];
+
+                for (const [[x0, x1], [y0, y1], step] of spans) {
+                    boxes.push({ order: 2 * (dx + dy) + step, x0, x1, y0, y1 });
+                }
+            }
+        }
 
         const g = this.scene.make.graphics({}, false);
-        g.fillStyle(shaded(FURNITURE.shade[0])).fillPoints(
-            [
-                at(near, farY, 0),
-                at(farX, farY, 0),
-                at(farX, farY, height),
-                at(near, farY, height),
-            ],
-            true,
-        );
-        g.fillStyle(shaded(FURNITURE.shade[1])).fillPoints(
-            [
-                at(farX, near, 0),
-                at(farX, farY, 0),
-                at(farX, farY, height),
-                at(farX, near, height),
-            ],
-            true,
-        );
-        g.fillStyle(base.color).fillPoints(
-            [
-                at(near, near, height),
-                at(farX, near, height),
-                at(farX, farY, height),
-                at(near, farY, height),
-            ],
-            true,
-        );
 
-        // The front edge of the top: +y, −x, −y, then +x as it turns (see FACINGS).
-        const front = [
-            [at(near, farY, height), at(farX, farY, height)],
-            [at(near, near, height), at(near, farY, height)],
-            [at(near, near, height), at(farX, near, height)],
-            [at(farX, near, height), at(farX, farY, height)],
+        // Where boxes meet, each reaches a hair into the next so no seam shows.
+        // The tops all lie in one plane above every side face, so they go last.
+        const seam = 0.02;
+        const meets = (box: Box, side: 'x0' | 'x1' | 'y0' | 'y1') =>
+            boxes.some((other) =>
+                side === 'x0' || side === 'x1'
+                    ? other[side === 'x0' ? 'x1' : 'x0'] === box[side] &&
+                      other.y0 < box.y1 &&
+                      box.y0 < other.y1
+                    : other[side === 'y0' ? 'y1' : 'y0'] === box[side] &&
+                      other.x0 < box.x1 &&
+                      box.x0 < other.x1,
+            );
+        const grown = boxes
+            .sort((a, b) => a.order - b.order)
+            .map((box) => ({
+                x0: box.x0 - (meets(box, 'x0') ? seam : 0),
+                x1: box.x1 + (meets(box, 'x1') ? seam : 0),
+                y0: box.y0 - (meets(box, 'y0') ? seam : 0),
+                y1: box.y1 + (meets(box, 'y1') ? seam : 0),
+                front: box.y1,
+                right: box.x1,
+            }));
+
+        for (const { x0, x1, y0, y1, front, right } of grown) {
+            g.fillStyle(shaded(FURNITURE.shade[0])).fillPoints(
+                [
+                    at(x0, front, 0),
+                    at(x1, front, 0),
+                    at(x1, front, height),
+                    at(x0, front, height),
+                ],
+                true,
+            );
+            g.fillStyle(shaded(FURNITURE.shade[1])).fillPoints(
+                [
+                    at(right, y0, 0),
+                    at(right, y1, 0),
+                    at(right, y1, height),
+                    at(right, y0, height),
+                ],
+                true,
+            );
+        }
+
+        for (const { x0, x1, y0, y1 } of grown) {
+            g.fillStyle(base.color).fillPoints(
+                [
+                    at(x0, y0, height),
+                    at(x1, y0, height),
+                    at(x1, y1, height),
+                    at(x0, y1, height),
+                ],
+                true,
+            );
+        }
+
+        // The front edge of the top: +y, −x, −y, then +x as it turns (see
+        // FACINGS), along every tile whose neighbour that way is uncovered.
+        const [fx, fy] = [
+            [0, 1],
+            [-1, 0],
+            [0, -1],
+            [1, 0],
         ][facing];
-        g.lineStyle(
-            FURNITURE.frontWidthPx,
-            FURNITURE.frontColor,
-            1,
-        ).lineBetween(front[0].x, front[0].y, front[1].x, front[1].y);
+        g.lineStyle(FURNITURE.frontWidthPx, FURNITURE.frontColor, 1);
+
+        for (let dy = 0; dy < deep; dy++) {
+            for (let dx = 0; dx < wide; dx++) {
+                if (!filled(dx, dy) || filled(dx + fx, dy + fy)) continue;
+
+                // Along the edge, on into the join with a covered tile beside it.
+                const [ex, ey] = [Math.abs(fy), Math.abs(fx)];
+                const from = filled(dx - ex, dy - ey) ? -near : near;
+                const to = filled(dx + ex, dy + ey) ? 1 + near : 1 - near;
+                const edgeX =
+                    fx === 0 ? null : fx > 0 ? dx + 1 - near : dx + near;
+                const edgeY =
+                    fy === 0 ? null : fy > 0 ? dy + 1 - near : dy + near;
+                const a = at(edgeX ?? dx + from, edgeY ?? dy + from, height);
+                const b = at(edgeX ?? dx + to, edgeY ?? dy + to, height);
+
+                g.lineBetween(a.x, a.y, b.x, b.y);
+            }
+        }
 
         g.generateTexture(
             key,

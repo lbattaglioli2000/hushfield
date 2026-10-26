@@ -28,12 +28,13 @@ use Illuminate\Support\Carbon;
  * @property int $deep Furniture only: tiles along y, before any turn.
  * @property int $height Furniture only: how tall its placeholder block stands, in pixels.
  * @property bool $floor Furniture only: lies flat, like a rug. Walked over, and one other piece may stand on it.
+ * @property list<string>|null $shape Furniture only: which tiles of the wide × deep block it covers, before any turn, as a Footprint mask. Null covers them all.
  * @property bool $in_shop
  * @property bool $members_only
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['slug', 'name', 'description', 'slot', 'rarity', 'price', 'wide', 'deep', 'height', 'floor', 'in_shop', 'members_only'])]
+#[Fillable(['slug', 'name', 'description', 'slot', 'rarity', 'price', 'wide', 'deep', 'height', 'floor', 'shape', 'in_shop', 'members_only'])]
 class Item extends Model
 {
     /** @use HasFactory<ItemFactory> */
@@ -49,6 +50,7 @@ class Item extends Model
             'deep' => 'integer',
             'height' => 'integer',
             'floor' => 'boolean',
+            'shape' => 'array',
             'in_shop' => 'boolean',
             'members_only' => 'boolean',
         ];
@@ -75,13 +77,13 @@ class Item extends Model
      */
     public function footprintAt(int $x, int $y, int $rotation): Footprint
     {
-        return (new Footprint($x, $y, $this->wide, $this->deep))->turned($rotation);
+        return (new Footprint($x, $y, $this->wide, $this->deep, $this->shape))->turned($rotation);
     }
 
     /**
      * What the client is told about an item.
      *
-     * @return array{id: int, slug: string, name: string, description: string|null, slot: string, rarity: string, price: int, members_only: bool, furniture: array{wide: int, deep: int, height: int, floor: bool}|null}
+     * @return array{id: int, slug: string, name: string, description: string|null, slot: string, rarity: string, price: int, members_only: bool, furniture: array{wide: int, deep: int, height: int, floor: bool, shape: list<string>|null}|null}
      */
     public function toPayload(): array
     {
@@ -95,7 +97,7 @@ class Item extends Model
             'price' => $this->price,
             'members_only' => $this->members_only,
             'furniture' => $this->slot === ItemSlot::Furniture
-                ? ['wide' => $this->wide, 'deep' => $this->deep, 'height' => $this->height, 'floor' => $this->floor]
+                ? ['wide' => $this->wide, 'deep' => $this->deep, 'height' => $this->height, 'floor' => $this->floor, 'shape' => $this->shape]
                 : null,
         ];
     }

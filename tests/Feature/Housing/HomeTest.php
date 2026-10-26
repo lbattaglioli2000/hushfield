@@ -186,7 +186,7 @@ test('a piece covers every tile of its footprint, and nothing else may stand on 
 
     placeFurniture($seat, 0, 0)->assertOk()
         ->assertJsonPath('furniture.0.rotation', 0)
-        ->assertJsonPath('furniture.0.item.furniture', ['wide' => 2, 'deep' => 1, 'height' => 18, 'floor' => false]);
+        ->assertJsonPath('furniture.0.item.furniture', ['wide' => 2, 'deep' => 1, 'height' => 18, 'floor' => false, 'shape' => null]);
 
     placeFurniture(ownedPiece(), 1, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
     // A 2 × 2 piece whose back corner is clear but whose other tiles are not.
@@ -217,6 +217,43 @@ test('a quarter turn swaps how wide and how deep a piece is, and moving it keeps
 
     // A turn the server cannot have.
     placeFurniture($seat, 0, 0, 4)->assertUnprocessable()->assertJsonValidationErrors('rotation');
+});
+
+test('a shaped piece covers only its filled tiles: its empty corner stays open floor', function () {
+    $sofa = ownedPiece(2, 2, ['shape' => ['##', '#.']]);
+
+    placeFurniture($sofa, 0, 0)->assertOk()
+        ->assertJsonPath('furniture.0.item.furniture.shape', ['##', '#.']);
+
+    walkTo(1, 0)->assertStatus(422)->assertJsonPath('reason', 'unreachable');
+    walkTo(1, 1)->assertOk();
+    walkTo(3, 3)->assertOk();
+
+    placeFurniture(ownedPiece(), 1, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    placeFurniture(ownedPiece(), 0, 1)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    // A side table tucks into the corner.
+    placeFurniture(ownedPiece(), 1, 1)->assertOk();
+});
+
+test('a quarter turn turns a piece\'s shape with it', function () {
+    $sofa = ownedPiece(2, 2, ['shape' => ['##', '#.']]);
+    $table = ownedPiece();
+
+    // Turned once it is ## over .#, so its empty corner is (0, 1), not (1, 1).
+    placeFurniture($sofa, 0, 0, 1)->assertOk();
+    placeFurniture($table, 1, 1)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    placeFurniture($table, 0, 1)->assertOk();
+
+    // Turned three times it is #. over ##, onto the table; with the table moved, its empty corner is (1, 0).
+    placeFurniture($sofa, 0, 0, 3)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    placeFurniture($table, 4, 0)->assertOk();
+    placeFurniture($sofa, 0, 0, 3)->assertOk();
+    placeFurniture($table, 0, 1)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    placeFurniture($table, 1, 0)->assertOk();
+
+    // Turned twice it is .# over ##: its empty corner would be (0, 0), walled in.
+    placeFurniture($table, 4, 0)->assertOk();
+    placeFurniture($sofa, 0, 0, 2)->assertStatus(422)->assertJsonPath('reason', 'furniture_cuts_off');
 });
 
 test('players walk around furniture, never through it or onto it', function () {

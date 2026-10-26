@@ -136,6 +136,8 @@ export type Item = {
         height: number;
         /** Lies flat like a rug: walked over, and one other piece may stand on it. */
         floor: boolean;
+        /** Which of those tiles it covers, as a Footprint mask (['##', '#.'] for an L); null for all of them. */
+        shape: string[] | null;
     } | null;
 };
 

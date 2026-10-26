@@ -1,7 +1,7 @@
 import type { PlacedFurniture } from '../protocol/types';
 import type { Grid } from './astar';
 import type { Footprint } from './footprint';
-import { covers, tilesOf } from './footprint';
+import { covers, mirrored, sameShape, tilesOf, turned } from './footprint';
 
 /* How furniture is sized, turned and drawn, and its art: resources/maps/README.md. */
 
@@ -12,13 +12,17 @@ import { covers, tilesOf } from './footprint';
  */
 export const FACINGS = 4;
 
-/** How big a furniture item is, before any turn. */
-export type FurnitureSize = { wide: number; deep: number };
+/** How big a furniture item is, and its shape (a Footprint mask) if it is not a plain block, before any turn. */
+export type FurnitureSize = {
+    wide: number;
+    deep: number;
+    shape?: string[] | null;
+};
 
 /**
  * The tiles an item covers with its back corner at (x, y), turned `rotation`
- * quarter turns: a quarter turn swaps how wide and how deep it is. Mirrors
- * App\Domain\Housing\Footprint.
+ * quarter turns: a quarter turn swaps how wide and how deep it is, and turns
+ * its shape. Mirrors Item::footprintAt.
  */
 export function footprintOf(
     size: FurnitureSize,
@@ -26,9 +30,10 @@ export function footprintOf(
     y: number,
     rotation: number,
 ): Footprint {
-    return rotation % 2 === 0
-        ? { x, y, wide: size.wide, deep: size.deep }
-        : { x, y, wide: size.deep, deep: size.wide };
+    return turned(
+        { x, y, wide: size.wide, deep: size.deep, mask: size.shape },
+        rotation,
+    );
 }
 
 /** A placed piece's footprint. Items from before footprints existed stand on one tile. */
@@ -87,16 +92,23 @@ export function pieceAt(
  * to right turns lower left into lower right and upper left into upper
  * right, so facing r mirrors facing 3 − r. Failing that it borrows the
  * opposite facing, the same shape seen from the wrong side, or mirrors that.
- * Null when there is no art at all, and a placeholder is drawn instead.
+ *
+ * A stand-in must stand on the same tiles. A plain block always does; a
+ * shaped one (an L, say) only when the borrowed image, flipped if it is,
+ * covers the same tiles as the piece as it is turned, so most shapes need
+ * their own image for most facings. Null when nothing fits, and a
+ * placeholder is drawn instead.
  */
 export function facingArt(
     slug: string,
     rotation: number,
     has: (name: string) => boolean,
+    size: FurnitureSize = { wide: 1, deep: 1 },
 ): { name: string; mirrored: boolean } | null {
     const named = (facing: number) =>
         [`${slug}-${facing}`, ...(facing === 0 ? [slug] : [])].find(has) ??
         null;
+    const lies = (facing: number) => footprintOf(size, 0, 0, facing);
     const opposite = (rotation + 2) % FACINGS;
     const tries: Array<[number, boolean]> = [
         [rotation, false],
@@ -105,10 +117,13 @@ export function facingArt(
         [3 - opposite, true],
     ];
 
-    for (const [facing, mirrored] of tries) {
+    for (const [facing, flipped] of tries) {
         const name = named(facing);
+        const drawn = flipped ? mirrored(lies(facing)) : lies(facing);
 
-        if (name) return { name, mirrored };
+        if (name && sameShape(drawn, lies(rotation))) {
+            return { name, mirrored: flipped };
+        }
     }
 
     return null;
