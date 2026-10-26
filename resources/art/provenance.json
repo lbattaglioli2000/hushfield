@@ -1,0 +1,12 @@
+{
+    "art/tiles/stone.png": {
+        "by": "our artist",
+        "received": "2026-10-25",
+        "notes": "her first tile"
+    },
+    "art/tiles/grass.png": {
+        "by": "our artist",
+        "received": "2026-10-26",
+        "notes": "second, calmer grass"
+    }
+}

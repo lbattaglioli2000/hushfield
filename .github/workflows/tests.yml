@@ -50,6 +50,12 @@ jobs:
         with:
           persist-credentials: false
 
+      # Art and audio sources stay small; anything bigger belongs in the masters bucket (docs/assets-plan.md §10).
+      - name: No source files over 1 MB
+        run: |
+          big=$(find resources/art resources/audio -type f -size +1024k 2>/dev/null || true)
+          if [ -n "$big" ]; then echo "Over 1 MB, move to the masters bucket:"; echo "$big"; exit 1; fi
+
       - name: Setup PHP
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
