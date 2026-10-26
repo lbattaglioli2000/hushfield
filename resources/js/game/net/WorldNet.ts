@@ -77,6 +77,8 @@ export class WorldNet {
     private heartbeat: ReturnType<typeof setInterval> | null = null;
     private destroyed = false;
     private resyncing: Promise<void> | null = null;
+    /** The manifest version this tab loaded its art from; null until the manifest is in. */
+    assetsVersion: string | null = null;
 
     constructor(
         private readonly config: NetConfig,
@@ -386,6 +388,16 @@ export class WorldNet {
 
     private applySnapshot(snapshot: Snapshot, sentAtMs: number): void {
         if (!this.checkProtocol(snapshot.protocol)) return;
+
+        // Art changed since this tab loaded its own: a fresh page draws the new map with the new art.
+        if (
+            this.assetsVersion !== null &&
+            snapshot.assets_version !== this.assetsVersion
+        ) {
+            this.fail('please_reload', this.config.copy.please_reload);
+
+            return;
+        }
 
         this.clock.observe(snapshot.server_time_ms, sentAtMs);
         this.instance = snapshot.instance;

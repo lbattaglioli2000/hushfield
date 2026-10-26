@@ -17,10 +17,11 @@ final readonly class Snapshot
         public RoomInstance $instance,
         public int $serverTimeMs,
         public array $players,
+        public string $assetsVersion,
     ) {}
 
     /**
-     * @return array{protocol: int, server_time_ms: int, instance: array<string, mixed>, room: array<string, mixed>, home: array<string, mixed>|null, furniture: list<array<string, mixed>>, players: list<array<string, mixed>>}
+     * @return array{protocol: int, server_time_ms: int, assets_version: string, instance: array<string, mixed>, room: array<string, mixed>, home: array<string, mixed>|null, furniture: list<array<string, mixed>>, players: list<array<string, mixed>>}
      */
     public function toArray(): array
     {
@@ -30,6 +31,8 @@ final readonly class Snapshot
         return [
             'protocol' => Protocol::VERSION,
             'server_time_ms' => $this->serverTimeMs,
+            // The art this server draws with; a tab that booted with other art reloads.
+            'assets_version' => $this->assetsVersion,
             'instance' => [
                 'id' => $this->instance->id,
                 'number' => $this->instance->number,

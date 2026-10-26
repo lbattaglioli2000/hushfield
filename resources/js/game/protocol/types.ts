@@ -52,6 +52,8 @@ export type PlacedFurniture = {
 export type Snapshot = {
     protocol: number;
     server_time_ms: number;
+    /** The asset manifest version the server is drawing with. */
+    assets_version: string;
     instance: { id: number; number: number; label: string; channel: string };
     room: {
         slug: string;

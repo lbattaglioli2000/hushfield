@@ -201,6 +201,8 @@ export function startGame(
 
         if (destroyed) return;
 
+        net.assetsVersion = manifest.version;
+
         scene = new RoomScene(net, bus, {
             manifest,
             refetchManifest: fetchManifest,

@@ -2,6 +2,7 @@
 
 namespace App\Actions\World;
 
+use App\Domain\Assets\AssetIndex;
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\Clock;
 use App\Domain\World\PlayerState;
@@ -19,6 +20,7 @@ final readonly class BuildSnapshot
     public function __construct(
         private InstanceMembers $members,
         private PositionStore $positions,
+        private AssetIndex $assets,
     ) {}
 
     public function __invoke(User $viewer, RoomInstance $instance): Snapshot
@@ -36,6 +38,6 @@ final readonly class BuildSnapshot
             ->map(fn (User $user): PlayerState => new PlayerState($user, $paths[$user->id]))
             ->all());
 
-        return new Snapshot($instance, $now, $players);
+        return new Snapshot($instance, $now, $players, $this->assets->current()['version']);
     }
 }

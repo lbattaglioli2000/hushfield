@@ -24,6 +24,8 @@ test('the snapshot describes the instance and every player in it', function () {
     $response->assertOk()
         ->assertJsonPath('protocol', 1)
         ->assertJsonPath('server_time_ms', now()->getTimestampMs())
+        // Clients compare it with the manifest they loaded their art from.
+        ->assertJsonPath('assets_version', $this->getJson(route('assets.manifest'))->json('version'))
         ->assertJsonPath('instance.id', $instance->id)
         ->assertJsonPath('instance.number', 1)
         ->assertJsonPath('instance.channel', "room.{$instance->id}")
