@@ -10,7 +10,7 @@ use App\Models\Home;
 use App\Models\User;
 
 /**
- * Staff put away every piece of furniture in a home and close it to visitors,
+ * Staff put away every piece of furniture in a home, house and yard, and close it to visitors,
  * for an arrangement that breaks the rules. The owner keeps their items. Audited.
  */
 final readonly class ResetHome
@@ -23,7 +23,9 @@ final readonly class ResetHome
         $home->forceFill(['visitors' => HomeVisitors::Closed])->save();
         $shownOut = $this->setHomeVisitors->showOutUnwelcome($home);
 
-        WorldBroadcast::send(new FurnitureChanged($home->room_instance_id, []));
+        foreach ($home->instances()->pluck('id') as $instanceId) {
+            WorldBroadcast::send(new FurnitureChanged($instanceId, []));
+        }
 
         activity(AuditLog::Moderation)
             ->performedOn($home->owner)

@@ -50,6 +50,15 @@ function ownedPiece(int $wide = 1, int $deep = 1, array $attributes = []): Item
     return tap(Item::factory()->furniture()->create(['wide' => $wide, 'deep' => $deep, ...$attributes]), fn (Item $item) => own(test()->owner, $item));
 }
 
+/** Walks the resident through a door of the room they are in, from the door's tile. */
+function goThrough(User $user, string $exit, int $x, int $y)
+{
+    standAt($user, $x, $y);
+
+    return asResident($user, $user->worldSession->session_token)
+        ->postJson(route('world.instances.exit', ['instance' => $user->fresh()->last_room_instance_id, 'exit' => $exit]));
+}
+
 function walkTo(int $x, int $y)
 {
     return asResident(test()->owner, test()->ownerToken)
@@ -170,6 +179,7 @@ test('furniture is refused off the floor, on doors and arrivals, on top of other
 ]);
 
 // test-home is 5 × 5 tiles, all floor. The door is at (2, 4), its arrival point at (2, 3), and the owner stands at the spawn (2, 2).
+// Its back door to the yard is at (4, 3), its arrival point at (3, 3). test-yard is 4 × 4, all grass, with its door back in at (0, 2).
 
 test('a piece covers every tile of its footprint, and nothing else may stand on any of them', function () {
     $seat = ownedPiece(2, 1);
@@ -299,4 +309,87 @@ test('empty homes are never closed by the instance sweep', function () {
     app(CloseEmptyInstances::class)();
 
     expect($this->home->instance->fresh()->is_open)->toBeTrue();
+});
+
+test('the back door leads to the yard of the home you are in, and its door back into that same house', function () {
+    importRoom('test-yard');
+    $this->home->update(['visitors' => HomeVisitors::Everyone]);
+    $guest = resident(['username' => 'Moth']);
+    visitHome($guest, null)->assertOk()->assertJsonPath('snapshot.home.owner', 'Moth');
+    asResident($guest, $guest->worldSession->session_token)
+        ->postJson(route('world.rooms.join', $this->residence), ['instance_id' => $this->home->room_instance_id])
+        ->assertOk();
+
+    $own = goThrough($this->owner, 'yard', 4, 3)->assertOk()
+        ->assertJsonPath('snapshot.room.slug', 'test-yard')
+        ->assertJsonPath('snapshot.room.kind', 'yard')
+        ->assertJsonPath('snapshot.room.frequency', 88.3)
+        ->assertJsonPath('snapshot.home.owner_id', $this->owner->id)
+        ->assertJsonPath('snapshot.instance.label', "Wren's yard")
+        ->assertJsonPath('snapshot.players.0.path', [[1, 2]]);
+
+    // The guest has a home of their own, but the back door of Wren's house leads to Wren's yard.
+    goThrough($guest, 'yard', 4, 3)->assertOk()
+        ->assertJsonPath('snapshot.instance.id', $own->json('snapshot.instance.id'))
+        ->assertJsonPath('snapshot.home.owner', 'Wren');
+
+    goThrough($guest, 'house', 0, 2)->assertOk()
+        ->assertJsonPath('snapshot.instance.id', $this->home->room_instance_id)
+        ->assertJsonPath('snapshot.home.owner', 'Wren');
+
+    expect($this->home->instances()->count())->toBe(2)
+        ->and($this->members->contains($own->json('snapshot.instance.id'), $this->owner->id))->toBeTrue();
+});
+
+test('the yard follows the home\'s visitor setting', function () {
+    $yardRoom = importRoom('test-yard');
+    $yard = goThrough($this->owner, 'yard', 4, 3)->assertOk()->json('snapshot.instance.id');
+    $stranger = resident();
+
+    // A closed home's yard is closed too, however it is asked for.
+    foreach ([$this->home->room_instance_id, $yard] as $instanceId) {
+        asResident($stranger, startSession($stranger))
+            ->postJson(route('world.rooms.join', $yardRoom), ['instance_id' => $instanceId])
+            ->assertForbidden()
+            ->assertJsonPath('reason', 'home_closed');
+    }
+
+    // Opened, a guest walks out to it; closed again, they are shown out of the yard as well.
+    $this->home->update(['visitors' => HomeVisitors::Everyone]);
+    $guest = resident();
+    visitHome($guest, $this->home->room_instance_id)->assertOk();
+    goThrough($guest, 'yard', 4, 3)->assertOk()->assertJsonPath('snapshot.instance.id', $yard);
+
+    asResident($this->owner, $this->ownerToken)->postJson(route('world.home.visitors'), ['visitors' => 'closed'])->assertOk();
+
+    expect($this->members->all($yard))->toBe([$this->owner->id]);
+});
+
+test('furniture placed in the yard stays in the yard', function () {
+    importRoom('test-yard');
+    $chair = ownedPiece(attributes: ['slug' => 'chair']);
+    $fern = ownedPiece(attributes: ['slug' => 'fern']);
+    placeFurniture($chair, 1, 1)->assertOk();
+
+    $yard = goThrough($this->owner, 'yard', 4, 3)->assertOk()->json('snapshot.instance.id');
+
+    // Out here the floor is the yard's: the yard's own door is refused, the house's back door tile is not.
+    placeFurniture($fern, 0, 2)->assertStatus(422)->assertJsonPath('reason', 'furniture_in_doorway');
+    placeFurniture($fern, 3, 3)->assertOk()->assertJsonCount(1, 'furniture')->assertJsonPath('furniture.0.item.slug', 'fern');
+
+    asResident($this->owner, $this->ownerToken)->getJson(route('world.instances.snapshot', $yard))
+        ->assertJsonPath('furniture', fn (array $placed): bool => collect($placed)->pluck('item.slug')->all() === ['fern']);
+
+    expect(collect($this->home->instance->furniturePayload())->pluck('item.slug')->all())->toBe(['chair'])
+        ->and(HomeFurniture::query()->whereRelation('inventoryItem', 'item_id', $fern->id)->sole()->room_instance_id)->toBe($yard)
+        ->and(HomeFurniture::query()->whereRelation('inventoryItem', 'item_id', $chair->id)->sole()->room_instance_id)->toBe($this->home->room_instance_id);
+
+    // House and yard share one allowance.
+    config(['hushfield.housing.max_furniture' => 2]);
+    placeFurniture(ownedPiece(), 2, 2)->assertStatus(409)->assertJsonPath('reason', 'furniture_full');
+
+    // Carried out of the house, the chair leaves it.
+    placeFurniture($chair, 2, 0)->assertOk()->assertJsonCount(2, 'furniture');
+    expect($this->home->instance->furniture()->count())->toBe(0);
+    Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$this->home->room_instance_id}" && $event->furniture === []);
 });

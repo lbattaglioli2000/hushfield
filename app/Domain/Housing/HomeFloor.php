@@ -2,7 +2,6 @@
 
 namespace App\Domain\Housing;
 
-use App\Domain\World\MapExit;
 use App\Domain\World\WalkabilityGrid;
 use App\Domain\World\WalkabilityGridRepository;
 use App\Models\HomeFurniture;
@@ -24,7 +23,7 @@ final readonly class HomeFloor
             return $grid;
         }
 
-        return self::without($grid, $instance->home->furniture()->with('inventoryItem.item')->get()->all());
+        return self::without($grid, $instance->furniture()->with('inventoryItem.item')->get()->all());
     }
 
     /**
@@ -44,16 +43,20 @@ final readonly class HomeFloor
     }
 
     /**
-     * Whether every walkable tile can still be reached from the door. Diagonal
-     * steps never cut corners, so they reach nothing that straight steps can't.
+     * Whether every walkable tile, every other door's included, can still be
+     * reached from a door. Starting from one door keeps a house's front and back
+     * doors joined. Diagonal steps never cut corners, so they reach nothing that
+     * straight steps can't.
      */
     public static function allReachableFromDoor(WalkabilityGrid $grid): bool
     {
-        if ($grid->exits === []) {
+        $door = array_values($grid->exits)[0] ?? null;
+
+        if ($door === null) {
             return true;
         }
 
-        $queue = array_values(array_map(fn (MapExit $exit): array => [$exit->x, $exit->y], $grid->exits));
+        $queue = [[$door->x, $door->y]];
         $seen = [];
 
         foreach ($queue as [$x, $y]) {

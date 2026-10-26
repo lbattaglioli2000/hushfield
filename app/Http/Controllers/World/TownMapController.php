@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\World;
 
 use App\Domain\Presence\InstanceMembers;
+use App\Domain\World\RoomKind;
 use App\Domain\World\WalkabilityGridRepository;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\WorldResponse;
@@ -20,7 +21,8 @@ final class TownMapController extends Controller
 {
     public function __invoke(WalkabilityGridRepository $grids, InstanceMembers $members): JsonResponse
     {
-        $rooms = Room::query()->where('is_active', true)->whereNotNull('map_version')->orderBy('name')->get()->keyBy('slug');
+        // Yards are reached through their house's back door, not from the map.
+        $rooms = Room::query()->where('is_active', true)->whereNotNull('map_version')->whereNot('kind', RoomKind::Yard)->orderBy('name')->get()->keyBy('slug');
 
         // A door joins two rooms whichever side it is on.
         /** @var array<string, list<string>> $links */

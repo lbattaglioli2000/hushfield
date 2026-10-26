@@ -21,7 +21,7 @@ it reads:
 - **`spawns`** (object layer, required): points where players appear.
 - **`exits`**, **`arrivals`**, **`fixtures`**, **`buildings`** (object layers,
   optional): see below.
-- **Map properties**: `name`, `kind` (`public` or `residence`), `capacity`,
+- **Map properties**: `name`, `kind` (`public`, `residence` or `yard`), `capacity`,
   `frequency` (the room's station on the tuning dial, in MHz),
   `home_frequency` (a residence's homes on the dial), `town_x`, `town_y`
   (its cell on the town map; without them the room is listed under the map),
@@ -30,6 +30,13 @@ it reads:
 
 Tiled measures objects on isometric maps in tile-height (32 px) units on both
 axes, so a point at (96, 64) is tile (3, 2).
+
+A home is a house and a yard: one instance each of the `residence` map and
+the `yard` map, both belonging to the one resident and both following their
+visitor setting. Furniture goes in either. A door between them works like any
+other, but it keeps to the home the player is in, so a friend's back door
+leads to that friend's yard. A yard has no cell on the town map and no
+`frequency`; give it the house's `home_frequency`.
 
 ## Walls
 

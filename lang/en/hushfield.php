@@ -33,6 +33,7 @@ return [
     'residences_empty' => 'No doors are open right now. Everyone is in, or pretending to be.',
     'decorate_hint' => 'Choose a piece, then a spot on the floor for its back corner. Turn placed pieces from this list. Tap a placed piece to put it away.',
     'home_label' => ":name's residence",
+    'yard_label' => ":name's yard",
     'home_closed' => 'That residence is not receiving visitors right now. Hearthmore Group respects a closed door.',
     'home_full' => 'That residence is full. There is a limit to how many guests a floor can bear.',
     'home_door_closed' => 'Your host has closed their door. You have been shown back to the square.',

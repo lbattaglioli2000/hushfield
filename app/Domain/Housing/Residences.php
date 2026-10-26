@@ -12,14 +12,15 @@ use App\Models\User;
 
 /**
  * Hearthmore Residences: every resident's home is an instance of the one
- * residence room, created the first time they need it.
+ * residence room (the house), created the first time they need it, and an
+ * instance of the yard room behind it, created the first time anyone steps out.
  */
 final readonly class Residences
 {
     public function __construct(private InstanceAllocator $allocator) {}
 
     /**
-     * The residence room, if its map has been imported.
+     * The residence room, the house every home has, if its map has been imported.
      */
     public function room(): ?Room
     {
@@ -48,7 +49,10 @@ final readonly class Residences
                 'is_open' => true,
             ]);
 
-            return Home::query()->create(['user_id' => $owner->id, 'room_instance_id' => $instance->id, 'visitors' => HomeVisitors::Closed]);
+            $home = Home::query()->create(['user_id' => $owner->id, 'room_instance_id' => $instance->id, 'visitors' => HomeVisitors::Closed]);
+            $instance->forceFill(['home_id' => $home->id])->save();
+
+            return $home;
         });
 
         $owner->setRelation('home', $home);
@@ -57,21 +61,30 @@ final readonly class Residences
     }
 
     /**
-     * Which home a resident entering the residence room goes to: the preferred
-     * one when they may enter it, their own when none is given.
+     * Which home a resident entering the house or the yard goes to, and its
+     * instance of that room. The preferred instance names the home: one they
+     * asked to visit, or the room of a home they are leaving, so the back door
+     * leads to that same home's yard and back. They must be admitted to it.
+     * Without one, they go to their own.
      */
-    public function instanceFor(User $visitor, Room $residence, ?RoomInstance $preferred): RoomInstance
+    public function instanceFor(User $visitor, Room $room, ?RoomInstance $preferred): RoomInstance
     {
-        $home = $preferred?->room_id === $residence->id ? $preferred->home : null;
+        $home = $preferred !== null && $preferred->room->isResidence() ? $preferred->home : null;
 
         if ($home === null) {
-            $home = $this->homeOf($visitor, $residence);
+            $home = $this->homeOf($visitor, $this->room() ?? throw WorldActionRefused::residencesClosed());
         } elseif (! $home->admits($visitor)) {
             throw WorldActionRefused::homeClosed();
         }
 
-        $instance = $home->instance;
-        $instance->setRelation('room', $residence);
+        // A yard is laid out the first time anyone steps into it, its number allocated under the room's lock.
+        $instance = $room->instances()->where('home_id', $home->id)->first()
+            ?? $this->allocator->lockFor($room->id)->block(5, fn (): RoomInstance => $room->instances()->firstOrCreate(
+                ['home_id' => $home->id],
+                ['number' => ((int) $room->instances()->max('number')) + 1, 'is_open' => true],
+            ));
+
+        $instance->setRelation('room', $room);
         $instance->setRelation('home', $home);
 
         return $instance;

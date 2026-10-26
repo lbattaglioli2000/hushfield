@@ -34,21 +34,27 @@ final readonly class SetHomeVisitors
     }
 
     /**
-     * Everyone in the home whom it no longer admits leaves for the default room.
+     * Everyone in the home, house or yard, whom it no longer admits leaves for the default room.
      */
     public function showOutUnwelcome(Home $home): int
     {
-        $unwelcome = User::query()
-            ->with('worldSession')
-            ->whereIn('id', $this->members->all($home->room_instance_id))
-            ->whereKeyNot($home->user_id)
-            ->get()
-            ->reject(fn (User $visitor): bool => $home->admits($visitor));
+        $shownOut = 0;
 
-        foreach ($unwelcome as $visitor) {
-            ($this->relocatePlayer)($visitor, $home->instance, (string) __('hushfield.home_door_closed'), roomSlug: (string) config('hushfield.world.default_room'));
+        foreach ($home->instances as $instance) {
+            $unwelcome = User::query()
+                ->with('worldSession')
+                ->whereIn('id', $this->members->all($instance->id))
+                ->whereKeyNot($home->user_id)
+                ->get()
+                ->reject(fn (User $visitor): bool => $home->admits($visitor));
+
+            foreach ($unwelcome as $visitor) {
+                ($this->relocatePlayer)($visitor, $instance, (string) __('hushfield.home_door_closed'), roomSlug: (string) config('hushfield.world.default_room'));
+            }
+
+            $shownOut += $unwelcome->count();
         }
 
-        return $unwelcome->count();
+        return $shownOut;
     }
 }

@@ -11,9 +11,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
- * A resident's home: their own instance of the residence room. Closed to
- * visitors unless the owner opens it to friends or to everyone. Created by
- * App\Domain\Housing\Residences.
+ * A resident's home: their own instance of the residence room (the house),
+ * and of the yard room behind it once they first step out. Closed to visitors
+ * unless the owner opens it to friends or to everyone; the rule covers house
+ * and yard alike. Created by App\Domain\Housing\Residences.
  *
  * @property int $id
  * @property int $user_id
@@ -22,7 +23,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User $owner
- * @property-read RoomInstance $instance
+ * @property-read RoomInstance $instance The house.
+ * @property-read Collection<int, RoomInstance> $instances The house and, once visited, the yard.
  * @property-read Collection<int, HomeFurniture> $furniture
  */
 #[Fillable(['user_id', 'room_instance_id', 'visitors'])]
@@ -47,10 +49,29 @@ class Home extends Model
         return $this->belongsTo(RoomInstance::class, 'room_instance_id');
     }
 
-    /** @return HasMany<HomeFurniture, $this> */
+    /** @return HasMany<RoomInstance, $this> */
+    public function instances(): HasMany
+    {
+        return $this->hasMany(RoomInstance::class);
+    }
+
+    /**
+     * Every piece placed in the home, house and yard together.
+     *
+     * @return HasMany<HomeFurniture, $this>
+     */
     public function furniture(): HasMany
     {
         return $this->hasMany(HomeFurniture::class);
+    }
+
+    /**
+     * The room of the home someone is standing in: the yard while they are out
+     * in it, otherwise the house.
+     */
+    public function partWith(User $user): RoomInstance
+    {
+        return $this->instances()->whereKey($user->last_room_instance_id)->first() ?? $this->instance;
     }
 
     public function admits(User $user): bool
@@ -75,17 +96,5 @@ class Home extends Model
             'owner' => $this->owner->username,
             'visitors' => $this->visitors->value,
         ];
-    }
-
-    /**
-     * Every placed piece, as clients draw them.
-     *
-     * @return list<array{x: int, y: int, rotation: int, item: array<string, mixed>}>
-     */
-    public function furniturePayload(): array
-    {
-        return array_values($this->furniture()->with('inventoryItem.item')->orderBy('id')->get()
-            ->map(fn (HomeFurniture $piece): array => $piece->toPayload())
-            ->all());
     }
 }

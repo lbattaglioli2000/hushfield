@@ -51,9 +51,13 @@ class Room extends Model
         return $this->hasMany(RoomInstance::class);
     }
 
+    /**
+     * Whether the room is part of the residences: the house or the yard. Each
+     * of its instances belongs to one home and follows that home's visitor rule.
+     */
     public function isResidence(): bool
     {
-        return $this->kind === RoomKind::Residence;
+        return $this->kind === RoomKind::Residence || $this->kind === RoomKind::Yard;
     }
 
     public function getRouteKeyName(): string

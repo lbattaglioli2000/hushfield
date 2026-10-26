@@ -78,7 +78,7 @@ final class TiledMapParser
 
         $properties = $this->properties($map);
         $kind = RoomKind::tryFrom((string) ($properties['kind'] ?? RoomKind::Public->value))
-            ?? throw new InvalidMapException('The map property "kind" must be "public" or "residence".');
+            ?? throw new InvalidMapException('The map property "kind" must be "public", "residence" or "yard".');
         $capacity = $properties['capacity'] ?? null;
 
         if ($capacity !== null && (! is_int($capacity) || $capacity < 1)) {

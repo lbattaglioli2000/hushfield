@@ -17,13 +17,15 @@ use App\Exceptions\WorldActionRefused;
 use App\Models\Home;
 use App\Models\HomeFurniture;
 use App\Models\Item;
+use App\Models\RoomInstance;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Puts a furniture item the resident owns in their home, or moves or turns it
- * if it is already placed. Every tile it covers must be open floor, clear of
+ * Puts a furniture item the resident owns in the room of their home they are
+ * standing in, the house or the yard, or moves or turns it there if it is
+ * already placed. Every tile it covers must be open floor, clear of
  * doors and arrival points, and clear of other pieces, except that a rug may
  * carry one piece. Pieces that block walking may not cut any of the floor off
  * from the door, nor box in anyone standing where they land.
@@ -40,7 +42,7 @@ final readonly class PlaceFurniture
     /**
      * @param  int|null  $rotation  Quarter turns, 0–3. Null keeps a placed piece's turn, or 0 for a new one.
      */
-    public function __invoke(User $owner, Item $item, int $x, int $y, ?int $rotation = null): Home
+    public function __invoke(User $owner, Item $item, int $x, int $y, ?int $rotation = null): RoomInstance
     {
         $owned = $owner->inventory()->where('item_id', $item->id)->first();
 
@@ -49,21 +51,24 @@ final readonly class PlaceFurniture
         }
 
         $residence = $this->residences->room() ?? throw WorldActionRefused::residencesClosed();
-        $grid = $this->grids->forRoom($residence);
         $home = $this->residences->homeOf($owner, $residence);
+        $instance = $home->partWith($owner);
+        $grid = $this->grids->forRoom($instance->room);
 
         // One arrangement change at a time per home, so two requests can't both pass the checks.
-        DB::transaction(function () use ($home, $owned, $item, $x, $y, $rotation, $grid): void {
+        $from = DB::transaction(function () use ($home, $instance, $owned, $item, $x, $y, $rotation, $grid): ?int {
             Home::query()->whereKey($home->id)->lockForUpdate()->first();
 
-            /** @var Collection<int, HomeFurniture> $others */
-            $others = $home->furniture()->with('inventoryItem.item')->where('inventory_item_id', '!=', $owned->id)->get();
+            /** @var Collection<int, HomeFurniture> $placed */
+            $placed = $home->furniture()->with('inventoryItem.item')->where('inventory_item_id', '!=', $owned->id)->get();
             $current = HomeFurniture::query()->where('home_id', $home->id)->where('inventory_item_id', $owned->id)->first();
 
-            if ($current === null && $others->count() >= (int) config('hushfield.housing.max_furniture')) {
+            // House and yard share one allowance.
+            if ($current === null && $placed->count() >= (int) config('hushfield.housing.max_furniture')) {
                 throw WorldActionRefused::furnitureFull();
             }
 
+            $others = $placed->where('room_instance_id', $instance->id);
             $rotation ??= $current->rotation ?? 0;
             $footprint = $item->footprintAt($x, $y, $rotation);
 
@@ -71,18 +76,26 @@ final readonly class PlaceFurniture
             $this->ensureClear($footprint, $item, $others);
 
             if (! $item->floor) {
-                $this->ensureNothingCutOff($footprint, $home, $others, $grid);
+                $this->ensureNothingCutOff($footprint, $instance, $others, $grid);
             }
 
             HomeFurniture::query()->updateOrCreate(
                 ['inventory_item_id' => $owned->id],
-                ['home_id' => $home->id, 'x' => $x, 'y' => $y, 'rotation' => $rotation],
+                ['home_id' => $home->id, 'room_instance_id' => $instance->id, 'x' => $x, 'y' => $y, 'rotation' => $rotation],
             );
+
+            return $current?->room_instance_id;
         });
 
-        WorldBroadcast::send(new FurnitureChanged($home->room_instance_id, $home->furniturePayload()));
+        WorldBroadcast::send(new FurnitureChanged($instance->id, $instance->furniturePayload()));
 
-        return $home;
+        // Carried between house and yard: the room it left changes too.
+        if ($from !== null && $from !== $instance->id) {
+            $left = RoomInstance::query()->findOrFail($from);
+            WorldBroadcast::send(new FurnitureChanged($left->id, $left->furniturePayload()));
+        }
+
+        return $instance;
     }
 
     private function ensureOnFloor(Footprint $footprint, WalkabilityGrid $grid): void
@@ -120,7 +133,7 @@ final readonly class PlaceFurniture
     /**
      * @param  Collection<int, HomeFurniture>  $others
      */
-    private function ensureNothingCutOff(Footprint $footprint, Home $home, Collection $others, WalkabilityGrid $grid): void
+    private function ensureNothingCutOff(Footprint $footprint, RoomInstance $instance, Collection $others, WalkabilityGrid $grid): void
     {
         $floor = HomeFloor::without($grid, $others)->withBlocked($footprint->tiles());
 
@@ -130,7 +143,7 @@ final readonly class PlaceFurniture
 
         $now = Clock::nowMs();
 
-        foreach ($this->positions->many($this->members->all($home->room_instance_id)) as $path) {
+        foreach ($this->positions->many($this->members->all($instance->id)) as $path) {
             $position = $path->positionAt($now);
 
             // Where they stand now, and where they will stop.

@@ -9,11 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * One owned furniture item placed in its owner's home, its back corner on
- * tile (x, y), turned `rotation` quarter turns.
+ * One owned furniture item placed in its owner's home, in the house or the
+ * yard (`room_instance_id`), its back corner on tile (x, y), turned
+ * `rotation` quarter turns.
  *
  * @property int $id
  * @property int $home_id
+ * @property int $room_instance_id
  * @property int $inventory_item_id
  * @property int $x
  * @property int $y
@@ -23,7 +25,7 @@ use Illuminate\Support\Carbon;
  * @property-read Home $home
  * @property-read InventoryItem $inventoryItem
  */
-#[Fillable(['home_id', 'inventory_item_id', 'x', 'y', 'rotation'])]
+#[Fillable(['home_id', 'room_instance_id', 'inventory_item_id', 'x', 'y', 'rotation'])]
 class HomeFurniture extends Model
 {
     protected $table = 'home_furniture';

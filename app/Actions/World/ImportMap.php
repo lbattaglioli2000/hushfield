@@ -44,7 +44,7 @@ final readonly class ImportMap
             'spawn_y' => $map->grid->spawns[0][1],
         ])->save();
 
-        // A residence's instances are homes, created one per resident as they move in.
+        // Houses and yards belong to homes: their instances are created one per resident as they need them.
         if (! $room->isResidence()) {
             $room->instances()->firstOrCreate(['number' => 1], ['is_open' => true]);
         }

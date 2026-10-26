@@ -4,6 +4,7 @@ use App\Domain\World\ImportedMap;
 use App\Domain\World\InvalidMapException;
 use App\Domain\World\MapFiles;
 use App\Domain\World\Pathfinder;
+use App\Domain\World\RoomKind;
 use App\Domain\World\TiledMapParser;
 use App\Domain\World\WalkabilityGridRepository;
 use App\Models\Room;
@@ -94,13 +95,16 @@ test('every committed map imports with its own place on the town map, every door
     expect(Room::query()->pluck('slug')->sort()->values()->all())->toBe(collect(array_keys($maps))->sort()->values()->all())
         ->and(Room::query()->where('slug', 'hearthmore-residences')->sole()->only('frequency', 'home_frequency'))->toBe(['frequency' => 104.8, 'home_frequency' => 88.3]);
 
-    $cells = collect($maps)->map(fn (ImportedMap $map): ?string => $map->townPosition === null ? null : implode(',', $map->townPosition));
+    // A yard is reached through its house's back door, and plays on the house's station.
+    $places = collect($maps)->reject(fn (ImportedMap $map): bool => $map->kind === RoomKind::Yard);
+    $cells = $places->map(fn (ImportedMap $map): ?string => $map->townPosition === null ? null : implode(',', $map->townPosition));
 
-    expect($cells->filter()->unique()->count())->toBe(count($maps), 'every room has its own square on the town map')
+    expect($cells->filter()->unique()->count())->toBe($places->count(), 'every room but a yard has its own square on the town map')
+        ->and($maps['hearthmore-yard']->homeFrequency)->toBe(88.3)
         ->and(Room::query()->where('slug', 'whsh')->sole()->only('town_x', 'town_y'))->toBe(['town_x' => 5, 'town_y' => 3]);
 
     foreach ($maps as $slug => $map) {
-        expect($map->frequency)->not->toBeNull("{$slug} has no frequency on the dial");
+        expect($map->frequency ?? ($map->kind === RoomKind::Yard ? $map->homeFrequency : null))->not->toBeNull("{$slug} has no frequency on the dial");
 
         foreach ($map->grid->exits as $exit) {
             $door = "{$slug} → {$exit->name}";

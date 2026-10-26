@@ -22,8 +22,8 @@ final class PlaceFurnitureController extends Controller
 
         /** @var User $user */
         $user = $request->user();
-        $home = $placeFurniture($user, $item, $request->integer('x'), $request->integer('y'), $request->filled('rotation') ? $request->integer('rotation') : null);
+        $instance = $placeFurniture($user, $item, $request->integer('x'), $request->integer('y'), $request->filled('rotation') ? $request->integer('rotation') : null);
 
-        return WorldResponse::json(['furniture' => $home->furniturePayload()]);
+        return WorldResponse::json(['furniture' => $instance->furniturePayload()]);
     }
 }

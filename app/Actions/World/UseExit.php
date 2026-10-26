@@ -13,7 +13,8 @@ use App\Models\RoomInstance;
 use App\Models\User;
 
 /**
- * Takes the player through a door on their map into the room it leads to.
+ * Takes the player through a door on their map into the room it leads to,
+ * and between a home's house and yard, into that same home's other room.
  * They must be heading for one of the door's tiles and within a step of it: the client asks
  * as its own avatar arrives, which can be a moment ahead of the server's clock.
  */
@@ -44,6 +45,7 @@ final readonly class UseExit
         $target = Room::query()->where('slug', $exit->to)->where('is_active', true)->first()
             ?? throw WorldActionRefused::exitClosed();
 
-        return ($this->joinRoom)($user, $target, arrival: $exit->arrive);
+        // The room left behind is the preferred instance: from inside a home, the doors between house and yard keep to that home.
+        return ($this->joinRoom)($user, $target, $instance, $exit->arrive);
     }
 }

@@ -26,7 +26,7 @@ export type PlayerState = PathState & {
     avatar: AvatarLook;
 };
 
-export type RoomKind = 'public' | 'residence';
+export type RoomKind = 'public' | 'residence' | 'yard';
 
 export type HomeVisitors = 'closed' | 'friends' | 'everyone';
 

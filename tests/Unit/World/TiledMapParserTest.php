@@ -74,7 +74,8 @@ it('reads doors, arrival points and room properties', function () {
         ->and($map->capacity)->toBe(3)
         ->and($map->townPosition)->toBe([1, 1])
         ->and($map->grid->exits['door']->toArray())->toBe(['name' => 'door', 'x' => 2, 'y' => 4, 'wide' => 1, 'deep' => 1, 'to' => 'test-lane', 'arrive' => 'home'])
-        ->and($map->grid->arrivals)->toBe(['door' => [2, 3]])
+        ->and($map->grid->exits['yard']->toArray())->toBe(['name' => 'yard', 'x' => 4, 'y' => 3, 'wide' => 1, 'deep' => 1, 'to' => 'test-yard', 'arrive' => 'house'])
+        ->and($map->grid->arrivals)->toBe(['door' => [2, 3], 'yard' => [3, 3]])
         ->and($map->grid->entryPoint('door'))->toBe([2, 3])
         ->and($map->grid->entryPoint('cellar'))->toBe([2, 2])
         ->and((new TiledMapParser)->parse(fixtureMap('test-square'))->kind)->toBe(RoomKind::Public)
@@ -117,8 +118,8 @@ it('rejects doors and arrival points that would trap or bounce players', functio
 it('reads a wide door drawn as one rectangle: every tile is the door, and it walks through as one', function () {
     $map = json_decode(fixtureMap('test-home'), true);
     $layers = collect($map['layers'])->keyBy('name')->all();
-    // Tiled rectangles on isometric maps are in tile-height pixels: three tiles along x from (1, 4).
-    $layers['exits']['objects'][0] = [...$layers['exits']['objects'][0], 'x' => 32.0, 'y' => 128.0, 'width' => 96.0, 'height' => 32.0];
+    // Tiled rectangles on isometric maps are in tile-height pixels: three tiles along x from (1, 4). The back door goes.
+    $layers['exits']['objects'] = [[...$layers['exits']['objects'][0], 'x' => 32.0, 'y' => 128.0, 'width' => 96.0, 'height' => 32.0]];
     unset($layers['exits']['objects'][0]['point']);
     $map['layers'] = array_values($layers);
 
@@ -167,7 +168,7 @@ it('rejects room properties it does not understand', function (array $property, 
     expect(fn () => (new TiledMapParser)->parse(json_encode($map)))
         ->toThrow(InvalidMapException::class, $message);
 })->with([
-    'unknown kind' => [['name' => 'kind', 'type' => 'string', 'value' => 'castle'], '"kind" must be "public" or "residence"'],
+    'unknown kind' => [['name' => 'kind', 'type' => 'string', 'value' => 'castle'], '"kind" must be "public", "residence" or "yard"'],
     'zero capacity' => [['name' => 'capacity', 'type' => 'int', 'value' => 0], '"capacity" must be a positive integer'],
     'frequency below the band' => [['name' => 'frequency', 'type' => 'float', 'value' => 87.4], '"frequency" must be an FM frequency'],
     'frequency above the band' => [['name' => 'frequency', 'type' => 'float', 'value' => 108.6], '"frequency" must be an FM frequency'],
