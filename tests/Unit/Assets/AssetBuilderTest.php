@@ -42,9 +42,9 @@ afterEach(function () {
 });
 
 it('packs the tile sheet in slot order, her tiles doubled and the rest as placeholders', function () {
-    scratchArt();
+    $root = scratchArt();
     $this->artisan('hushfield:build-assets')
-        ->expectsOutputToContain('tiles/stone/full has no art yet: packing tiles/stone/half.png in its slot')
+        ->doesntExpectOutputToContain('has no art yet')
         ->assertSuccessful();
 
     $sheet = builtImage('tiles');
@@ -75,15 +75,23 @@ it('packs the tile sheet in slot order, her tiles doubled and the rest as placeh
 
     expect([$sheet->width, $sheet->height])->toBe([1024, 64])
         ->and($mismatched)->toBe(0)
-        // Stone has only a half slab: it stands in for stone/full (slot 2) and fills its own slot (9).
-        ->and($sheet->crop(128, 0, 64, 64)->equals(Png::decode((string) file_get_contents(resource_path('art/tiles/stone/half.png')))->scale(2)))->toBeTrue()
-        ->and($sheet->crop(9 * 64, 0, 64, 64)->equals($sheet->crop(128, 0, 64, 64)))->toBeTrue()
+        // Stone's full cube in slot 2, its half slab in its own slot (9).
+        ->and($sheet->crop(128, 0, 64, 64)->equals(Png::decode((string) file_get_contents(resource_path('art/tiles/stone/full.png')))->scale(2)))->toBeTrue()
+        ->and($sheet->crop(9 * 64, 0, 64, 64)->equals(Png::decode((string) file_get_contents(resource_path('art/tiles/stone/half.png')))->scale(2)))->toBeTrue()
         // Sand is her art, doubled.
         ->and($sheet->crop(64, 0, 64, 64)->equals(Png::decode((string) file_get_contents(resource_path('art/tiles/sand/full.png')))->scale(2)))->toBeTrue()
         // Hedge has no art: a placeholder cube the shape of her grass, less its tufts.
         ->and(substr($shape(4 * 64), 16 * 64))->toBe(substr($shape(0), 16 * 64))
         // Past the last slot, nothing.
         ->and($sheet->crop(10 * 64, 0, 64, 64)->equals(Image::blank(64, 64)))->toBeTrue();
+
+    // Without its full cube, a type's half slab stands in for it, and the build says so.
+    File::delete("{$root}/art/tiles/stone/full.png");
+    $this->artisan('hushfield:build-assets')
+        ->expectsOutputToContain('tiles/stone/full has no art yet: packing tiles/stone/half.png in its slot')
+        ->assertSuccessful();
+
+    expect(builtImage('tiles')->crop(128, 0, 64, 64)->equals($sheet->crop(9 * 64, 0, 64, 64)))->toBeTrue();
 });
 
 /**
@@ -111,10 +119,8 @@ it('packs a half slab into a new slot, and checks each height has its own shape'
     $slots = json_decode(File::get("{$root}/art/tiles/tiles.json"));
     File::put("{$root}/art/tiles/tiles.json", json_encode([...$slots, 'grass/half', 'hedge/half']));
     File::put("{$root}/art/tiles/grass/half.png", slab(8));
-    File::put("{$root}/art/tiles/stone/full.png", slab(0));
     File::put("{$root}/art/provenance.json", '{"art/tiles/*/*.png": {"by": "our artist"}, "art/ui/*.png": {"by": "us"}}');
     $this->artisan('hushfield:build-assets')
-        ->doesntExpectOutputToContain('tiles/stone/full has no art yet')
         ->assertSuccessful();
     $count = count($slots);
 
@@ -135,8 +141,7 @@ it('packs a half slab into a new slot, and checks each height has its own shape'
         ->and($topRow($count + 1) - $topRow(4))->toBe(16)
         ->and($topRow(4))->toBe(0)
         ->and($sheet->alphaAt(($count + 1) * 64 + 32, 63))->toBe(255)
-        // Stone's own full cube replaces the half slab that stood in for it.
-        ->and($sheet->crop(128, 0, 64, 64)->equals(Png::decode(slab(0))->scale(2)))->toBeTrue();
+        ->and($topRow(2))->toBe(0);
 
     $wrong = [
         'stone/half.png' => [slab(0), 'too tall for a half slab'],

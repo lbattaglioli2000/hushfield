@@ -205,9 +205,9 @@ resources/art/tiles/
 - **The build checks** that nothing hangs below the bottom edge, that the
   sides reach it, and that the sides are the right height for the file's
   name. Grass tufts and the like may poke above the top face.
-- **A type with only a half slab** (stone, for now) has it packed into its
-  full slot as well, bottom-aligned, so it reads sunken; the build says so
-  each time. Drawing its `full.png` replaces it.
+- **A type with only a half slab** has it packed into its full slot as
+  well, bottom-aligned, so it reads sunken; the build says so each time.
+  Drawing its `full.png` replaces it.
 
 `resources/art/tiles/tiles.json` lists every tile, by type and height, in
 slot order, and slot n is GID n + 1 in every map:

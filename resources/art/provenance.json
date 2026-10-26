@@ -1,8 +1,13 @@
 {
+    "art/tiles/stone/full.png": {
+        "by": "our artist",
+        "received": "2026-10-26",
+        "notes": "stone redrawn as a full cube"
+    },
     "art/tiles/stone/half.png": {
         "by": "our artist",
         "received": "2026-10-25",
-        "notes": "her first tile, an 8-px half slab; stands in for stone/full until she redraws stone as a full cube"
+        "notes": "her first tile, an 8-px half slab"
     },
     "art/tiles/grass/full.png": {
         "by": "our artist",
