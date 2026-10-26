@@ -11,7 +11,8 @@ use JsonException;
  * tile is walkable) and an object layer named "spawns" with at least one
  * object on a walkable tile. Optional: object layers "exits", "arrivals",
  * "fixtures" and "buildings", and the map properties "name", "kind",
- * "capacity", "frequency", "home_frequency", "town_x", "town_y" and "walls".
+ * "capacity", "frequency", "home_frequency", "town_x", "town_y", "walls" and
+ * "wall_sides".
  * resources/maps/README.md describes each one.
  */
 final class TiledMapParser
@@ -85,7 +86,7 @@ final class TiledMapParser
             throw new InvalidMapException('The map property "capacity" must be a positive integer.');
         }
 
-        $walls = $this->walls($properties, $cells, $width, $height, $exits);
+        [$walls, $wallSides] = $this->walls($properties, $cells, $width, $height, $exits);
 
         return new ImportedMap(
             version: substr(hash('sha256', $contents), 0, 16),
@@ -98,40 +99,71 @@ final class TiledMapParser
             townPosition: $this->townPosition($properties),
             buildings: array_values($buildings),
             walls: $walls,
+            wallSides: $wallSides,
         );
     }
 
     /**
      * The wall style named by the "walls" property, or null for a room without
-     * walls. The walls stand on the back row and column, so only doors may be
-     * walkable there; anyone else would stand inside them.
+     * walls, and the back edges they stand on: both unless "wall_sides" names
+     * one, "left" (the column x = 0) or "right" (the row y = 0). Only doors may
+     * be walkable under the walls; anyone else would stand inside them.
      *
      * @param  array<string, mixed>  $properties
      * @param  array<string, MapExit>  $exits
+     * @return array{string|null, list<'left'|'right'>}
      */
-    private function walls(array $properties, string $cells, int $width, int $height, array $exits): ?string
+    private function walls(array $properties, string $cells, int $width, int $height, array $exits): array
     {
         $style = $properties['walls'] ?? null;
+        $sides = $properties['wall_sides'] ?? null;
 
         if ($style === null) {
-            return null;
+            if ($sides !== null) {
+                throw new InvalidMapException('The map property "wall_sides" needs a "walls" style to go with it.');
+            }
+
+            return [null, []];
         }
 
         if (! is_string($style) || ! preg_match('/^[a-z0-9-]+$/', $style)) {
             throw new InvalidMapException('The map property "walls" must name a wall style: a slug such as "plaster", which also names its art.');
         }
 
+        $sides = match ($sides ?? 'both') {
+            'both' => ['left', 'right'],
+            'left' => ['left'],
+            'right' => ['right'],
+            default => throw new InvalidMapException('The map property "wall_sides" must be "both", "left" or "right".'),
+        };
+
         for ($y = 0; $y < $height; $y++) {
             for ($x = 0; $x < ($y === 0 ? $width : 1); $x++) {
                 $door = array_any($exits, fn (MapExit $exit): bool => $exit->covers($x, $y));
 
-                if ($cells[$y * $width + $x] === '1' && ! $door) {
+                if (self::underWall($x, $y, $sides) && $cells[$y * $width + $x] === '1' && ! $door) {
                     throw new InvalidMapException("Tile ({$x}, {$y}) is walkable, but the walls stand on the map's back row and column. Only doors may open there.");
                 }
             }
         }
 
-        return $style;
+        return [$style, $sides];
+    }
+
+    /**
+     * Whether walls on these sides stand on a tile. The corner (0, 0) is under
+     * them only when both are up, as it is where they meet.
+     *
+     * @param  list<'left'|'right'>  $sides
+     */
+    private static function underWall(int $x, int $y, array $sides): bool
+    {
+        return match (true) {
+            $x === 0 && $y === 0 => count($sides) === 2,
+            $x === 0 => in_array('left', $sides, true),
+            $y === 0 => in_array('right', $sides, true),
+            default => false,
+        };
     }
 
     /**

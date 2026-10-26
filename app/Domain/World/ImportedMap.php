@@ -7,13 +7,14 @@ namespace App\Domain\World;
  * position come from the map's custom properties in Tiled; null means the map
  * does not set them. Buildings are already walled off in the grid; the list
  * says where they stand. $walls is the style of the room's back walls, which
- * only the client draws.
+ * only the client draws, and $wallSides the back edges they stand on.
  */
 final readonly class ImportedMap
 {
     /**
      * @param  array{int, int}|null  $townPosition  The room's grid cell on the town map.
      * @param  list<MapBuilding>  $buildings
+     * @param  list<'left'|'right'>  $wallSides  "left" is the column x = 0, "right" the row y = 0.
      */
     public function __construct(
         public string $version,
@@ -26,5 +27,6 @@ final readonly class ImportedMap
         public ?array $townPosition = null,
         public array $buildings = [],
         public ?string $walls = null,
+        public array $wallSides = [],
     ) {}
 }

@@ -12,7 +12,8 @@ import {
     TILE_WIDTH,
     tileToScreen,
 } from '../shared/iso';
-import { underWall } from '../shared/walls';
+import type { WallSide } from '../shared/walls';
+import { underWall, wallSides } from '../shared/walls';
 import { CAMERA, COLORS, DEPTH, DOOR, FONT_FAMILY } from '../theme';
 
 /** Names inside the Tiled map and the texture key its tileset is drawn from. */
@@ -63,6 +64,8 @@ export class IsoMap {
     readonly buildings: MapBuilding[];
     /** The style of the room's back walls (the map's "walls" property), or null for a room without. */
     readonly walls: string | null;
+    /** The back edges the walls stand on (the map's "wall_sides" property): both by default. */
+    readonly wallSides: readonly WallSide[];
     /** The map's diamond, from world (0, 0). */
     private readonly sizePx: { width: number; height: number };
     private readonly layer: Phaser.Tilemaps.TilemapLayer | null = null;
@@ -132,12 +135,16 @@ export class IsoMap {
 
         const walls = rawProperty(map, 'walls');
         this.walls = typeof walls === 'string' ? walls : null;
+        this.wallSides = wallSides(rawProperty(map, 'wall_sides'));
 
-        // Back walls replace the back row and column: only the floor of a door opening in them is drawn.
+        // Back walls replace the back row and column they stand on: only the floor of a door opening in them is drawn.
         if (this.walls) {
             for (let y = 0; y < map.height; y++) {
                 for (let x = 0; x < map.width; x++) {
-                    if (underWall([x, y]) && !this.doorAt([x, y])) {
+                    if (
+                        underWall([x, y], this.wallSides) &&
+                        !this.doorAt([x, y])
+                    ) {
                         this.layer?.removeTileAt(x, y);
                     }
                 }

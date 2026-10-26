@@ -25,7 +25,8 @@ it reads:
   `frequency` (the room's station on the tuning dial, in MHz),
   `home_frequency` (a residence's homes on the dial), `town_x`, `town_y`
   (its cell on the town map; without them the room is listed under the map),
-  and `walls` (an indoor room's wall style; see below).
+  `walls` (an indoor room's wall style) and `wall_sides` (which back edges
+  it lines; see below).
   Add the room's dial label to `stations` in `lang/en/hushfield.php`.
 
 Tiled measures objects on isometric maps in tile-height (32 px) units on both
@@ -45,13 +46,22 @@ back edges, the top-left (the column x = 0) and the top-right (the row y = 0).
 The two front edges stay open, so players can always see in. Outdoor rooms
 have no walls; hedges or the map's edge close them in.
 
+A map can also wall just one back edge, with a string property
+**`wall_sides`**: `left` (the column x = 0), `right` (the row y = 0), or
+`both`, the default. The other back edge stays as the map draws it, and so
+does the corner (0, 0), which is under the walls only when both stand. A yard
+uses this for the outside of its house: siding along one edge, with the door
+back in as a doorway, and hedge along the other.
+
 To turn walls on, give the map a string property **`walls`** naming a style,
 a slug such as `plaster`. It names the style's art; until there is some, each
 panel is a plain block tinted by the style's name. In use: `plaster` (the
 Library), `acoustic` (WHSH), `tiled` (the Coin Laundry), `wallpaper` (every
-house in Hearthmore Residences).
+house in Hearthmore Residences), `siding` (the back of the house, seen from
+its yard, with `wall_sides` `left`).
 
-- **Where they stand**: on the back row and column, their faces on those
+- **Where they stand**: on the back row and column (or the one edge
+  `wall_sides` names), their faces on those
   tiles' inner edges, where the floor begins, meeting behind the corner tile
   (0, 0). Paint those tiles unwalkable: the import refuses a walkable tile
   there unless a door covers it. Whatever the `ground` layer draws there is

@@ -39,6 +39,7 @@ export class WallLayer {
             map.grid.width,
             map.grid.height,
             map.doors,
+            map.wallSides,
         )) {
             const texture = this.texture(style, panel);
 

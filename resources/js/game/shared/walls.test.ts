@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { tileToScreen } from './iso';
-import { placePanel, wallPanels } from './walls';
+import { placePanel, underWall, wallPanels, wallSides } from './walls';
 
 const ORIGIN_X = 512;
 
@@ -24,6 +24,41 @@ describe('wallPanels', () => {
             ['right', 3, 0, true],
             ['right', 4, 0, false],
         ]);
+    });
+});
+
+describe('one-sided walls', () => {
+    it('put panels only on the named edge, and hide only its tiles, leaving the corner to the open edge', () => {
+        const doors = [{ x: 0, y: 1, wide: 1, deep: 2 }];
+        const left = wallSides('left');
+
+        expect(
+            wallPanels(4, 4, doors, left).map(({ side, tile, doorway }) => [
+                side,
+                ...tile,
+                doorway,
+            ]),
+        ).toEqual([
+            ['left', 0, 1, true],
+            ['left', 0, 2, true],
+            ['left', 0, 3, false],
+        ]);
+        expect(
+            wallPanels(3, 2, [], wallSides('right')).map((p) => p.tile),
+        ).toEqual([
+            [1, 0],
+            [2, 0],
+        ]);
+
+        expect([
+            underWall([0, 2], left),
+            underWall([2, 0], left),
+            underWall([0, 0], left),
+        ]).toEqual([true, false, false]);
+        // Without the property, or with an unknown one, both walls stand and meet over the corner.
+        expect(wallSides(undefined)).toEqual(['left', 'right']);
+        expect(wallSides('both')).toEqual(['left', 'right']);
+        expect(underWall([0, 0], wallSides(undefined))).toBe(true);
     });
 });
 

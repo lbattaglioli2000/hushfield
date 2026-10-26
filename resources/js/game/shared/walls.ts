@@ -10,6 +10,14 @@ import { TILE_HEIGHT, TILE_WIDTH } from './iso';
  */
 export type WallSide = 'left' | 'right';
 
+/** Walls stand on both back edges unless the map's `wall_sides` names one. */
+export const BOTH_SIDES: readonly WallSide[] = ['left', 'right'];
+
+/** The back edges a map's `wall_sides` property puts walls on: `left`, `right`, or both by default. */
+export function wallSides(value: unknown): readonly WallSide[] {
+    return value === 'left' || value === 'right' ? [value] : BOTH_SIDES;
+}
+
 /** One tile's length of back wall. */
 export type WallPanel = {
     side: WallSide;
@@ -24,12 +32,13 @@ export type WallPanel = {
  * (y = 0, the right wall) and back column (x = 0, the left wall), their faces
  * on those tiles' inner edges where the floor begins, and meet behind the
  * corner tile (0, 0), which has no panel of its own. A door on a wall's tile
- * makes that panel a doorway.
+ * makes that panel a doorway. A map may put up only one of the two.
  */
 export function wallPanels(
     width: number,
     height: number,
     doors: Footprint[],
+    sides: readonly WallSide[] = BOTH_SIDES,
 ): WallPanel[] {
     const panel = (side: WallSide, tile: Tile): WallPanel => ({
         side,
@@ -38,9 +47,11 @@ export function wallPanels(
     });
     const panels: WallPanel[] = [];
 
-    for (let y = 1; y < height; y++) panels.push(panel('left', [0, y]));
+    if (sides.includes('left'))
+        for (let y = 1; y < height; y++) panels.push(panel('left', [0, y]));
 
-    for (let x = 1; x < width; x++) panels.push(panel('right', [x, 0]));
+    if (sides.includes('right'))
+        for (let x = 1; x < width; x++) panels.push(panel('right', [x, 0]));
 
     return panels;
 }
@@ -67,7 +78,18 @@ export function placePanel(
     };
 }
 
-/** Whether a tile is under the walls: they stand on the back row and column. */
-export function underWall([x, y]: Tile): boolean {
-    return x === 0 || y === 0;
+/**
+ * Whether a tile is under the walls on these sides: the back column for the
+ * left wall, the back row for the right. The corner (0, 0) is under them only
+ * when both are up, as it is where they meet.
+ */
+export function underWall(
+    [x, y]: Tile,
+    sides: readonly WallSide[] = BOTH_SIDES,
+): boolean {
+    if (x === 0 && y === 0) return sides.length === 2;
+    if (x === 0) return sides.includes('left');
+    if (y === 0) return sides.includes('right');
+
+    return false;
 }

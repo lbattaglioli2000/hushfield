@@ -258,7 +258,7 @@ it('rejects buildings that run off the map, stand on places players need, or hid
  * test-home with its back row and column blocked, as a room with walls has them,
  * the door moved onto the back row and the given "walls" property.
  */
-function walledHome(mixed $walls, bool $blockBack = true): string
+function walledHome(mixed $walls, bool $blockBack = true, ?string $sides = null): string
 {
     $map = json_decode(fixtureMap('test-home'), true);
     $layers = collect($map['layers'])->keyBy('name')->all();
@@ -276,6 +276,10 @@ function walledHome(mixed $walls, bool $blockBack = true): string
         $map['properties'][] = ['name' => 'walls', 'type' => is_string($walls) ? 'string' : 'int', 'value' => $walls];
     }
 
+    if ($sides !== null) {
+        $map['properties'][] = ['name' => 'wall_sides', 'type' => 'string', 'value' => $sides];
+    }
+
     return (string) json_encode($map);
 }
 
@@ -283,12 +287,34 @@ it('reads the style of a room\'s back walls, with a door opening in them', funct
     $map = (new TiledMapParser)->parse(walledHome('plaster'));
 
     expect($map->walls)->toBe('plaster')
+        ->and($map->wallSides)->toBe(['left', 'right'])
         // Walls change nothing about walking: the door in the back row stays open.
         ->and($map->grid->isWalkable(2, 0))->toBeTrue()
         ->and($map->grid->isExit(2, 0))->toBeTrue()
         ->and((new TiledMapParser)->parse(walledHome(null))->walls)->toBeNull()
         // Without walls the back row may be walkable, as outdoors.
         ->and((new TiledMapParser)->parse(fixtureMap('test-home'))->walls)->toBeNull();
+});
+
+it('puts walls on one back edge when the map names it, leaving the other open', function () {
+    // test-home's back row and column are floor, but for the door moved onto (2, 0).
+    $open = json_decode(walledHome('siding', blockBack: false, sides: 'right'), true);
+    $walkable = &$open['layers'][array_search('walkable', array_column($open['layers'], 'name'))]['data'];
+
+    foreach ([1, 3, 4] as $x) {
+        $walkable[$x] = 0;
+    }
+
+    // Walls along the row y = 0 only: the column x = 0, the corner included, may stay floor.
+    $map = (new TiledMapParser)->parse((string) json_encode($open));
+
+    expect($map->walls)->toBe('siding')
+        ->and($map->wallSides)->toBe(['right'])
+        ->and($map->grid->isWalkable(0, 0))->toBeTrue()
+        ->and($map->grid->isWalkable(0, 3))->toBeTrue()
+        ->and((new TiledMapParser)->parse(walledHome('siding', sides: 'left'))->wallSides)->toBe(['left'])
+        ->and(fn () => (new TiledMapParser)->parse(walledHome('siding', blockBack: false, sides: 'left')))
+        ->toThrow(InvalidMapException::class, 'Tile (0, 1) is walkable');
 });
 
 it('rejects walls it cannot draw', function (string $map, string $message) {
@@ -299,4 +325,6 @@ it('rejects walls it cannot draw', function (string $map, string $message) {
     'empty' => [fn () => walledHome(''), 'The map property "walls" must name a wall style'],
     'a number' => [fn () => walledHome(3), 'The map property "walls" must name a wall style'],
     'floor under the wall' => [fn () => walledHome('plaster', blockBack: false), 'Tile (0, 0) is walkable, but the walls stand on the map\'s back row and column.'],
+    'an edge that is not one' => [fn () => walledHome('plaster', sides: 'front'), 'The map property "wall_sides" must be "both", "left" or "right".'],
+    'sides without walls' => [fn () => walledHome(null, sides: 'left'), 'The map property "wall_sides" needs a "walls" style'],
 ]);
