@@ -157,7 +157,7 @@ right (+x). An odd turn swaps how wide and how deep it is; the back corner
 stays put.
 
 A piece need not fill its block. Its **shape** (`shape` on the item, the
-Shape grid in the admin catalog) says which of its `wide × deep` tiles it
+Shape picker in the admin catalog, a clickable floor) says which of its `wide × deep` tiles it
 covers: one row per tile along y, back row first, one character per tile
 along x, `#` covered and `.` empty. The Corner Sofa, 2 × 2, is `##` over `#.`.
 No shape is a plain block, as every piece was before shapes. Empty tiles are

@@ -5,8 +5,8 @@ namespace App\Filament\Resources\Items\Schemas;
 use App\Domain\Items\ItemRarity;
 use App\Domain\Items\ItemSlot;
 use App\Domain\World\Footprint;
+use App\Filament\Forms\Components\ShapePicker;
 use Closure;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -15,7 +15,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\GridDirection;
 
 class ItemForm
 {
@@ -90,12 +89,10 @@ class ItemForm
                             ->label('Lies on the floor')
                             ->helperText('Like a rug: walked over, and one other piece may stand on it.')
                             ->default(false),
-                        CheckboxList::make('shape')
+                        ShapePicker::make('shape')
                             ->label('Shape')
-                            ->helperText('The tiles it covers before any turn: the back row first, x across. Unticked tiles stay open floor, so players walk there and other pieces fit there. It turns with the piece.')
-                            ->options(fn (Get $get): array => self::tiles($get))
-                            ->columns(fn (Get $get): int => self::size($get('wide')))
-                            ->gridDirection(GridDirection::Row)
+                            ->helperText('Click a tile to add or remove it. This is the floor the piece stands on, seen as in the game before any turn: it faces the front edge. Empty tiles stay open floor, so players walk there and other pieces fit there. The shape turns with the piece.')
+                            ->size(fn (Get $get): int => self::size($get('wide')), fn (Get $get): int => self::size($get('deep')))
                             // A plain block (no shape, which reaches here as []) ticks every tile.
                             ->formatStateUsing(fn (?array $state, Get $get): array => array_keys(array_filter(
                                 self::tiles($get),
@@ -143,7 +140,7 @@ class ItemForm
     }
 
     /**
-     * The shape grid's boxes, keyed "x,y", row by row.
+     * The shape's tiles, keyed "x,y", row by row.
      *
      * @return array<string, string>
      */
