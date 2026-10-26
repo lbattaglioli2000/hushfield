@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { Footprint } from './buildings';
-import { covers, hides, placeBuilding } from './buildings';
+import { covers, hides, hidesPlayer, placeBuilding } from './buildings';
 import { tileToScreen } from './iso';
 
 const ORIGIN_X = 512;
@@ -93,5 +93,30 @@ describe('hides', () => {
         expect(
             hides(placement, { ...box, top: 0, bottom: placement.top }, 0),
         ).toBe(false);
+    });
+
+    it('never fades a building for a player walking in its door, but still does behind it', () => {
+        // The Library: tiles x 4–10, y 1–5, door (7, 5) in the front row, doorstep (7, 6).
+        const footprint = { x: 4, y: 1, wide: 7, deep: 5 };
+        const placement = placeBuilding(footprint, 176, ORIGIN_X);
+        const player = (x: number, y: number) => ({
+            at: { x, y },
+            ...avatarOn(x, y),
+        });
+
+        // Halfway into the doorway the walls beside it are drawn over the avatar.
+        expect(
+            hides(placement, avatarOn(7, 5.25).box, avatarOn(7, 5.25).depthY),
+        ).toBe(true);
+
+        for (const y of [6, 5.75, 5.5, 5.25, 5]) {
+            expect(
+                hidesPlayer(placement, [7, 5], player(7, y)),
+                `(7, ${y})`,
+            ).toBe(false);
+        }
+
+        expect(hidesPlayer(placement, [7, 5], player(7, 0))).toBe(true);
+        expect(hidesPlayer(placement, [7, 5], player(3, 3))).toBe(true);
     });
 });

@@ -183,12 +183,15 @@ export class RoomScene
 
         const now = this.port.serverNow();
         const positions: Array<{ x: number; y: number }> = [];
+        let selfAt: { x: number; y: number } | null = null;
 
         for (const avatar of this.avatars.values()) {
             const pos = avatar.update(now, delta, this.map);
             positions.push(pos);
 
             if (avatar.id !== this.selfId) continue;
+
+            selfAt = pos;
 
             // Walking off with a line in the water abandons it.
             if (!pos.finished && this.fishingLine?.active) {
@@ -219,7 +222,9 @@ export class RoomScene
 
         const self = this.avatars.get(this.selfId);
         this.buildings?.update(
-            self ? { box: self.bounds, depthY: self.target.y } : null,
+            self && selfAt
+                ? { at: selfAt, box: self.bounds, depthY: self.target.y }
+                : null,
             delta,
         );
 

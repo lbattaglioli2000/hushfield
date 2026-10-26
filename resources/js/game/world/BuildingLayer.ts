@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Placement } from '../shared/buildings';
-import { hides, placeBuilding } from '../shared/buildings';
+import { hidesPlayer, placeBuilding } from '../shared/buildings';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { BUILDING, COLORS, DEPTH, DOOR } from '../theme';
 import { colourFor } from './FurnitureLayer';
@@ -136,20 +136,18 @@ export class BuildingLayer {
 
     /**
      * Fades any building that is drawn over the player's own avatar, so they
-     * can still see themselves behind it.
+     * can still see themselves behind it; not while they walk in its door.
      */
     update(
-        self: {
-            box: { left: number; right: number; top: number; bottom: number };
-            depthY: number;
-        } | null,
+        self: Parameters<typeof hidesPlayer>[2] | null,
         deltaMs: number,
     ): void {
         const step = Math.min(1, deltaMs / BUILDING.fadeMs);
 
         for (const drawn of this.drawn) {
             drawn.faded =
-                self !== null && hides(drawn.placement, self.box, self.depthY);
+                self !== null &&
+                hidesPlayer(drawn.placement, drawn.building.door.tile, self);
             const target = drawn.faded ? BUILDING.fadedAlpha : 1;
 
             if (drawn.alpha === target) continue;
