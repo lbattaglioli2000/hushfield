@@ -15,6 +15,8 @@ final class Pathfinder
     private const array DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]];
 
     /**
+     * A blocked start is fine: someone a piece of furniture was put down on can still walk off it.
+     *
      * @param  array{int, int}  $start
      * @param  array{int, int}  $goal
      * @return list<array{int, int}>|null The path from start to goal inclusive, or null when unreachable.
@@ -23,7 +25,7 @@ final class Pathfinder
     {
         [$goalX, $goalY] = $goal;
 
-        if (! $grid->isWalkable($goalX, $goalY) || ! $grid->isWalkable($start[0], $start[1])) {
+        if (! $grid->isWalkable($goalX, $goalY) || $start[0] < 0 || $start[1] < 0 || $start[0] >= $grid->width || $start[1] >= $grid->height) {
             return null;
         }
 

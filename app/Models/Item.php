@@ -24,12 +24,16 @@ use Illuminate\Support\Carbon;
  * @property ItemRarity $rarity
  * @property int $price
  * @property list<string> $sprite_layers
+ * @property int $wide Furniture only: tiles along x, before any turn.
+ * @property int $deep Furniture only: tiles along y, before any turn.
+ * @property int $height Furniture only: how tall its placeholder block stands, in pixels.
+ * @property bool $floor Furniture only: lies flat, like a rug. Walked over, and one other piece may stand on it.
  * @property bool $in_shop
  * @property bool $members_only
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['slug', 'name', 'description', 'slot', 'rarity', 'price', 'sprite_layers', 'in_shop', 'members_only'])]
+#[Fillable(['slug', 'name', 'description', 'slot', 'rarity', 'price', 'sprite_layers', 'wide', 'deep', 'height', 'floor', 'in_shop', 'members_only'])]
 class Item extends Model
 {
     /** @use HasFactory<ItemFactory> */
@@ -42,6 +46,10 @@ class Item extends Model
             'rarity' => ItemRarity::class,
             'price' => 'integer',
             'sprite_layers' => 'array',
+            'wide' => 'integer',
+            'deep' => 'integer',
+            'height' => 'integer',
+            'floor' => 'boolean',
             'in_shop' => 'boolean',
             'members_only' => 'boolean',
         ];
@@ -65,7 +73,7 @@ class Item extends Model
     /**
      * What the client is told about an item.
      *
-     * @return array{id: int, slug: string, name: string, description: string|null, slot: string, rarity: string, price: int, sprite_layers: list<string>, members_only: bool}
+     * @return array{id: int, slug: string, name: string, description: string|null, slot: string, rarity: string, price: int, sprite_layers: list<string>, members_only: bool, furniture: array{wide: int, deep: int, height: int, floor: bool}|null}
      */
     public function toPayload(): array
     {
@@ -79,6 +87,9 @@ class Item extends Model
             'price' => $this->price,
             'sprite_layers' => $this->sprite_layers,
             'members_only' => $this->members_only,
+            'furniture' => $this->slot === ItemSlot::Furniture
+                ? ['wide' => $this->wide, 'deep' => $this->deep, 'height' => $this->height, 'floor' => $this->floor]
+                : null,
         ];
     }
 }

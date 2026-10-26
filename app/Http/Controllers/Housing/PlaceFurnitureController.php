@@ -17,11 +17,12 @@ final class PlaceFurnitureController extends Controller
         $request->validate([
             'x' => ['required', 'integer', 'min:0'],
             'y' => ['required', 'integer', 'min:0'],
+            'rotation' => ['nullable', 'integer', 'between:0,3'],
         ]);
 
         /** @var User $user */
         $user = $request->user();
-        $home = $placeFurniture($user, $item, $request->integer('x'), $request->integer('y'));
+        $home = $placeFurniture($user, $item, $request->integer('x'), $request->integer('y'), $request->filled('rotation') ? $request->integer('rotation') : null);
 
         return WorldResponse::json(['furniture' => $home->furniturePayload()]);
     }

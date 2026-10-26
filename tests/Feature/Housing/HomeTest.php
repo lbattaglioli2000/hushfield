@@ -7,6 +7,7 @@ use App\Domain\Presence\InstanceMembers;
 use App\Events\Presence\InstanceReassigned;
 use App\Events\World\FurnitureChanged;
 use App\Models\Home;
+use App\Models\HomeFurniture;
 use App\Models\InventoryItem;
 use App\Models\Item;
 use App\Models\User;
@@ -33,10 +34,26 @@ function own(User $user, Item $item): void
     InventoryItem::query()->create(['user_id' => $user->id, 'item_id' => $item->id, 'source' => InventorySource::Purchase]);
 }
 
-function placeFurniture(Item $item, int $x, int $y)
+function placeFurniture(Item $item, int $x, int $y, ?int $rotation = null)
 {
     return asResident(test()->owner, test()->ownerToken)
-        ->postJson(route('world.home.furniture.place', $item), ['x' => $x, 'y' => $y]);
+        ->postJson(route('world.home.furniture.place', $item), array_filter(['x' => $x, 'y' => $y, 'rotation' => $rotation], fn ($value) => $value !== null));
+}
+
+/**
+ * A furniture item the owner owns, wide × deep tiles.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function ownedPiece(int $wide = 1, int $deep = 1, array $attributes = []): Item
+{
+    return tap(Item::factory()->furniture()->create(['wide' => $wide, 'deep' => $deep, ...$attributes]), fn (Item $item) => own(test()->owner, $item));
+}
+
+function walkTo(int $x, int $y)
+{
+    return asResident(test()->owner, test()->ownerToken)
+        ->postJson(route('world.instances.move', test()->home->room_instance_id), ['x' => $x, 'y' => $y]);
 }
 
 test('entering the residence takes a resident to their own home, created once', function () {
@@ -144,13 +161,136 @@ test('furniture is refused off the floor, on doors and arrivals, on top of other
 
     placeFurniture($item(), $x, $y)->assertStatus(422)->assertJsonPath('reason', $reason);
 })->with([
-    'off the map' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 9, 9, 'furniture_blocked'],
-    'on the door' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 2, 4, 'furniture_blocked'],
-    'on the arrival point' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 2, 3, 'furniture_blocked'],
+    'off the map' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 9, 9, 'furniture_off_floor'],
+    'on the door' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 2, 4, 'furniture_in_doorway'],
+    'on the arrival point' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 2, 3, 'furniture_in_doorway'],
     'on another piece' => [fn () => tap(Item::factory()->furniture()->create(), fn (Item $item) => own(test()->owner, $item)), 1, 1, 'furniture_blocked'],
     'not owned' => [fn () => Item::factory()->furniture()->create(), 3, 3, 'not_furniture'],
     'a hat' => [fn () => tap(Item::factory()->create(['slot' => 'head']), fn (Item $item) => own(test()->owner, $item)), 3, 3, 'not_furniture'],
 ]);
+
+// test-home is 5 × 5 tiles, all floor. The door is at (2, 4), its arrival point at (2, 3), and the owner stands at the spawn (2, 2).
+
+test('a piece covers every tile of its footprint, and nothing else may stand on any of them', function () {
+    $seat = ownedPiece(2, 1);
+
+    placeFurniture($seat, 0, 0)->assertOk()
+        ->assertJsonPath('furniture.0.rotation', 0)
+        ->assertJsonPath('furniture.0.item.furniture', ['wide' => 2, 'deep' => 1, 'height' => 18, 'floor' => false]);
+
+    placeFurniture(ownedPiece(), 1, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    // A 2 × 2 piece whose back corner is clear but whose other tiles are not.
+    placeFurniture(ownedPiece(2, 2), 0, 1)->assertOk();
+    placeFurniture(ownedPiece(2, 1), 3, 0)->assertOk();
+    // Its far tile would be off the floor.
+    placeFurniture(ownedPiece(2, 1), 4, 1)->assertStatus(422)->assertJsonPath('reason', 'furniture_off_floor');
+    // Its far tile would be the arrival point.
+    placeFurniture(ownedPiece(2, 1), 1, 3)->assertStatus(422)->assertJsonPath('reason', 'furniture_in_doorway');
+});
+
+test('a quarter turn swaps how wide and how deep a piece is, and moving it keeps its turn', function () {
+    $seat = ownedPiece(2, 1);
+    $chair = ownedPiece();
+
+    placeFurniture($seat, 0, 0, 1)->assertOk()->assertJsonPath('furniture.0.rotation', 1);
+
+    // Turned, it covers (0, 0) and (0, 1) instead of (0, 0) and (1, 0).
+    placeFurniture($chair, 0, 1)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    placeFurniture($chair, 1, 0)->assertOk();
+
+    // Along the east edge it only fits turned: unturned, its far tile is off the floor.
+    placeFurniture($seat, 4, 0, 2)->assertStatus(422)->assertJsonPath('reason', 'furniture_off_floor');
+    placeFurniture($seat, 4, 0)->assertOk()->assertJsonPath('furniture.0.rotation', 1);
+    placeFurniture($seat, 4, 0, 3)->assertOk()->assertJsonPath('furniture.0.rotation', 3);
+
+    expect(HomeFurniture::query()->where('x', 4)->sole()->rotation)->toBe(3);
+
+    // A turn the server cannot have.
+    placeFurniture($seat, 0, 0, 4)->assertUnprocessable()->assertJsonValidationErrors('rotation');
+});
+
+test('players walk around furniture, never through it or onto it', function () {
+    placeFurniture(ownedPiece(1, 3), 1, 0)->assertOk();
+
+    walkTo(1, 1)->assertStatus(422)->assertJsonPath('reason', 'unreachable');
+
+    // From (2, 2) to (0, 0) the straight way is through the piece at x = 1, rows 0–2.
+    $path = walkTo(0, 0)->assertOk()->json('path');
+
+    expect($path[0])->toBe([2, 2])
+        ->and(end($path))->toBe([0, 0])
+        ->and(collect($path)->filter(fn (array $tile): bool => $tile[0] === 1 && $tile[1] <= 2)->all())->toBe([]);
+});
+
+test('rugs are walked over, and carry one other piece', function () {
+    $rug = ownedPiece(2, 2, ['floor' => true]);
+    $chair = ownedPiece();
+
+    placeFurniture($rug, 0, 0)->assertOk();
+    walkTo(1, 1)->assertOk();
+
+    placeFurniture($chair, 1, 1)->assertOk();
+    placeFurniture(ownedPiece(), 0, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    placeFurniture(ownedPiece(2, 2, ['floor' => true]), 1, 1)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+
+    // Slid under two pieces at once, it would carry both.
+    placeFurniture(ownedPiece(), 3, 0)->assertOk();
+    placeFurniture(ownedPiece(), 3, 1)->assertOk();
+    placeFurniture($rug, 2, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
+    placeFurniture($rug, 0, 1)->assertOk();
+
+    // The rug is still walkable; the chair on it is not.
+    walkTo(0, 2)->assertOk();
+    walkTo(1, 1)->assertStatus(422)->assertJsonPath('reason', 'unreachable');
+});
+
+test('nothing may cut part of the home off from the door', function () {
+    placeFurniture(ownedPiece(), 1, 0)->assertOk();
+
+    // Walls in (0, 0): diagonal steps never squeeze between two pieces.
+    placeFurniture(ownedPiece(), 0, 1)->assertStatus(422)->assertJsonPath('reason', 'furniture_cuts_off');
+    // A wall right across the room, between the door and the back.
+    placeFurniture(ownedPiece(5, 1), 0, 2)->assertStatus(422)->assertJsonPath('reason', 'furniture_cuts_off');
+    // A rug walls nothing off.
+    placeFurniture(ownedPiece(1, 1, ['floor' => true]), 0, 1)->assertOk();
+});
+
+test('a piece may land on someone only if they can still walk off it', function () {
+    $visitor = resident();
+    $this->home->update(['visitors' => HomeVisitors::Everyone]);
+    visitHome($visitor, $this->home->room_instance_id)->assertOk();
+
+    // Standing in the corner a bed would fill, with nowhere to step.
+    standAt($visitor, 0, 0);
+    placeFurniture(ownedPiece(2, 2), 0, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_traps');
+
+    // Standing at its front corner, with open floor beside them.
+    standAt($visitor, 1, 1);
+    placeFurniture(ownedPiece(2, 2), 0, 0)->assertOk();
+
+    asResident($visitor, $visitor->worldSession->session_token)
+        ->postJson(route('world.instances.move', $this->home->room_instance_id), ['x' => 3, 'y' => 1])
+        ->assertOk()
+        ->assertJsonPath('path.0', [1, 1]);
+});
+
+test('a home holds a limited number of pieces, but those placed can still be moved', function () {
+    config(['hushfield.housing.max_furniture' => 2]);
+    $first = ownedPiece();
+    placeFurniture($first, 0, 0)->assertOk();
+    placeFurniture(ownedPiece(), 4, 0)->assertOk();
+
+    placeFurniture(ownedPiece(), 0, 4)->assertStatus(409)->assertJsonPath('reason', 'furniture_full');
+    placeFurniture($first, 4, 4)->assertOk();
+});
+
+test('existing placements become one tile, unturned', function () {
+    $chair = ownedPiece();
+    placeFurniture($chair, 3, 1)->assertOk();
+
+    expect(HomeFurniture::query()->sole()->only(['x', 'y', 'rotation']))->toBe(['x' => 3, 'y' => 1, 'rotation' => 0])
+        ->and(Item::factory()->furniture()->create()->fresh()->only(['wide', 'deep', 'floor']))->toBe(['wide' => 1, 'deep' => 1, 'floor' => false]);
+});
 
 test('empty homes are never closed by the instance sweep', function () {
     $this->members->remove($this->home->room_instance_id, $this->owner->id);

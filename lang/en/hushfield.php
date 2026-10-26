@@ -31,7 +31,7 @@ return [
     'residences_title' => 'Hearthmore Residences',
     'residences_intro' => 'Every resident is provided a home. Some leave their doors open.',
     'residences_empty' => 'No doors are open right now. Everyone is in, or pretending to be.',
-    'decorate_hint' => 'Choose a piece, then a spot on the floor. Tap a placed piece to put it away.',
+    'decorate_hint' => 'Choose a piece, then a spot on the floor for its back corner. Turn placed pieces from this list. Tap a placed piece to put it away.',
     'home_label' => ":name's residence",
     'home_closed' => 'That residence is not receiving visitors right now. Hearthmore Group respects a closed door.',
     'home_full' => 'That residence is full. There is a limit to how many guests a floor can bear.',
@@ -41,7 +41,12 @@ return [
     'home_friends' => 'Your door is open to friends. Everyone else will have to wonder.',
     'home_shut' => 'Your door is closed. Only you may come in.',
     'not_furniture' => "That isn't furniture. Please don't try to sit on it.",
-    'furniture_blocked' => "That spot isn't available. Something, or a doorway, is already there.",
+    'furniture_blocked' => 'Something is already standing there. It was there first, and it remembers.',
+    'furniture_off_floor' => 'That would hang off the edge of your floor. The edge of your floor is where Hearthmore Group stops being responsible.',
+    'furniture_in_doorway' => 'Doorways are to be kept clear. Hearthmore Group does not say what for.',
+    'furniture_cuts_off' => 'That would wall off part of your home from the door. Rooms that cannot be reached tend to fill up with something.',
+    'furniture_traps' => 'Someone is standing there, and would have no way out. Please wait for them to move. They will, eventually.',
+    'furniture_full' => 'Your home holds all the furniture it is going to. The floor has asked, politely, for no more.',
     'home_too_fast' => 'Your residence needs a moment to settle. Please try again shortly.',
 
     // Movement

@@ -89,6 +89,7 @@ class Heap {
     }
 }
 
+/** A blocked start is fine: someone furniture was put down on can still walk off it. */
 export function findPath(
     grid: Grid,
     start: Tile,
@@ -97,7 +98,13 @@ export function findPath(
 ): Tile[] | null {
     const [gx, gy] = goal;
 
-    if (!isWalkable(grid, gx, gy) || !isWalkable(grid, start[0], start[1])) {
+    if (
+        !isWalkable(grid, gx, gy) ||
+        start[0] < 0 ||
+        start[1] < 0 ||
+        start[0] >= grid.width ||
+        start[1] >= grid.height
+    ) {
         return null;
     }
 

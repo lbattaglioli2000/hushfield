@@ -65,6 +65,11 @@ return [
         'same_age_bracket_only' => true,
     ],
 
+    'housing' => [
+        // Pieces one home may have out at once.
+        'max_furniture' => 50,
+    ],
+
     'economy' => [
         // Coins Hearthmore Group pays each resident once per Hushfield day.
         'daily_stipend' => 25,

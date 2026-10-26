@@ -136,6 +136,21 @@ test('an admin adds an item to the catalog', function () {
         ->and($item->in_shop)->toBeTrue();
 });
 
+test('an admin sizes a piece of furniture and marks it as a rug', function () {
+    $rug = Item::factory()->furniture()->create();
+
+    Livewire::test(EditItem::class, ['record' => $rug->getRouteKey()])
+        ->assertFormFieldIsVisible('wide')
+        ->fillForm(['wide' => 3, 'deep' => 2, 'height' => 2, 'floor' => true])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($rug->fresh()->only(['wide', 'deep', 'height', 'floor']))->toBe(['wide' => 3, 'deep' => 2, 'height' => 2, 'floor' => true]);
+
+    Livewire::test(EditItem::class, ['record' => Item::factory()->create(['slot' => ItemSlot::Head])->getRouteKey()])
+        ->assertFormFieldIsHidden('wide');
+});
+
 test('items cannot be deleted once in the catalog', function () {
     $item = Item::factory()->create();
 

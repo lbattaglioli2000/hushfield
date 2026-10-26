@@ -51,6 +51,14 @@ describe('findPath', () => {
         expect(findPath(walled, [0, 0], [1, 1], 200)).toBeNull();
     });
 
+    it('walks off a blocked start, as when furniture is put down on someone', () => {
+        expect(findPath(grid('..#', '...'), [2, 0], [0, 0], 200)).toEqual([
+            [2, 0],
+            [1, 0],
+            [0, 0],
+        ]);
+    });
+
     it('refuses a path longer than maxSteps', () => {
         expect(findPath(grid('....'), [0, 0], [3, 0], 2)).toBeNull();
         expect(findPath(grid('....'), [0, 0], [3, 0], 3)).toHaveLength(4);

@@ -10,6 +10,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class ItemForm
@@ -37,6 +38,7 @@ class ItemForm
                             ->columnSpanFull(),
                         Select::make('slot')
                             ->options(ItemSlot::class)
+                            ->live()
                             ->required(),
                         Select::make('rarity')
                             ->options(ItemRarity::class)
@@ -47,6 +49,44 @@ class ItemForm
                             ->required()
                             ->helperText('Asset keys drawn for this item, bottom layer first.')
                             ->columnSpanFull(),
+                    ]),
+                Section::make('Furniture')
+                    ->description('How the piece stands in a home. Turning it a quarter turn swaps wide and deep. Resizing a placed piece does not move anything already standing near it.')
+                    ->columns(4)
+                    ->visible(fn (Get $get): bool => $get('slot') === ItemSlot::Furniture || $get('slot') === ItemSlot::Furniture->value)
+                    ->schema([
+                        TextInput::make('wide')
+                            ->label('Tiles wide')
+                            ->helperText('Along x.')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(4)
+                            ->default(1)
+                            ->required(),
+                        TextInput::make('deep')
+                            ->label('Tiles deep')
+                            ->helperText('Along y.')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(4)
+                            ->default(1)
+                            ->required(),
+                        TextInput::make('height')
+                            ->label('Height')
+                            ->helperText('Of the placeholder block, until it has art.')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(256)
+                            ->suffix('px')
+                            ->default(18)
+                            ->required(),
+                        Toggle::make('floor')
+                            ->label('Lies on the floor')
+                            ->helperText('Like a rug: walked over, and one other piece may stand on it.')
+                            ->default(false),
                     ]),
                 Section::make('Shop')
                     ->columns(3)

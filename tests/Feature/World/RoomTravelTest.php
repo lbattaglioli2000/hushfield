@@ -4,7 +4,6 @@ use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\PositionStore;
 use App\Domain\World\StoredPath;
 use App\Events\World\PlayerLeft;
-use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
@@ -14,11 +13,6 @@ beforeEach(function () {
     $this->resident = resident();
     ['token' => $this->token, 'instance' => $this->instance] = enterWorld($this->resident, $this->lane);
 });
-
-function standAt(User $user, int $x, int $y): void
-{
-    app(PositionStore::class)->put($user->id, StoredPath::standingAt($x, $y, (int) now()->getTimestampMs()));
-}
 
 function useExit(string $exit)
 {

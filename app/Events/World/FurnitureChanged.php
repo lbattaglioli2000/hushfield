@@ -11,7 +11,7 @@ use App\Events\RoomEvent;
 final class FurnitureChanged extends RoomEvent
 {
     /**
-     * @param  list<array{x: int, y: int, item: array<string, mixed>}>  $furniture
+     * @param  list<array{x: int, y: int, rotation: int, item: array<string, mixed>}>  $furniture
      */
     public function __construct(int $instanceId, public readonly array $furniture)
     {

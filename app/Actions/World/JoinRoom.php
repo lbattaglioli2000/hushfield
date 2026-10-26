@@ -2,6 +2,7 @@
 
 namespace App\Actions\World;
 
+use App\Domain\Housing\HomeFloor;
 use App\Domain\Housing\Residences;
 use App\Domain\World\Clock;
 use App\Domain\World\InstanceAllocator;
@@ -31,6 +32,7 @@ final readonly class JoinRoom
         private InstanceAllocator $allocator,
         private PositionStore $positions,
         private WalkabilityGridRepository $grids,
+        private HomeFloor $floors,
         private LeaveRoom $leaveRoom,
         private Residences $residences,
     ) {}
@@ -45,7 +47,8 @@ final readonly class JoinRoom
             throw WorldActionRefused::joinsPaused();
         }
 
-        $grid = $this->grids->forRoom($room);
+        // Fails before anyone is moved when the room's map is missing.
+        $this->grids->forRoom($room);
 
         // Admitted to the new instance first, so a refused join leaves the player where they were.
         if ($room->isResidence()) {
@@ -65,7 +68,8 @@ final readonly class JoinRoom
         $instance->forceFill(['empty_since' => null])->save();
         $instance->setRelation('room', $room);
 
-        $entry = $grid->entryPoint($arrival);
+        // In a home, never under the furniture.
+        $entry = $this->floors->grid($instance)->entryPoint($arrival);
         $position = StoredPath::standingAt($entry[0], $entry[1], Clock::nowMs());
         $this->positions->put($user->id, $position);
 

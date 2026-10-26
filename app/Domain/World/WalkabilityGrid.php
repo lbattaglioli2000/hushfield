@@ -37,6 +37,33 @@ final readonly class WalkabilityGrid
             && $this->cells[$y * $this->width + $x] === '1';
     }
 
+    /**
+     * The same grid with more tiles blocked, such as those under a home's
+     * furniture. Spawns under them are dropped; with none left, players
+     * appear at the arrival points instead, which nothing may block.
+     *
+     * @param  list<array{int, int}>  $tiles
+     */
+    public function withBlocked(array $tiles): self
+    {
+        if ($tiles === []) {
+            return $this;
+        }
+
+        $cells = $this->cells;
+
+        foreach ($tiles as [$x, $y]) {
+            if ($this->isWalkable($x, $y)) {
+                $cells[$y * $this->width + $x] = '0';
+            }
+        }
+
+        $blocked = new self($this->width, $this->height, $cells, []);
+        $spawns = array_values(array_filter($this->spawns, fn (array $tile): bool => $blocked->isWalkable(...$tile)));
+
+        return new self($this->width, $this->height, $cells, $spawns ?: array_values($this->arrivals) ?: $this->spawns, $this->exits, $this->arrivals, $this->fixtures);
+    }
+
     public function isExit(int $x, int $y): bool
     {
         foreach ($this->exits as $exit) {

@@ -80,7 +80,7 @@ class Home extends Model
     /**
      * Every placed piece, as clients draw them.
      *
-     * @return list<array{x: int, y: int, item: array<string, mixed>}>
+     * @return list<array{x: int, y: int, rotation: int, item: array<string, mixed>}>
      */
     public function furniturePayload(): array
     {

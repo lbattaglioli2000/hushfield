@@ -2,12 +2,12 @@
 
 namespace App\Actions\World;
 
+use App\Domain\Housing\HomeFloor;
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\Clock;
 use App\Domain\World\Pathfinder;
 use App\Domain\World\PositionStore;
 use App\Domain\World\StoredPath;
-use App\Domain\World\WalkabilityGridRepository;
 use App\Events\World\PlayerMoved;
 use App\Events\WorldBroadcast;
 use App\Exceptions\WorldActionRefused;
@@ -23,7 +23,7 @@ final readonly class MovePlayer
     public function __construct(
         private InstanceMembers $members,
         private PositionStore $positions,
-        private WalkabilityGridRepository $grids,
+        private HomeFloor $floors,
         private Pathfinder $pathfinder,
     ) {}
 
@@ -32,7 +32,7 @@ final readonly class MovePlayer
         $this->members->ensureContains($instance->id, $user->id);
 
         $room = $instance->room;
-        $grid = $this->grids->forRoom($room);
+        $grid = $this->floors->grid($instance);
         $now = Clock::nowMs();
         $position = $this->positions->currentOrSpawn($user->id, $room, $now)->positionAt($now);
 

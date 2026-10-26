@@ -194,6 +194,31 @@ final class WorldActionRefused extends RuntimeException
         return new self('furniture_blocked', 422);
     }
 
+    public static function furnitureOffFloor(): self
+    {
+        return new self('furniture_off_floor', 422);
+    }
+
+    public static function furnitureInDoorway(): self
+    {
+        return new self('furniture_in_doorway', 422);
+    }
+
+    public static function furnitureCutsOff(): self
+    {
+        return new self('furniture_cuts_off', 422);
+    }
+
+    public static function furnitureTraps(): self
+    {
+        return new self('furniture_traps', 422);
+    }
+
+    public static function furnitureFull(): self
+    {
+        return new self('furniture_full', 409);
+    }
+
     public static function homeTooFast(): self
     {
         return new self('home_too_fast', 429);

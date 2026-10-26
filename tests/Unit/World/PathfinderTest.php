@@ -99,14 +99,20 @@ it('returns null for an enclosed goal', function () {
     expect((new Pathfinder)->find($grid, [0, 0], [2, 2], 200))->toBeNull();
 });
 
-it('returns null for a blocked or out of bounds goal or start', function (array $start, array $goal) {
+it('returns null for a blocked or out of bounds goal, or an out of bounds start', function (array $start, array $goal) {
     expect((new Pathfinder)->find(gridFrom('1 1 0', '1 1 1'), $start, $goal, 200))->toBeNull();
 })->with([
     'blocked goal' => [[0, 0], [2, 0]],
     'goal past the right edge' => [[0, 0], [3, 1]],
     'negative goal' => [[0, 0], [-1, 0]],
-    'blocked start' => [[2, 0], [0, 0]],
+    'start past the bottom edge' => [[0, 2], [0, 0]],
 ]);
+
+it('walks off a blocked start, as when furniture is put down on someone', function () {
+    $grid = gridFrom('1 1 0', '1 1 1');
+
+    expect((new Pathfinder)->find($grid, [2, 0], [0, 0], 200))->toBe([[2, 0], [1, 0], [0, 0]]);
+});
 
 it('caps paths at the maximum number of steps', function () {
     $corridor = gridFrom(str_repeat('1 ', 202));

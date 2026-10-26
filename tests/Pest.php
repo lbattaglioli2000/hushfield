@@ -5,6 +5,9 @@ use App\Actions\World\ImportMap;
 use App\Actions\World\JoinRoom;
 use App\Domain\Chat\BlockedTermMatchType;
 use App\Domain\Chat\BlockedTermSeverity;
+use App\Domain\World\Clock;
+use App\Domain\World\PositionStore;
+use App\Domain\World\StoredPath;
 use App\Events\Chat\ChatMessageSent;
 use App\Events\Fishing\RareCatchLanded;
 use App\Events\Moderation\PlayerWarned;
@@ -103,6 +106,12 @@ function enterWorld(User $user, Room $room, ?RoomInstance $instance = null): arr
     $result = app(JoinRoom::class)($user, $room, $instance);
 
     return ['token' => $token, 'instance' => $result->instance];
+}
+
+/** Puts a resident standing still on a tile of whatever room they are in. */
+function standAt(User $user, int $x, int $y): void
+{
+    app(PositionStore::class)->put($user->id, StoredPath::standingAt($x, $y, Clock::nowMs()));
 }
 
 /**
