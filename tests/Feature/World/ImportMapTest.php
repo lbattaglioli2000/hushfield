@@ -82,7 +82,7 @@ test('rooms without an imported map cannot be joined', function () {
         ->toThrow(InvalidMapException::class, 'has no imported map');
 });
 
-test('every committed map imports with its own place on the town map, every door leads to a real room, lands on an arrival and can be walked to, and every building lets players back out of its front door', function () {
+test('every committed map imports with its own place on the town map, every door is wide, leads to a real room, lands in front of the door back and can be walked to across its width, and every building lets players back out of its front door', function () {
     config(['hushfield.maps.path' => resource_path('maps')]);
     $this->artisan('hushfield:import-map')->assertSuccessful();
 
@@ -108,9 +108,28 @@ test('every committed map imports with its own place on the town map, every door
             expect(isset($maps[$exit->to]))->toBeTrue("{$door} leads to a room with no map")
                 ->and(isset($maps[$exit->to]->grid->arrivals[(string) $exit->arrive]))->toBeTrue("{$door} lands on no arrival");
 
+            // Doors are wide enough to walk into with the keys without lining up first:
+            // three tiles between outdoor rooms, at least two in and out of a building.
+            $there = $maps[$exit->to];
+            $wayBack = collect($there->grid->exits)->first(fn ($back) => $back->to === $slug);
+            $intoBuilding = collect([...$map->buildings, ...$there->buildings])->contains(fn ($building) => $building->door === $exit || $building->door === $wayBack);
+
+            $span = max($exit->wide, $exit->deep);
+
+            expect(min($exit->wide, $exit->deep))->toBe(1, "{$door} is a row or column of tiles")
+                ->and($intoBuilding ? $span >= 2 : $span === 3)->toBeTrue("{$door} is {$span} wide");
+
+            // The player lands just in front of the middle of the door back, clear of it.
+            [$cx, $cy] = $wayBack?->centre() ?? [-9, -9];
+            [$ax, $ay] = $there->grid->arrivals[(string) $exit->arrive];
+
+            expect(abs($ax - $cx) + abs($ay - $cy))->toBe(1, "{$door} does not land in front of the door back");
+
             foreach ($map->grid->spawns as $spawn) {
-                expect(app(Pathfinder::class)->find($map->grid, $spawn, [$exit->x, $exit->y], $maxSteps))
-                    ->not->toBeNull("{$door} cannot be walked to from the spawn at ({$spawn[0]}, {$spawn[1]})");
+                foreach ($exit->tiles() as $tile) {
+                    expect(app(Pathfinder::class)->find($map->grid, $spawn, $tile, $maxSteps))
+                        ->not->toBeNull("{$door} at ({$tile[0]}, {$tile[1]}) cannot be walked to from the spawn at ({$spawn[0]}, {$spawn[1]})");
+                }
             }
         }
 
