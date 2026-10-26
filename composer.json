@@ -59,6 +59,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
+            "@php artisan hushfield:build-assets",
             "@php artisan dev"
         ],
         "lint": [

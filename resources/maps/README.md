@@ -170,10 +170,73 @@ quarter turn clockwise seen from above takes `##` over `#.` to `##` over `.#`.
 
 ## Art
 
-Art is found by name, with no code change: the asset manifest lists whatever
-PNGs are in `public/assets/v{version}/` (the current asset version,
-`HUSHFIELD_ASSET_VERSION`, now 2). Anything without art is drawn as a
-placeholder block, tinted by its slug.
+The artist's source files live in `resources/art/`, one image per file,
+named by slug. `php artisan hushfield:build-assets` checks them, packs and
+multiplies them up to game size, names each output by its content hash and
+writes the index the asset manifest (`/assets/manifest.json`) is served
+from. It runs in `npm run build` (so on every Laravel Cloud build and in CI),
+at the start of `composer dev`, and on demand if a release starts without
+its build. Built files are never committed. Anything without art is drawn as
+a placeholder, tinted by its slug. Every source needs an entry in
+`resources/art/provenance.json` (who drew it, when it arrived), and none may
+be over 1 MB. The plan behind all this is `docs/assets-plan.md`.
+
+### Ground tiles
+
+One folder per tile type, `resources/art/tiles/{type}/`, with one file per
+slab height. Each is drawn at half size on a 32 × 32 canvas (the build
+doubles it to 64 × 64), standing on the bottom of the canvas:
+
+```
+resources/art/tiles/
+  tiles.json        the slot registry, below
+  stone/full.png    a full block
+  stone/half.png    a half slab
+  grass/full.png
+```
+
+- **`full.png`**: the top face is a 32 × 16 diamond whose top corner is on
+  row 7; the block's sides stand 8 pixels tall at the canvas's left and
+  right edges, from row 15 down to row 24. The bottom edge runs from row 24
+  at the sides to row 31 in the middle.
+- **`half.png`**: the same canvas, the same top face and the same bottom
+  edge, with sides half as tall, 4 pixels (rows 19 to 24), so the top face
+  sits 4 pixels lower: its top corner is on row 11.
+- **The build checks** that nothing hangs below the bottom edge, that the
+  sides reach it, and that the sides are the right height for the file's
+  name. Grass tufts and the like may poke above the top face.
+
+`resources/art/tiles/tiles.json` lists every tile, by type and height, in
+slot order, and slot n is GID n + 1 in every map:
+
+```json
+["grass/full", "sand/full", "stone/full", "water/full", "hedge/full", "wood/full"]
+```
+
+- **Add a tile or a height**: put it on the end of the list, such as
+  `"stone/half"`, never in the middle, so no map's tiles move. Until it has
+  art it is a tinted placeholder block of its height.
+- **Change a tile's art**: replace its file under the same name. The slot
+  and the maps stay as they are.
+- **Retire a tile**: replace its entry with `null`. `hushfield:import-map`
+  then refuses any map that still draws it.
+
+Half slabs are packed into the sheet, but the game has no elevation yet:
+avatars don't step up or down, so maps don't use them. The folder leaves
+room for more files later (another version of a height, such as
+`full-2.png`, or edge pieces); the build accepts only `full.png`,
+`half.png` and numbered versions of them (`full-2.png`) for now.
+
+The build writes the `placeholder` tileset into every map in this folder
+(the sheet's size and each tile's `slug` property), and a `ground.png`
+preview beside them so Tiled shows the real tiles. Run it before opening a
+map in Tiled, and commit the maps it changes.
+
+### Buildings, furniture and walls
+
+**Hold this art for now**: the build doesn't take it yet. When it does, it
+moves to per-slug folders under `resources/art/` drawn at half size, and
+this section is restated in art pixels. Until then, the conventions are:
 
 | what      | folder        | file name                                   |
 | --------- | ------------- | ------------------------------------------- |

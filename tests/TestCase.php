@@ -18,6 +18,10 @@ abstract class TestCase extends BaseTestCase
 
         config(['hushfield.maps.path' => base_path('tests/fixtures/maps')]);
 
+        // Built assets go to a scratch folder, built on first use, so tests never touch a dev build.
+        $assets = sys_get_temp_dir().'/hushfield-test-assets-'.getmypid();
+        config(['hushfield.assets.output' => "{$assets}/built", 'hushfield.assets.index' => "{$assets}/assets.json"]);
+
         $this->withoutVite();
         $this->flushWorldRedis();
     }

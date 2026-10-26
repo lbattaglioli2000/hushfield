@@ -186,16 +186,24 @@ export function startGame(
     cleanups.push(() => social.dispose());
 
     void (async () => {
-        const response = await fetch(config.manifestUrl);
+        const fetchManifest = async () => {
+            const response = await fetch(config.manifestUrl, {
+                cache: 'no-cache',
+            });
 
-        if (!response.ok) throw new Error(`Asset manifest ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`Asset manifest ${response.status}`);
+            }
 
-        const manifest = (await response.json()) as AssetManifest;
+            return (await response.json()) as AssetManifest;
+        };
+        const manifest = await fetchManifest();
 
         if (destroyed) return;
 
         scene = new RoomScene(net, bus, {
             manifest,
+            refetchManifest: fetchManifest,
             refused: (error) =>
                 bus.emit('notice', {
                     message: userMessage(error, config.copy),

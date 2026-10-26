@@ -2,6 +2,8 @@
 
 namespace App\Domain\World;
 
+use App\Domain\Assets\AssetBuilder;
+use App\Domain\Assets\TileRegistry;
 use JsonException;
 
 /**
@@ -24,6 +26,8 @@ final class TiledMapParser
     private const float BAND_LOW = 87.5;
 
     private const float BAND_HIGH = 108.5;
+
+    public function __construct(private readonly TileRegistry $tiles = new TileRegistry) {}
 
     public function parse(string $contents): ImportedMap
     {
@@ -52,6 +56,7 @@ final class TiledMapParser
 
         $layers = is_array($map['layers'] ?? null) ? $map['layers'] : [];
 
+        $this->checkGround($this->findLayer($layers, 'ground', 'tilelayer'), $map);
         $cells = $this->walkableCells($this->layer($layers, 'walkable', 'tilelayer'), $width, $height);
         $grid = new WalkabilityGrid($width, $height, $cells, []);
         $spawns = $this->spawns($this->layer($layers, 'spawns', 'objectgroup'), $tileHeight, $grid);
@@ -535,6 +540,46 @@ final class TiledMapParser
         }
 
         return $cells;
+    }
+
+    /**
+     * Every tile the "ground" layer draws must have a slot in
+     * resources/art/tiles/tiles.json that hasn't been retired.
+     *
+     * @param  array<mixed>|null  $layer
+     * @param  array<mixed>  $map
+     */
+    private function checkGround(?array $layer, array $map): void
+    {
+        if ($layer === null || ! is_array($layer['data'] ?? null)) {
+            return;
+        }
+
+        $firstGid = 1;
+
+        foreach (is_array($map['tilesets'] ?? null) ? $map['tilesets'] : [] as $tileset) {
+            if (is_array($tileset) && ($tileset['name'] ?? null) === AssetBuilder::TILESET && is_int($tileset['firstgid'] ?? null)) {
+                $firstGid = $tileset['firstgid'];
+            }
+        }
+
+        $slots = $this->tiles->slots();
+
+        foreach (array_unique($layer['data']) as $gid) {
+            $slot = is_int($gid) ? ($gid & self::GID_MASK) - $firstGid : null;
+
+            if ($slot === -$firstGid) {
+                continue;
+            }
+
+            if ($slot === null || $slot < 0 || $slot >= count($slots)) {
+                throw new InvalidMapException("The \"ground\" layer draws tile GID {$gid}, which has no slot in tiles/tiles.json.");
+            }
+
+            if ($slots[$slot] === null) {
+                throw new InvalidMapException("The \"ground\" layer draws tile GID {$gid}, which has been retired. Paint over it with another tile.");
+            }
+        }
     }
 
     /**

@@ -118,16 +118,28 @@ return [
         'scheme' => env('REVERB_PUBLIC_SCHEME', env('REVERB_SCHEME', 'http')),
     ],
 
+    /*
+     * Game art, built from resources/art by hushfield:build-assets (docs/assets-plan.md).
+     * The client only ever reads URLs from the asset manifest.
+     */
     'assets' => [
-        // Point at a CDN later; the client only ever reads URLs from the manifest.
+        // Where browsers fetch built art from. Unset: the app serves it at /assets.
         'base_url' => env('HUSHFIELD_ASSET_URL'),
-        'version' => env('HUSHFIELD_ASSET_VERSION', '2'),
-        // Manifest key => file name under {base_url}/v{version}/.
+        // Art is drawn at 1/scale of its size in the game, and multiplied up at build.
+        'scale' => 2,
+        // Per kind, to try another size. The marker, hover and resident are
+        // full-size stand-ins until the artist draws them at half size.
+        'scale_overrides' => ['ui' => 1],
+        'sources' => resource_path('art'),
+        // Built files, each named by its content hash, and the index naming them.
+        'output' => storage_path('app/assets'),
+        'index' => base_path('bootstrap/cache/assets.json'),
+        // Manifest image => built file, by its source path under resources/art without .png.
         'images' => [
-            'tiles' => 'tiles.png',
-            'resident' => 'resident.png',
-            'marker' => 'marker.png',
-            'hover' => 'hover.png',
+            'tiles' => 'tiles',
+            'resident' => 'ui/resident-placeholder',
+            'marker' => 'ui/marker',
+            'hover' => 'ui/hover',
         ],
     ],
 

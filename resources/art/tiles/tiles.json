@@ -1,1 +1,8 @@
-["grass", "sand", "stone", "water", "hedge", "wood"]
+[
+    "grass/full",
+    "sand/full",
+    "stone/full",
+    "water/full",
+    "hedge/full",
+    "wood/full"
+]

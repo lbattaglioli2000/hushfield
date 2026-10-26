@@ -12,6 +12,7 @@ use App\Http\Controllers\Housing\PutAwayFurnitureController;
 use App\Http\Controllers\Identity\AgeGateController;
 use App\Http\Controllers\Social\FriendsController;
 use App\Http\Controllers\WelcomeController;
+use App\Http\Controllers\World\AssetFileController;
 use App\Http\Controllers\World\AssetManifestController;
 use App\Http\Controllers\World\ChatController;
 use App\Http\Controllers\World\EndWorldSessionController;
@@ -33,6 +34,7 @@ Route::get('/', WelcomeController::class)->name('home');
 Route::post('register/age', AgeGateController::class)->middleware(['guest', 'throttle:20,1'])->name('register.age');
 
 Route::get('assets/manifest.json', AssetManifestController::class)->name('assets.manifest');
+Route::get('assets/{path}', AssetFileController::class)->where('path', '[a-z0-9/-]+\.[0-9a-f]{8}\.png')->name('assets.file');
 Route::get('world/maps/{room}/{version}.json', MapController::class)->name('world.maps.show');
 
 Route::middleware(['auth', 'verified'])->group(function () {

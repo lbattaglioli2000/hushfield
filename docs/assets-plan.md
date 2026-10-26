@@ -166,12 +166,12 @@ resources/
   art/
     provenance.json            # who drew each file, when it arrived (§10)
     tiles/
-      tiles.json               # slot registry: ordered slugs, append-only (§5)
-      grass.png                # 32×32 block, one file per tile slug
-      grass.aseprite           # optional working file, same name
-      grass-flowers.png        # a variant is just another slug
-      grass-edge-ne.png        # so is an edge or transition piece
-      stone.png
+      tiles.json               # slot registry: type/height, append-only (§5)
+      grass/full.png           # 32×32 full block; one folder per tile type
+      grass/full.aseprite      # optional working file, same name
+      stone/full.png
+      stone/half.png           # half slab: same canvas, sides half as tall
+                               # room later for full-2.png, edge pieces
     buildings/
       library.png              # one whole image per building slug
     walls/
@@ -237,7 +237,7 @@ into the same kind of single PNG, with a hash in its name.
 **Recommendation:** one command, `php artisan hushfield:build-assets`. It uses
 PHP GD, which is already installed, so there's no new dependency. It:
 
-1. **Packs the tile sheet** from `resources/art/tiles/*.png` in the order of
+1. **Packs the tile sheet** from `resources/art/tiles/{type}/{height}.png` in the order of
    `tiles.json`, doubled into 64×64 cells, 16 columns wide. A slot with no
    source file gets a flat placeholder block in the shared block shape,
    tinted by its slug, just as items without art are drawn today.
@@ -263,11 +263,22 @@ makes to the filesystem persist into the image.
 `tiles/tiles.json`:
 
 ```json
-["grass", "sand", "stone", "water", "hedge", "wood"]
+[
+    "grass/full",
+    "sand/full",
+    "stone/full",
+    "water/full",
+    "hedge/full",
+    "wood/full"
+]
 ```
 
 - The list is append-only. New tiles go on the end, so no existing GID ever
   moves. It matches today's slots exactly, so no map changes.
+- Each entry names a tile type and a slab height, the file
+  `tiles/{type}/{height}.png`. Today's six slots are the `full` heights. A
+  `half` slab is appended as a new slot when it arrives and packed into the
+  sheet; no map uses one until elevation exists (later, not planned here).
 - Removing the pack tiles keeps their slugs. `sand`, `water`, `hedge` and
   `wood` have no source file until she draws them, so they pack as
   placeholders and every map keeps working.
@@ -481,12 +492,12 @@ allowed, one entry per handover:
 
 ```json
 {
-    "art/tiles/grass.png": {
+    "art/tiles/grass/full.png": {
         "by": "<artist>",
         "received": "2026-10-26",
         "notes": "second, calmer grass"
     },
-    "art/tiles/stone.png": { "by": "<artist>", "received": "2026-10-25" },
+    "art/tiles/stone/full.png": { "by": "<artist>", "received": "2026-10-25" },
     "art/items/love-seat/*.png": { "by": "<artist>", "received": "2026-11-02" }
 }
 ```
@@ -567,8 +578,8 @@ and tell us its path.
 
 ```
 handover-2026-11-02/
-  tiles/grass.png                 32×32 block, one per file
-  tiles/grass-flowers.png         a variant: same tile, new name
+  tiles/grass/full.png            32×32 full block, a folder per tile type
+  tiles/stone/half.png            32×32 half slab of the same tile
   buildings/library.png           one whole image per building
   walls/brick/left.png            16×56 panel; right.png, and left-door.png / right-door.png if any
   items/love-seat/0.png           furniture facings 0–3 (0 faces lower left)
@@ -584,7 +595,8 @@ change size on your own: the build rejects any file that doesn't match.
 
 | Kind                      | Your canvas                                                                                                                                                                                   |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ground tile               | 32×32 block; top face a 32×16 diamond                                                                                                                                                         |
+| Ground tile, full block   | 32×32, standing on the bottom edge: top face a 32×16 diamond from row 7, sides 8 tall at the canvas's edges (rows 15–24), bottom edge from row 24 at the sides to row 31 in the middle        |
+| Ground tile, half slab    | The same 32×32 canvas, top face and bottom edge, with sides 4 tall (rows 19–24), so the top face starts on row 11                                                                             |
 | Building or furniture     | (wide + deep) × 16 across, with the footprint diamond (wide + deep) × 8 tall touching the bottom edge. A 1×1 stool is 32 across, a 2×1 love seat 48, a 7×5 building 192. As tall as it needs. |
 | Wall panel                | 16 wide × 56 tall: the floor edge climbs 8 across the bottom, and the face is 48 tall above it                                                                                                |
 | Avatar and wearable frame | 48×72                                                                                                                                                                                         |
@@ -601,6 +613,11 @@ change size on your own: the build rejects any file that doesn't match.
 - **Changing a file:** send it again under the same name. Never rename it to
   `-v2` or `-final`; Git keeps the history.
 - **One thing per file.** No sheets; we pack them.
+- **Ground tiles** go in a folder per tile type, one file per height:
+  `tiles/stone/full.png` and `tiles/stone/half.png`. The build checks each
+  stands on the bottom of the canvas with sides the right height for its
+  name. Ask before sending other kinds of tile file (edge pieces, a second
+  version of a height); the build doesn't take them yet.
 
 **What happens next:** your files go into `resources/art/` in a PR. The build
 checks every canvas, and you get a link to see them in the game.

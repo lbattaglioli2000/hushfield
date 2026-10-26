@@ -22,6 +22,8 @@ import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { positionOf } from '../shared/pathClock';
 import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
 import { Arrivals } from '../world/Arrivals';
+import type { AssetFile } from '../world/AssetLoader';
+import { AssetLoader } from '../world/AssetLoader';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
 import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
 import type { DecoratePort } from '../world/DecorateMode';
@@ -35,6 +37,35 @@ import { KeyboardMovement } from '../world/KeyboardMovement';
 import type { MovementPort } from '../world/MovementController';
 import { MovementController } from '../world/MovementController';
 
+/** The textures loaded before anything is drawn. */
+function bootAssets(manifest: AssetManifest): AssetFile[] {
+    const art = (
+        kind: 'buildings' | 'furniture' | 'walls',
+        texture: (name: string) => string,
+    ): AssetFile[] =>
+        Object.keys(manifest[kind]).map((name) => ({
+            key: texture(name),
+            url: (m) => m[kind][name],
+        }));
+
+    return [
+        {
+            key: TILES_TEXTURE,
+            url: (m) => m.images.tiles,
+            spritesheet: {
+                frameWidth: TILE_WIDTH,
+                frameHeight: TILE_IMAGE_HEIGHT,
+            },
+        },
+        { key: AVATAR_TEXTURE, url: (m) => m.images.resident },
+        { key: 'marker', url: (m) => m.images.marker },
+        { key: 'hover', url: (m) => m.images.hover },
+        ...art('buildings', buildingTexture),
+        ...art('furniture', furnitureTexture),
+        ...art('walls', wallTexture),
+    ];
+}
+
 /** The slice of the network layer the scene needs. */
 export type RoomPort = MovementPort &
     DecoratePort & {
@@ -45,6 +76,8 @@ export type RoomPort = MovementPort &
 
 export type RoomSceneOptions = {
     manifest: AssetManifest;
+    /** Fetches the manifest again, for when an asset fails to load (see AssetLoader). */
+    refetchManifest: () => Promise<AssetManifest>;
     /** Tells the player why something they asked for (a door, a piece of furniture) didn't happen. */
     refused: (error: unknown) => void;
     bubbleSeconds: number;
@@ -90,6 +123,7 @@ export class RoomScene
     private walls: WallLayer | null = null;
     private readonly decorate: DecorateMode;
     private readonly arrivals: Arrivals;
+    private readonly assets: AssetLoader;
     /** Between leaving one room and drawing the next: the screen is faded and taps are ignored. */
     private travelling = false;
     private fishingLine: FishingLine | null = null;
@@ -118,41 +152,26 @@ export class RoomScene
             notice: (message) => this.bus.emit('notice', { message }),
         });
         this.decorate = new DecorateMode(port, options.refused);
+        this.assets = new AssetLoader(
+            this,
+            options.manifest,
+            options.refetchManifest,
+        );
         this.arrivals = new Arrivals({
             door: (door) => this.travel(() => this.port.useExit(door.name)),
             fixture: ({ kind }) => this.bus.emit('use-fixture', { kind }),
         });
     }
 
-    preload(): void {
-        const { images } = this.options.manifest;
-        this.load.spritesheet(TILES_TEXTURE, images.tiles, {
-            frameWidth: TILE_WIDTH,
-            frameHeight: TILE_IMAGE_HEIGHT,
-        });
-        this.load.image(AVATAR_TEXTURE, images.resident);
-        this.load.image('marker', images.marker);
-        this.load.image('hover', images.hover);
-
-        for (const [slug, url] of Object.entries(
-            this.options.manifest.buildings,
-        )) {
-            this.load.image(buildingTexture(slug), url);
-        }
-
-        for (const [name, url] of Object.entries(
-            this.options.manifest.furniture,
-        )) {
-            this.load.image(furnitureTexture(name), url);
-        }
-
-        for (const [name, url] of Object.entries(this.options.manifest.walls)) {
-            this.load.image(wallTexture(name), url);
-        }
-    }
-
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.night);
+        void this.assets
+            .load(bootAssets(this.assets.manifest))
+            .then(() => this.start());
+    }
+
+    /** Sets the room up once the textures every room needs are in. */
+    private start(): void {
         this.hover = this.add
             .image(0, 0, 'hover')
             .setVisible(false)
@@ -266,7 +285,9 @@ export class RoomScene
 
         this.travelling = true;
         this.decorate.set(false, null);
-        this.marker.setVisible(false);
+
+        // Before start() there is no marker yet, and nothing to hide.
+        if (this.ready) this.marker.setVisible(false);
         this.cameras.main.fadeOut(TRAVEL.fadeMs, ...NIGHT_RGB);
 
         run().catch((error: unknown) => {

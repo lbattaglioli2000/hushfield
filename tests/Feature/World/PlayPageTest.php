@@ -87,47 +87,39 @@ test('unverified residents cannot reach the game or the world API', function () 
     expect(WorldSession::query()->count())->toBe(0);
 });
 
-test('the asset manifest lists versioned asset URLs', function () {
-    config(['hushfield.assets.base_url' => 'https://cdn.example.com/hf/', 'hushfield.assets.version' => '7']);
+test('the asset manifest lists every built image by its content-hashed URL', function () {
+    config(['hushfield.assets.base_url' => 'https://cdn.example.com/hf/']);
 
-    $this->getJson(route('assets.manifest'))
+    $response = $this->getJson(route('assets.manifest'))
         ->assertOk()
         ->assertHeader('Cache-Control', 'no-cache, private')
-        ->assertJsonPath('version', '7')
-        ->assertJsonPath('images.tiles', 'https://cdn.example.com/hf/v7/tiles.png')
-        ->assertJsonPath('images.resident', 'https://cdn.example.com/hf/v7/resident.png')
         ->assertJsonPath('buildings', [])
         ->assertJsonPath('furniture', [])
         ->assertJsonPath('walls', []);
+    $index = json_decode((string) file_get_contents(config('hushfield.assets.index')), true);
+
+    expect($response->json('version'))->toBe($index['version'])
+        ->and($response->json('images'))->toBe([
+            'tiles' => "https://cdn.example.com/hf/{$index['files']['tiles']}",
+            'resident' => "https://cdn.example.com/hf/{$index['files']['ui/resident-placeholder']}",
+            'marker' => "https://cdn.example.com/hf/{$index['files']['ui/marker']}",
+            'hover' => "https://cdn.example.com/hf/{$index['files']['ui/hover']}",
+        ])
+        ->and($index['files']['tiles'])->toMatch('/^tiles\.[0-9a-f]{8}\.png$/');
+
+    $this->getJson(route('assets.manifest'), ['If-None-Match' => $response->headers->get('ETag')])
+        ->assertStatus(304);
 });
 
-test('the asset manifest lists the art dropped in for each building, piece of furniture and wall style', function () {
-    $version = 'test-'.uniqid();
-    $dir = public_path("assets/v{$version}/buildings");
-    File::ensureDirectoryExists($dir);
-    File::put("{$dir}/library.png", '');
-    File::put("{$dir}/notes.txt", '');
-    File::ensureDirectoryExists(public_path("assets/v{$version}/furniture"));
-    File::put(public_path("assets/v{$version}/furniture/small-table.png"), '');
-    File::put(public_path("assets/v{$version}/furniture/standard-bed-1.png"), '');
-    File::ensureDirectoryExists(public_path("assets/v{$version}/walls"));
-    File::put(public_path("assets/v{$version}/walls/plaster-left.png"), '');
-    config(['hushfield.assets.base_url' => 'https://cdn.example.com/hf', 'hushfield.assets.version' => $version]);
+test('the app serves the built files the index names, cached for good', function () {
+    $tiles = $this->getJson(route('assets.manifest'))->json('images.tiles');
 
-    try {
-        $this->getJson(route('assets.manifest'))
-            ->assertOk()
-            ->assertExactJson([
-                'version' => $version,
-                'images' => collect(config('hushfield.assets.images'))->map(fn (string $file) => "https://cdn.example.com/hf/v{$version}/{$file}")->all(),
-                'buildings' => ['library' => "https://cdn.example.com/hf/v{$version}/buildings/library.png"],
-                'furniture' => [
-                    'small-table' => "https://cdn.example.com/hf/v{$version}/furniture/small-table.png",
-                    'standard-bed-1' => "https://cdn.example.com/hf/v{$version}/furniture/standard-bed-1.png",
-                ],
-                'walls' => ['plaster-left' => "https://cdn.example.com/hf/v{$version}/walls/plaster-left.png"],
-            ]);
-    } finally {
-        File::deleteDirectory(public_path("assets/v{$version}"));
-    }
+    expect($tiles)->toStartWith(asset('assets').'/tiles.');
+
+    $this->get($tiles)
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'immutable, max-age=31536000, public');
+
+    // A file from another build, or no build at all, is not there.
+    $this->get(asset('assets/tiles.00000000.png'))->assertNotFound();
 });

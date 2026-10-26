@@ -1,12 +1,17 @@
 {
-    "art/tiles/stone.png": {
+    "art/tiles/stone/full.png": {
         "by": "our artist",
         "received": "2026-10-25",
         "notes": "her first tile"
     },
-    "art/tiles/grass.png": {
+    "art/tiles/grass/full.png": {
         "by": "our artist",
         "received": "2026-10-26",
         "notes": "second, calmer grass"
+    },
+    "art/ui/*.png": {
+        "by": "Hushfield team",
+        "received": "2026-10-25",
+        "notes": "full-size stand-ins from the first playable build, until she draws the marker, hover and avatars"
     }
 }

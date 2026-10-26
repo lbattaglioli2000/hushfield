@@ -5,6 +5,7 @@ use App\Domain\World\InvalidMapException;
 use App\Domain\World\RoomKind;
 use App\Domain\World\TiledMapParser;
 use App\Domain\World\WalkabilityGrid;
+use Illuminate\Support\Facades\File;
 
 function fixtureMap(string $name): string
 {
@@ -48,6 +49,33 @@ it('rejects maps that are not fixed-size isometric JSON', function (callable $mu
     'infinite' => [fn (array $map) => [...$map, 'infinite' => true], 'Infinite'],
     'tile count mismatch' => [fn (array $map) => [...$map, 'width' => 11], 'one tile per map cell'],
 ]);
+
+it('refuses ground tiles that tiles.json has no slot for, or has retired', function () {
+    $map = json_decode(fixtureMap('test-square'), true);
+    $ground = array_search('ground', array_column($map['layers'], 'name'), true);
+    $slots = count(json_decode((string) file_get_contents(resource_path('art/tiles/tiles.json'))));
+
+    // The last slot is fine, one past it is not.
+    $map['layers'][$ground]['data'][3] = $slots;
+    expect((new TiledMapParser)->parse(json_encode($map))->grid->width)->toBe(10);
+
+    $map['layers'][$ground]['data'][3] = $slots + 1;
+    expect(fn () => (new TiledMapParser)->parse(json_encode($map)))
+        ->toThrow(InvalidMapException::class, 'draws tile GID '.($slots + 1).', which has no slot');
+
+    $sources = sys_get_temp_dir().'/hushfield-retired-'.uniqid();
+    File::ensureDirectoryExists("{$sources}/tiles");
+    File::put("{$sources}/tiles/tiles.json", '["grass/full", null]');
+    config(['hushfield.assets.sources' => $sources]);
+    $map['layers'][$ground]['data'][3] = 2;
+
+    try {
+        expect(fn () => (new TiledMapParser)->parse(json_encode($map)))
+            ->toThrow(InvalidMapException::class, 'draws tile GID 2, which has been retired');
+    } finally {
+        File::deleteDirectory($sources);
+    }
+});
 
 it('versions a map by its content', function () {
     $parser = new TiledMapParser;
