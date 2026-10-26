@@ -3,29 +3,23 @@
 namespace App\Domain\World;
 
 /**
- * A building standing on a map: a block of tiles nobody can walk onto except
- * its door, an exit along its front edge that leads to the room inside.
- *
- * The footprint runs $wide tiles along x and $deep along y from its back
- * corner at ($x, $y). The client draws it $height pixels tall, from the art
- * named by $name or as a placeholder block.
+ * A building standing on a map: a footprint nobody can walk onto except its
+ * door, an exit along its front edge that leads to the room inside. The
+ * client draws it $height pixels tall, from the art named by $name or as a
+ * placeholder block.
  */
-final readonly class MapBuilding
+final readonly class MapBuilding extends Footprint
 {
     public function __construct(
         public string $name,
-        public int $x,
-        public int $y,
-        public int $wide,
-        public int $deep,
+        int $x,
+        int $y,
+        int $wide,
+        int $deep,
         public int $height,
         public MapExit $door,
-    ) {}
-
-    public function covers(int $x, int $y): bool
-    {
-        return $x >= $this->x && $x < $this->x + $this->wide
-            && $y >= $this->y && $y < $this->y + $this->deep;
+    ) {
+        parent::__construct($x, $y, $wide, $deep);
     }
 
     /**

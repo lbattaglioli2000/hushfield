@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domain\Items\ItemRarity;
 use App\Domain\Items\ItemSlot;
+use App\Domain\World\Footprint;
 use Database\Factories\ItemFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -68,6 +69,15 @@ class Item extends Model
     protected function inShop(Builder $query): void
     {
         $query->where('in_shop', true);
+    }
+
+    /**
+     * The tiles this piece of furniture covers with its back corner at ($x, $y),
+     * turned $rotation quarter turns. Mirrors footprintOf in resources/js/game/shared/furniture.ts.
+     */
+    public function footprintAt(int $x, int $y, int $rotation): Footprint
+    {
+        return (new Footprint($x, $y, $this->wide, $this->deep))->turned($rotation);
     }
 
     /**

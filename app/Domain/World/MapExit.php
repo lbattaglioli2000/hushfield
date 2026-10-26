@@ -6,53 +6,20 @@ namespace App\Domain\World;
  * A door on a map: walking onto any of its tiles takes the player to another
  * room, at the arrival point named by $arrive (or a random spawn).
  *
- * The door covers $wide tiles along x and $deep along y from ($x, $y); most
- * doors are one tile, wide ones a row or column of tiles.
+ * Most doors are one tile; wide ones are a row or column of tiles.
  */
-final readonly class MapExit
+final readonly class MapExit extends Footprint
 {
     public function __construct(
         public string $name,
-        public int $x,
-        public int $y,
+        int $x,
+        int $y,
         public string $to,
         public ?string $arrive,
-        public int $wide = 1,
-        public int $deep = 1,
-    ) {}
-
-    public function covers(int $x, int $y): bool
-    {
-        return $x >= $this->x && $x < $this->x + $this->wide
-            && $y >= $this->y && $y < $this->y + $this->deep;
-    }
-
-    /**
-     * The door's tiles, row by row.
-     *
-     * @return list<array{int, int}>
-     */
-    public function tiles(): array
-    {
-        $tiles = [];
-
-        for ($y = $this->y; $y < $this->y + $this->deep; $y++) {
-            for ($x = $this->x; $x < $this->x + $this->wide; $x++) {
-                $tiles[] = [$x, $y];
-            }
-        }
-
-        return $tiles;
-    }
-
-    /**
-     * The door's middle tile (the later of the two middles on an even width).
-     *
-     * @return array{int, int}
-     */
-    public function centre(): array
-    {
-        return [$this->x + intdiv($this->wide, 2), $this->y + intdiv($this->deep, 2)];
+        int $wide = 1,
+        int $deep = 1,
+    ) {
+        parent::__construct($x, $y, $wide, $deep);
     }
 
     /**

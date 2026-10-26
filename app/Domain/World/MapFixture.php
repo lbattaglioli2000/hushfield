@@ -3,17 +3,20 @@
 namespace App\Domain\World;
 
 /**
- * Something on a map a player can use, such as a shop counter. The client
- * opens it when the player walks onto its tile or taps it.
+ * Something on a map a player can use, such as a shop counter: one tile. The
+ * client uses it when the player walks onto it; what it is for, and how near
+ * the server wants the player to be, comes from its kind.
  */
-final readonly class MapFixture
+final readonly class MapFixture extends Footprint
 {
     public function __construct(
         public string $name,
-        public int $x,
-        public int $y,
+        int $x,
+        int $y,
         public FixtureKind $kind,
-    ) {}
+    ) {
+        parent::__construct($x, $y);
+    }
 
     /**
      * @return array{name: string, x: int, y: int, kind: string}

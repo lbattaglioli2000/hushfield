@@ -2,12 +2,12 @@
 
 namespace App\Actions\Housing;
 
-use App\Domain\Housing\Footprint;
 use App\Domain\Housing\HomeFloor;
 use App\Domain\Housing\Residences;
 use App\Domain\Items\ItemSlot;
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\Clock;
+use App\Domain\World\Footprint;
 use App\Domain\World\PositionStore;
 use App\Domain\World\WalkabilityGrid;
 use App\Domain\World\WalkabilityGridRepository;
@@ -65,7 +65,7 @@ final readonly class PlaceFurniture
             }
 
             $rotation ??= $current->rotation ?? 0;
-            $footprint = Footprint::of($item, $x, $y, $rotation);
+            $footprint = $item->footprintAt($x, $y, $rotation);
 
             $this->ensureOnFloor($footprint, $grid);
             $this->ensureClear($footprint, $item, $others);

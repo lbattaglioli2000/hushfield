@@ -79,11 +79,9 @@ final class TiledMapParser
 
         // Walls block walking; only the door lets players onto a building's footprint.
         foreach ($buildings as $building) {
-            for ($y = $building->y; $y < $building->y + $building->deep; $y++) {
-                for ($x = $building->x; $x < $building->x + $building->wide; $x++) {
-                    if (! $building->door->covers($x, $y)) {
-                        $cells[$y * $width + $x] = '0';
-                    }
+            foreach ($building->tiles() as [$x, $y]) {
+                if (! $building->door->covers($x, $y)) {
+                    $cells[$y * $width + $x] = '0';
                 }
             }
         }
@@ -169,7 +167,7 @@ final class TiledMapParser
     {
         $exits = [];
 
-        foreach ($this->namedPoints($layer, 'exit', $tileHeight, $grid, areas: true) as $name => [$tile, $properties, $size]) {
+        foreach ($this->namedPoints($layer, 'exit', $tileHeight, $grid, areas: true) as $name => [$area, $properties]) {
             $to = $properties['to'] ?? null;
 
             if (! is_string($to) || ! preg_match('/^[a-z0-9-]+$/', $to)) {
@@ -177,7 +175,7 @@ final class TiledMapParser
             }
 
             $arrive = $properties['arrive'] ?? null;
-            $exits[$name] = new MapExit($name, $tile[0], $tile[1], $to, is_string($arrive) && $arrive !== '' ? $arrive : null, $size[0], $size[1]);
+            $exits[$name] = new MapExit($name, $area->x, $area->y, $to, is_string($arrive) && $arrive !== '' ? $arrive : null, $area->wide, $area->deep);
         }
 
         return $exits;
@@ -191,12 +189,12 @@ final class TiledMapParser
     {
         $arrivals = [];
 
-        foreach ($this->namedPoints($layer, 'arrival', $tileHeight, $grid) as $name => [$tile]) {
-            if ($grid->isExit(...$tile)) {
+        foreach ($this->namedPoints($layer, 'arrival', $tileHeight, $grid) as $name => [$point]) {
+            if ($grid->isExit($point->x, $point->y)) {
                 throw new InvalidMapException("Arrival \"{$name}\" is on an exit; players would leave as soon as they arrived.");
             }
 
-            $arrivals[$name] = $tile;
+            $arrivals[$name] = [$point->x, $point->y];
         }
 
         return $arrivals;
@@ -210,15 +208,15 @@ final class TiledMapParser
     {
         $fixtures = [];
 
-        foreach ($this->namedPoints($layer, 'fixture', $tileHeight, $grid) as $name => [$tile, $properties]) {
+        foreach ($this->namedPoints($layer, 'fixture', $tileHeight, $grid) as $name => [$point, $properties]) {
             $kind = FixtureKind::tryFrom(is_string($properties['kind'] ?? null) ? $properties['kind'] : '')
                 ?? throw new InvalidMapException("Fixture \"{$name}\" needs a \"kind\" property: ".implode(', ', array_column(FixtureKind::cases(), 'value')).'.');
 
-            if ($grid->isExit(...$tile)) {
+            if ($grid->isExit($point->x, $point->y)) {
                 throw new InvalidMapException("Fixture \"{$name}\" is on an exit.");
             }
 
-            $fixtures[$name] = new MapFixture($name, $tile[0], $tile[1], $kind);
+            $fixtures[$name] = new MapFixture($name, $point->x, $point->y, $kind);
         }
 
         return $fixtures;
@@ -244,21 +242,11 @@ final class TiledMapParser
                 throw new InvalidMapException("Two buildings are named \"{$name}\".");
             }
 
-            // Rectangles on isometric maps are measured in tile-height pixels on both axes, like points.
-            $box = [];
+            $box = $this->snappedRectangle($object, $tileHeight)
+                ?? throw new InvalidMapException("Building \"{$name}\" must be a rectangle snapped to whole tiles.");
 
-            foreach (['x', 'y', 'width', 'height'] as $key) {
-                $value = $object[$key] ?? null;
-
-                if (! is_numeric($value) || fmod((float) $value, $tileHeight) !== 0.0 || ($object['point'] ?? false) === true || isset($object['polygon']) || isset($object['ellipse'])) {
-                    throw new InvalidMapException("Building \"{$name}\" must be a rectangle snapped to whole tiles.");
-                }
-
-                $box[$key] = intdiv((int) $value, $tileHeight);
-            }
-
-            if ($box['width'] < 1 || $box['height'] < 1 || $box['x'] < 0 || $box['y'] < 0
-                || $grid->width < $box['x'] + $box['width'] || $grid->height < $box['y'] + $box['height']) {
+            if ($box->wide < 1 || $box->deep < 1 || $box->x < 0 || $box->y < 0
+                || $grid->width < $box->x + $box->wide || $grid->height < $box->y + $box->deep) {
                 throw new InvalidMapException("Building \"{$name}\" runs off the map.");
             }
 
@@ -275,7 +263,7 @@ final class TiledMapParser
                 throw new InvalidMapException("Building \"{$name}\" needs a \"door\" property naming one of the map's exits.");
             }
 
-            $building = new MapBuilding($name, $box['x'], $box['y'], $box['width'], $box['height'], $height, $door);
+            $building = new MapBuilding($name, $box->x, $box->y, $box->wide, $box->deep, $height, $door);
             $this->ensureClear($building, $grid, $buildings);
 
             // Only the two faces nearest the viewer are drawn, so a door anywhere else could not be seen.
@@ -319,23 +307,19 @@ final class TiledMapParser
         }
 
         foreach ($others as $other) {
-            $overlaps = $building->x < $other->x + $other->wide && $other->x < $building->x + $building->wide
-                && $building->y < $other->y + $other->deep && $other->y < $building->y + $building->deep;
-
-            if ($overlaps) {
+            if ($building->overlaps($other)) {
                 throw new InvalidMapException("Buildings \"{$other->name}\" and \"{$building->name}\" overlap.");
             }
         }
     }
 
     /**
-     * Points with unique names, each on a walkable tile. With $areas, an object
-     * may instead be a rectangle snapped to whole tiles, every one walkable;
-     * its tile is its back corner and its size how many tiles it runs along x
-     * and y. A point's size is one by one.
+     * Points with unique names, each on a walkable tile, and their properties.
+     * With $areas, an object may instead be a rectangle snapped to whole tiles,
+     * every one walkable. A point covers one tile.
      *
      * @param  array<mixed>  $layer
-     * @return array<string, array{array{int, int}, array<string, mixed>, array{int, int}}>
+     * @return array<string, array{Footprint, array<string, mixed>}>
      */
     private function namedPoints(array $layer, string $what, int $tileHeight, WalkabilityGrid $grid, bool $areas = false): array
     {
@@ -353,31 +337,52 @@ final class TiledMapParser
                 throw new InvalidMapException("Two {$what}s are named \"{$name}\".");
             }
 
-            $tile = [(int) floor($object['x'] / $tileHeight), (int) floor($object['y'] / $tileHeight)];
-            $size = [1, 1];
+            $area = new Footprint((int) floor($object['x'] / $tileHeight), (int) floor($object['y'] / $tileHeight));
 
             if ($areas && ($object['point'] ?? false) !== true && ((float) ($object['width'] ?? 0) > 0 || (float) ($object['height'] ?? 0) > 0)) {
-                foreach (['x', 'y', 'width', 'height'] as $key) {
-                    if (! is_numeric($object[$key] ?? null) || fmod((float) $object[$key], $tileHeight) !== 0.0 || isset($object['polygon']) || isset($object['ellipse'])) {
-                        throw new InvalidMapException(ucfirst($what)." \"{$name}\" must be a point or a rectangle snapped to whole tiles.");
-                    }
-                }
-
-                $size = [max(1, intdiv((int) $object['width'], $tileHeight)), max(1, intdiv((int) $object['height'], $tileHeight))];
+                $box = $this->snappedRectangle($object, $tileHeight)
+                    ?? throw new InvalidMapException(ucfirst($what)." \"{$name}\" must be a point or a rectangle snapped to whole tiles.");
+                $area = new Footprint($box->x, $box->y, max(1, $box->wide), max(1, $box->deep));
             }
 
-            for ($y = $tile[1]; $y < $tile[1] + $size[1]; $y++) {
-                for ($x = $tile[0]; $x < $tile[0] + $size[0]; $x++) {
-                    if (! $grid->isWalkable($x, $y)) {
-                        throw new InvalidMapException(ucfirst($what)." \"{$name}\" at tile ({$x}, {$y}) is not walkable.");
-                    }
+            foreach ($area->tiles() as [$x, $y]) {
+                if (! $grid->isWalkable($x, $y)) {
+                    throw new InvalidMapException(ucfirst($what)." \"{$name}\" at tile ({$x}, {$y}) is not walkable.");
                 }
             }
 
-            $points[$name] = [$tile, $this->properties($object), $size];
+            $points[$name] = [$area, $this->properties($object)];
         }
 
         return $points;
+    }
+
+    /**
+     * The tiles a rectangle object covers, or null when it is not a rectangle
+     * snapped to whole tiles. Rectangles on isometric maps are measured in
+     * tile-height pixels on both axes, like points.
+     *
+     * @param  array<mixed>  $object
+     */
+    private function snappedRectangle(array $object, int $tileHeight): ?Footprint
+    {
+        if (($object['point'] ?? false) === true || isset($object['polygon']) || isset($object['ellipse'])) {
+            return null;
+        }
+
+        $box = [];
+
+        foreach (['x', 'y', 'width', 'height'] as $key) {
+            $value = $object[$key] ?? null;
+
+            if (! is_numeric($value) || fmod((float) $value, $tileHeight) !== 0.0) {
+                return null;
+            }
+
+            $box[] = intdiv((int) $value, $tileHeight);
+        }
+
+        return new Footprint(...$box);
     }
 
     /**

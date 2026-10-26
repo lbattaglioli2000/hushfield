@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Domain\Housing\Footprint;
+use App\Domain\World\Footprint;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,7 +51,7 @@ class HomeFurniture extends Model
 
     public function footprint(): Footprint
     {
-        return Footprint::of($this->inventoryItem->item, $this->x, $this->y, $this->rotation);
+        return $this->inventoryItem->item->footprintAt($this->x, $this->y, $this->rotation);
     }
 
     /** Rugs and other floor pieces are walked over; everything else is walked around. */
