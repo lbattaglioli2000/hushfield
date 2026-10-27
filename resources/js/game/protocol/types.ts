@@ -69,7 +69,7 @@ export type Snapshot = {
     /** Set when the instance is someone's residence. */
     home: HomeInfo | null;
     furniture: PlacedFurniture[];
-    /** The VFA's programme when the instance is the cinema; null everywhere else. */
+    /** The programme when the instance is one of the VFA's theaters; null everywhere else. */
     cinema: CinemaProgramme | null;
     players: PlayerState[];
 };
@@ -79,12 +79,21 @@ export type Screening = {
     id: number;
     video_id: string;
     title: string;
+    /** Starts at its own time; the queue flows around it. */
+    premiere: boolean;
     starts_at_ms: number;
     ends_at_ms: number;
 };
 
-/** What the VFA's screen shows: dark while switched off, else the films showing and to come, in order. */
-export type CinemaProgramme = { open: boolean; screenings: Screening[] };
+/** How staff have set a theater's house lights: auto dims them while a film is on. */
+export type HouseLights = 'auto' | 'up' | 'dim' | 'dark';
+
+/** What a VFA theater's screen shows: dark while switched off, else the films showing and to come, in order. */
+export type CinemaProgramme = {
+    open: boolean;
+    lights: HouseLights;
+    screenings: Screening[];
+};
 
 type Stamped = { protocol: number; at_ms: number };
 
@@ -121,7 +130,7 @@ export type AssetManifest = {
 };
 
 /** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */
-export type FixtureKind = 'shop' | 'fishing';
+export type FixtureKind = 'shop' | 'fishing' | 'concessions';
 
 export type ItemSlot =
     | 'head'

@@ -22,6 +22,8 @@ export const DEPTH = {
     hover: 1,
     marker: 2,
     avatars: 10,
+    /** The house lights' shade: over the room and everyone in it, under their names. */
+    houseLights: 50_000,
     labels: 100_000,
 } as const;
 
@@ -94,6 +96,12 @@ export const SCREEN = {
     lightRadius: 2,
 } as const;
 
+/** A theater's house lights, down: a near-black shade that fades in and out like a dimmer. */
+export const HOUSE_LIGHTS = {
+    color: 0x05030a,
+    fadeMs: 2500,
+} as const;
+
 export const TRAVEL = {
     /** Fade out before leaving a room, and in once the next is drawn. */
     fadeMs: 220,
@@ -124,6 +132,11 @@ export const CAMERA = {
     followLerp: 0.12,
     /** Lets the camera scroll this far past the map edges. */
     boundsPadding: 200,
+    /** In a room with a TV: wall kept in view above it, and room kept below the player's feet. */
+    screenMarginPx: 24,
+    playerMarginPx: 96,
+    /** How far a room with a TV may zoom out to fit across the view. */
+    minZoom: 0.5,
 } as const;
 
 /** The rod, line and bobber, drawn as shapes until fishing has art. */

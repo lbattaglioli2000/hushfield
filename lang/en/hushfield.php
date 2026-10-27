@@ -125,7 +125,10 @@ return [
     'cinema_idle' => 'Nothing is showing. The archive is resting its eyes.',
     'cinema_dark' => 'The projector is off for now. Nobody in the booth will say why.',
     'cinema_muted' => 'The film is playing with the sound down. Press Sound to hear it.',
-    'cinema_out_of_view' => 'Step back until you can see the whole screen. The film waits for no one, but it will not play to a corner.',
+    'cinema_out_of_view' => 'The screen is out of sight. Step back toward the seats to watch.',
+    'concessions_hint' => 'The popcorn machine is warming up. It has been warming up since 1987. Please check back.',
+    'concessions_elsewhere' => 'The concession counter is in the lobby of the VFA, off Lantern Street.',
+    'concessions_too_far' => 'Step up to the counter.',
     'cinema_unavailable' => 'This film will not play here. The archive apologizes to everyone involved.',
 
     // Friends
@@ -161,6 +164,8 @@ return [
         'hearthmore-residences' => 'Hearthmore',
         'whsh' => 'WHSH',
         'vfa' => 'VFA',
+        'vfa-1' => 'VFA',
+        'vfa-2' => 'VFA',
     ],
     'chat_placeholder' => 'Press TALK or Enter, and say something kind…',
     'on_air_host' => 'Augustin Moss',

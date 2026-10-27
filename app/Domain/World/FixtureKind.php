@@ -16,6 +16,9 @@ enum FixtureKind: string
     /** A fishing spot: players can only cast while standing on or next to one. */
     case Fishing = 'fishing';
 
+    /** The VFA's concession counter: scenery for now, with a sign. Nothing is sold yet. */
+    case Concessions = 'concessions';
+
     /**
      * How many steps from the fixture a player may use it from, diagonals
      * counting as one; null for anywhere in its room.
@@ -25,6 +28,7 @@ enum FixtureKind: string
         return match ($this) {
             self::Shop => null,
             self::Fishing => 1,
+            self::Concessions => null,
         };
     }
 }

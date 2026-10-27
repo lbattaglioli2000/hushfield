@@ -66,6 +66,7 @@ final class PlayController extends Controller
         'cinema_muted',
         'cinema_out_of_view',
         'cinema_unavailable',
+        'concessions_hint',
     ];
 
     public function __invoke(Request $request, LiveKit $liveKit): Response
@@ -94,7 +95,7 @@ final class PlayController extends Controller
                 'stations' => $this->stations(),
                 // Push-to-talk is for adults only; everyone else keeps TALK as a shortcut to the chat line.
                 'voice' => ! $user->is_minor && $liveKit->configured() && WorldFlag::Voice->isActive()
-                    ? ['hearingTiles' => (int) config('hushfield.voice.hearing_tiles')]
+                    ? ['hearingTiles' => (int) config('hushfield.voice.hearing_tiles'), 'whisperTiles' => (int) config('hushfield.cinema.whisper_tiles')]
                     : null,
             ],
         ]);

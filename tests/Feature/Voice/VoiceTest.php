@@ -117,7 +117,7 @@ test('voice is refused while switched off or not configured', function (string $
 
 test('the game shell offers push-to-talk to adults only', function () {
     $this->actingAs(resident())->get(route('play'))
-        ->assertInertia(fn (Assert $page) => $page->where('game.voice', ['hearingTiles' => 8]));
+        ->assertInertia(fn (Assert $page) => $page->where('game.voice', ['hearingTiles' => 8, 'whisperTiles' => 3]));
 
     $this->actingAs(User::factory()->minor()->create())->get(route('play'))
         ->assertInertia(fn (Assert $page) => $page->where('game.voice', null));

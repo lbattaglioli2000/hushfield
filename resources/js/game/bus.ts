@@ -44,11 +44,13 @@ export type CinemaPhase =
 export type CinemaState = {
     phase: CinemaPhase;
     /** The film on now; null when nothing is. */
-    film: { title: string } | null;
-    next: { title: string; startsAtMs: number } | null;
+    film: { title: string; premiere: boolean } | null;
+    next: { title: string; startsAtMs: number; premiere: boolean } | null;
+    /** How dark the house lights have the room: 0 with them up, toward 1 with them down. */
+    darkness: number;
     /** The film is playing without sound until the player presses Sound. */
     muted: boolean;
-    /** All of the screen is on the glass; a film plays only then. */
+    /** Some of the TV is on the glass; a film plays only then. */
     inView: boolean;
 };
 
@@ -135,7 +137,7 @@ export type GameEvents = {
     cinema: { programme: CinemaProgramme | null };
     /** What the VFA's screen is doing, for the set to show around it. Null outside the cinema. */
     'cinema-state': { state: CinemaState | null };
-    /** Every frame it moves: where the room's screen is on the glass, and whether all of it is; null in a room without one. */
+    /** Every frame it moves: where the room's TV is on the glass, and whether any of it is; null in a room without one. */
     'cinema-screen-rect': { rect: ScreenBox | null; inView: boolean };
     /** The player walked off while their line was in the water; it is abandoned. */
     'fishing-interrupted': Record<string, never>;

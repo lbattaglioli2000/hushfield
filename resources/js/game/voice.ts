@@ -47,13 +47,14 @@ export function hearingVolume(tiles: number, hearingTiles: number): number {
  * Proximity voice for adults: joins the current instance's LiveKit room to
  * listen, and opens the microphone only while TALK is held. Every voice comes
  * through the radio effect, faded by how far away its speaker stands; the
- * scene lights up whoever is on air. Returns the cleanup.
+ * scene lights up whoever is on air. While a film plays, voices carry only a
+ * whisper's distance. Returns the cleanup.
  */
 export function connectVoice(
     net: WorldNet,
     bus: EventBus,
     copy: Copy,
-    hearingTiles: number,
+    hearing: { hearingTiles: number; whisperTiles: number },
     scene: () => VoiceView | null,
 ): () => void {
     const context = new AudioContext();
@@ -66,6 +67,7 @@ export function connectVoice(
     let holding = false;
     let talking = false;
     let volume = 0.5;
+    let hearingTiles = hearing.hearingTiles;
     let destroyed = false;
     let rejoin: ReturnType<typeof setTimeout> | null = null;
     // Microphone changes run one after another, so a quick tap can't leave it open.
@@ -319,6 +321,11 @@ export function connectVoice(
         }),
         bus.on('voice-volume', (next) => {
             volume = next.volume;
+        }),
+        bus.on('cinema-state', ({ state }) => {
+            const filmOn =
+                state?.phase === 'playing' || state?.phase === 'loading';
+            hearingTiles = filmOn ? hearing.whisperTiles : hearing.hearingTiles;
         }),
     ];
 

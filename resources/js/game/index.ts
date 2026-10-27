@@ -64,7 +64,7 @@ export type GameBootProps = {
     /** Every station on the tuning dial, lowest frequency first. */
     stations: Station[];
     /** Push-to-talk, for adults while voice is on; null for everyone else. */
-    voice: { hearingTiles: number } | null;
+    voice: { hearingTiles: number; whisperTiles: number } | null;
 };
 
 /** A station on the tuning dial: a room's frequency, or the one homes share. */
@@ -197,13 +197,7 @@ export function startGame(
 
     if (config.voice) {
         cleanups.push(
-            connectVoice(
-                net,
-                bus,
-                config.copy,
-                config.voice.hearingTiles,
-                () => scene,
-            ),
+            connectVoice(net, bus, config.copy, config.voice, () => scene),
         );
     }
 

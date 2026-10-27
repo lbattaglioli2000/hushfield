@@ -2,15 +2,18 @@
 
 use App\Actions\Cinema\CancelScreening;
 use App\Actions\Cinema\ScheduleScreening;
+use App\Actions\Cinema\SetHouseLights;
 use App\Actions\World\SetWorldFlag;
 use App\Domain\Cinema\Film;
 use App\Domain\Cinema\FilmRefused;
+use App\Domain\Cinema\HouseLights;
 use App\Domain\Cinema\YouTube;
 use App\Domain\Identity\StaffRole;
 use App\Events\World\CinemaChanged;
 use App\Features\WorldFlag;
 use App\Filament\Pages\Cinema;
 use App\Models\Screening;
+use App\Models\Theater;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
@@ -21,7 +24,7 @@ use Spatie\Activitylog\Models\Activity;
 beforeEach(function () {
     fakeWorldEvents();
     $this->travelTo(CarbonImmutable::parse('2026-10-25 20:00:00', 'UTC'));
-    config(['hushfield.cinema.room' => 'test-square', 'hushfield.cinema.intermission_seconds' => 60, 'hushfield.cinema.youtube_key' => 'test-key']);
+    config(['hushfield.cinema.theaters' => ['test-square' => 'Screen 1', 'test-market' => 'Screen 2'], 'hushfield.cinema.intermission_seconds' => 60, 'hushfield.cinema.youtube_key' => 'test-key']);
     $this->cinema = importRoom('test-square');
     $this->admin = User::factory()->staff(StaffRole::Admin)->create();
 });
@@ -45,7 +48,7 @@ function youTubeVideo(array $overrides = []): array
 /** @return list<array{title: string, starts: string, ends: string}> */
 function programme(): array
 {
-    return Screening::query()->orderBy('starts_at')->get()->map(fn (Screening $screening): array => [
+    return Screening::query()->where('theater', 'test-square')->orderBy('starts_at')->get()->map(fn (Screening $screening): array => [
         'title' => $screening->title,
         'starts' => $screening->starts_at->format('H:i:s'),
         'ends' => $screening->ends_at->format('H:i:s'),
@@ -99,9 +102,9 @@ test('without an API key nothing is looked up', function () {
 test('queued films run back to back, an intermission apart, starting at once on an empty screen', function () {
     $schedule = app(ScheduleScreening::class);
 
-    $schedule(film('aaaaaaaaaaa', 600), false, $this->admin);
-    $schedule(film('bbbbbbbbbbb', 90), false, $this->admin);
-    $schedule(film('ccccccccccc', 30), false, $this->admin);
+    $schedule(film('aaaaaaaaaaa', 600), 'test-square', false, $this->admin);
+    $schedule(film('bbbbbbbbbbb', 90), 'test-square', false, $this->admin);
+    $schedule(film('ccccccccccc', 30), 'test-square', false, $this->admin);
 
     expect(programme())->toBe([
         ['title' => 'Film aaaaaaaaaaa', 'starts' => '20:00:00', 'ends' => '20:10:00'],
@@ -112,11 +115,11 @@ test('queued films run back to back, an intermission apart, starting at once on 
 
 test('playing a film now cuts the one showing short and moves the queue back behind it', function () {
     $schedule = app(ScheduleScreening::class);
-    $schedule(film('aaaaaaaaaaa', 600), false, $this->admin);
-    $schedule(film('bbbbbbbbbbb', 300), false, $this->admin);
+    $schedule(film('aaaaaaaaaaa', 600), 'test-square', false, $this->admin);
+    $schedule(film('bbbbbbbbbbb', 300), 'test-square', false, $this->admin);
     $this->travel(2)->minutes();
 
-    $schedule(film('ccccccccccc', 120), true, $this->admin);
+    $schedule(film('ccccccccccc', 120), 'test-square', true, $this->admin);
 
     expect(programme())->toBe([
         ['title' => 'Film aaaaaaaaaaa', 'starts' => '20:00:00', 'ends' => '20:02:00'],
@@ -125,12 +128,89 @@ test('playing a film now cuts the one showing short and moves the queue back beh
     ]);
 });
 
+test('premieres keep their time, cut short the film they meet, and the queue flows around them in its order', function () {
+    $schedule = app(ScheduleScreening::class);
+    $schedule(film('aaaaaaaaaaa', 600), 'test-square', false, $this->admin);
+
+    $schedule(film('ppppppppppp', 300), 'test-square', false, $this->admin, now()->addMinutes(5));
+    $schedule(film('bbbbbbbbbbb', 120), 'test-square', false, $this->admin);
+    $schedule(film('qqqqqqqqqqq', 600), 'test-square', false, $this->admin, now()->addMinutes(30));
+    // Sixteen minutes would end at 20:30 with no intermission before the premiere at 20:30, so it goes after it.
+    $schedule(film('ccccccccccc', 960), 'test-square', false, $this->admin);
+    // Short enough for the gap before 20:30, but the queue keeps its order.
+    $schedule(film('ddddddddddd', 60), 'test-square', false, $this->admin);
+
+    expect(programme())->toBe([
+        ['title' => 'Film aaaaaaaaaaa', 'starts' => '20:00:00', 'ends' => '20:05:00'],
+        ['title' => 'Film ppppppppppp', 'starts' => '20:05:00', 'ends' => '20:10:00'],
+        ['title' => 'Film bbbbbbbbbbb', 'starts' => '20:11:00', 'ends' => '20:13:00'],
+        ['title' => 'Film qqqqqqqqqqq', 'starts' => '20:30:00', 'ends' => '20:40:00'],
+        ['title' => 'Film ccccccccccc', 'starts' => '20:41:00', 'ends' => '20:57:00'],
+        ['title' => 'Film ddddddddddd', 'starts' => '20:58:00', 'ends' => '20:59:00'],
+    ]);
+
+    // Removing a queued film moves the queue up into the gap it leaves, but never moves a premiere.
+    app(CancelScreening::class)(Screening::query()->where('video_id', 'bbbbbbbbbbb')->sole(), $this->admin);
+
+    expect(array_map(fn (array $row): string => "{$row['title']} {$row['starts']}", programme()))->toBe([
+        'Film aaaaaaaaaaa 20:00:00',
+        'Film ppppppppppp 20:05:00',
+        'Film ccccccccccc 20:11:00',
+        'Film ddddddddddd 20:28:00',
+        'Film qqqqqqqqqqq 20:30:00',
+    ]);
+});
+
+test('a premiere must be in the future and clear of every other premiere', function () {
+    $schedule = app(ScheduleScreening::class);
+    $schedule(film('ppppppppppp', 600), 'test-square', false, $this->admin, now()->addHour());
+
+    expect(fn () => $schedule(film('qqqqqqqqqqq', 600), 'test-square', false, $this->admin, now()->subMinute()))
+        ->toThrow(FilmRefused::class, 'in the future')
+        // Ending at 21:00 leaves no intermission before 21:00.
+        ->and(fn () => $schedule(film('qqqqqqqqqqq', 3000), 'test-square', false, $this->admin, now()->addMinutes(10)))
+        ->toThrow(FilmRefused::class, 'premiere of "Film ppppppppppp" at 5:00 PM')
+        ->and(fn () => $schedule(film('qqqqqqqqqqq', 60), 'test-square', false, $this->admin, now()->addMinutes(70)))
+        ->toThrow(FilmRefused::class, 'Film ppppppppppp');
+
+    $schedule(film('rrrrrrrrrrr', 60), 'test-square', false, $this->admin, now()->addMinutes(71));
+    $schedule(film('sssssssssss', 60), 'test-street', false, $this->admin, now()->addHour());
+
+    expect(Screening::query()->count())->toBe(3);
+});
+
+test('each theater has its own programme', function () {
+    $market = importRoom('test-market');
+    $inMarket = enterWorld(resident(), $market)['instance'];
+
+    app(ScheduleScreening::class)(film('aaaaaaaaaaa', 600), 'test-square', false, $this->admin);
+    $there = app(ScheduleScreening::class)(film('bbbbbbbbbbb', 300), 'test-market', false, $this->admin);
+
+    expect(programme())->toHaveCount(1)
+        ->and($there->starts_at->format('H:i:s'))->toBe('20:00:00');
+    Event::assertDispatched(CinemaChanged::class, fn (CinemaChanged $event): bool => $event->instanceId === $inMarket->id
+        && array_column($event->cinema['screenings'], 'title') === ['Film bbbbbbbbbbb']);
+});
+
+test('house lights change for everyone in the theater at once', function () {
+    $resident = resident();
+    ['token' => $token, 'instance' => $instance] = enterWorld($resident, $this->cinema);
+
+    expect(app(SetHouseLights::class)('test-square', HouseLights::Dark, $this->admin))->toBeTrue()
+        ->and(app(SetHouseLights::class)('test-square', HouseLights::Dark, $this->admin))->toBeFalse();
+
+    Event::assertDispatchedTimes(CinemaChanged::class, 1);
+    Event::assertDispatched(CinemaChanged::class, fn (CinemaChanged $event): bool => $event->instanceId === $instance->id && $event->cinema['lights'] === 'dark');
+    asResident($resident, $token)->getJson(route('world.instances.snapshot', $instance))->assertJsonPath('cinema.lights', 'dark');
+    expect(Activity::query()->where('event', 'lights.set')->sole()->description)->toBe('Screen 1 house lights: Dark');
+});
+
 test('stopping the film showing moves the queue up; removing a queued one gives its slot to the next', function () {
     $schedule = app(ScheduleScreening::class);
     $cancel = app(CancelScreening::class);
-    $first = $schedule(film('aaaaaaaaaaa', 600), false, $this->admin);
-    $second = $schedule(film('bbbbbbbbbbb', 300), false, $this->admin);
-    $schedule(film('ccccccccccc', 120), false, $this->admin);
+    $first = $schedule(film('aaaaaaaaaaa', 600), 'test-square', false, $this->admin);
+    $second = $schedule(film('bbbbbbbbbbb', 300), 'test-square', false, $this->admin);
+    $schedule(film('ccccccccccc', 120), 'test-square', false, $this->admin);
     $this->travel(3)->minutes();
 
     expect($cancel($second, $this->admin))->toBeTrue();
@@ -157,26 +237,27 @@ test('everyone in every open instance of the cinema hears the programme change',
     $second = $this->cinema->instances()->create(['number' => 2, 'is_open' => true]);
     $this->cinema->instances()->create(['number' => 3, 'is_open' => false]);
 
-    $screening = app(ScheduleScreening::class)(film(), false, $this->admin);
+    $screening = app(ScheduleScreening::class)(film(), 'test-square', false, $this->admin);
 
     Event::assertDispatchedTimes(CinemaChanged::class, 2);
     foreach ([$first->id, $second->id] as $instanceId) {
         Event::assertDispatched(CinemaChanged::class, fn (CinemaChanged $event): bool => $event->instanceId === $instanceId
-            && $event->cinema === ['open' => true, 'screenings' => [$screening->toPayload()]]);
+            && $event->cinema === ['open' => true, 'lights' => 'auto', 'screenings' => [$screening->toPayload()]]);
     }
 });
 
 test('the cinema snapshot carries the programme, in server milliseconds, and other rooms carry none', function () {
-    $screening = app(ScheduleScreening::class)(film('aaaaaaaaaaa', 600), false, $this->admin);
+    $screening = app(ScheduleScreening::class)(film('aaaaaaaaaaa', 600), 'test-square', false, $this->admin);
     $resident = resident();
     ['token' => $token, 'instance' => $instance] = enterWorld($resident, $this->cinema);
 
     asResident($resident, $token)->getJson(route('world.instances.snapshot', $instance))
         ->assertOk()
-        ->assertJsonPath('cinema', ['open' => true, 'screenings' => [[
+        ->assertJsonPath('cinema', ['open' => true, 'lights' => 'auto', 'screenings' => [[
             'id' => $screening->id,
             'video_id' => 'aaaaaaaaaaa',
             'title' => 'Film aaaaaaaaaaa',
+            'premiere' => false,
             'starts_at_ms' => now()->getTimestampMs(),
             'ends_at_ms' => now()->addMinutes(10)->getTimestampMs(),
         ]]]);
@@ -191,16 +272,16 @@ test('the cinema snapshot carries the programme, in server milliseconds, and oth
 });
 
 test('switching the screen off darkens it for everyone at once and withholds the programme', function () {
-    app(ScheduleScreening::class)(film(), false, $this->admin);
+    app(ScheduleScreening::class)(film(), 'test-square', false, $this->admin);
     $resident = resident();
     ['token' => $token, 'instance' => $instance] = enterWorld($resident, $this->cinema);
 
     app(SetWorldFlag::class)(WorldFlag::Cinema, false, $this->admin, 'Wrong reel');
 
     Event::assertDispatched(CinemaChanged::class, fn (CinemaChanged $event): bool => $event->instanceId === $instance->id
-        && $event->cinema === ['open' => false, 'screenings' => []]);
+        && $event->cinema === ['open' => false, 'lights' => 'auto', 'screenings' => []]);
     asResident($resident, $token)->getJson(route('world.instances.snapshot', $instance))
-        ->assertJsonPath('cinema', ['open' => false, 'screenings' => []]);
+        ->assertJsonPath('cinema', ['open' => false, 'lights' => 'auto', 'screenings' => []]);
 });
 
 test('an admin queues a film from the booth, and a refused one leaves the programme alone', function () {
@@ -217,9 +298,29 @@ test('an admin queues a film from the booth, and a refused one leaves the progra
         ->assertNotified("The VFA can't show that");
 
     expect(Screening::query()->sole())
+        ->theater->toBe('test-square')
         ->video_id->toBe('dQw4w9WgXcQ')
         ->duration_seconds->toBe(3723)
         ->scheduled_by->toBe($this->admin->id);
+});
+
+test('from the booth an admin schedules a premiere in Hushfield time, in the theater they picked, and sets its lights', function () {
+    $this->actingAs($this->admin);
+    Http::fake(['www.googleapis.com/*' => Http::response(youTubeVideo())]);
+
+    Livewire::withQueryParams(['theater' => 'test-market'])->test(Cinema::class)
+        ->assertSee('Screen 2')
+        // 20:00 UTC is 4 PM in Hushfield; the premiere is at 9 PM there.
+        ->callAction('premiere', data: ['video' => 'dQw4w9WgXcQ', 'starts_at' => '2026-10-25 21:00:00'])
+        ->assertHasNoActionErrors()
+        ->assertNotified('Premiere: Decker: Unsealed, at Sun 25 Oct, 9:00 PM')
+        ->callAction('lights', data: ['lights' => 'dim'])
+        ->assertNotified('Screen 2 house lights: Dim');
+
+    expect(Screening::query()->sole()->only('theater', 'premiere'))->toBe(['theater' => 'test-market', 'premiere' => true])
+        ->and(Screening::query()->sole()->starts_at->toIso8601String())->toBe('2026-10-26T01:00:00+00:00')
+        ->and(Theater::lights('test-market'))->toBe(HouseLights::Dim)
+        ->and(Theater::lights('test-square'))->toBe(HouseLights::Auto);
 });
 
 test('only admins reach the booth', function () {

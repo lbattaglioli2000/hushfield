@@ -1,6 +1,6 @@
 import type { CinemaState, EventBus, ScreenBox } from './bus';
 import type { WorldNet } from './net/WorldNet';
-import type { CinemaProgramme, Screening } from './protocol/types';
+import type { CinemaProgramme, HouseLights, Screening } from './protocol/types';
 
 /** The few parts of the YouTube IFrame Player API the screen uses. */
 type YTPlayer = {
@@ -67,6 +67,15 @@ export const SYNC = {
     stalledMs: 4000,
 } as const;
 
+/** How dark each setting of the house lights makes the room; auto is dim while a film is on, up otherwise. */
+export const DARKNESS = { up: 0, dim: 0.45, dark: 0.75 } as const;
+
+export function darkness(lights: HouseLights, filmOn: boolean): number {
+    if (lights === 'auto') return filmOn ? DARKNESS.dim : DARKNESS.up;
+
+    return DARKNESS[lights];
+}
+
 /** Privacy-enhanced mode: no YouTube cookies until a viewer interacts with the player. */
 const PLAYER_HOST = 'https://www.youtube-nocookie.com';
 
@@ -125,7 +134,7 @@ function loadApi(): Promise<YTNamespace> {
  * room is at, in a frame laid over the TV on the wall and slanted with it.
  * Nobody can pause it; a film starts with the sound down until the player
  * presses Sound, which browsers require. The film pauses and its frame hides
- * while the tab is hidden or any of the TV is off the glass, and catches up
+ * while the tab is hidden or the TV is wholly off the glass, and catches up
  * with the room when it is back. Returns the cleanup.
  */
 export function connectCinema(net: WorldNet, bus: EventBus): () => void {
@@ -311,19 +320,39 @@ export function connectCinema(net: WorldNet, bus: EventBus): () => void {
         const now = net.serverNow();
         const { film, next } = showing(programme.screenings, now);
         const upNext = next
-            ? { title: next.title, startsAtMs: next.starts_at_ms }
+            ? {
+                  title: next.title,
+                  startsAtMs: next.starts_at_ms,
+                  premiere: next.premiere,
+              }
             : null;
+        const on = film ? { title: film.title, premiere: film.premiere } : null;
+        const dark = darkness(programme.lights, programme.open && !!film);
 
         if (!programme.open) {
             unmount();
-            emit({ phase: 'dark', film: null, next: null, muted, inView });
+            emit({
+                phase: 'dark',
+                film: null,
+                next: null,
+                darkness: dark,
+                muted,
+                inView,
+            });
 
             return;
         }
 
         if (!film) {
             unmount();
-            emit({ phase: 'idle', film: null, next: upNext, muted, inView });
+            emit({
+                phase: 'idle',
+                film: null,
+                next: upNext,
+                darkness: dark,
+                muted,
+                inView,
+            });
 
             return;
         }
@@ -332,8 +361,9 @@ export function connectCinema(net: WorldNet, bus: EventBus): () => void {
             unmount();
             emit({
                 phase: 'unavailable',
-                film: { title: film.title },
+                film: on,
                 next: upNext,
+                darkness: dark,
                 muted,
                 inView,
             });
@@ -364,8 +394,9 @@ export function connectCinema(net: WorldNet, bus: EventBus): () => void {
                 player && ready && player.getPlayerState() === PLAYING
                     ? 'playing'
                     : 'loading',
-            film: { title: film.title },
+            film: on,
             next: upNext,
+            darkness: dark,
             muted,
             inView,
         });

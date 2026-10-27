@@ -101,6 +101,7 @@ the event bus, and the panel for that kind opens. It may not sit on a door.
 | --------- | --------------- | ------------------------------------------ |
 | `shop`    | a shop counter  | anywhere in the room                       |
 | `fishing` | a fishing spot  | on the spot or a step from it              |
+| `concessions` | the VFA's concession counter | anywhere in the room (nothing is sold yet) |
 
 To add a kind (a minigame, say):
 

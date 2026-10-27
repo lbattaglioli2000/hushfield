@@ -13,7 +13,7 @@ final readonly class Snapshot
 {
     /**
      * @param  list<PlayerState>  $players
-     * @param  array{open: bool, screenings: list<array<string, mixed>>}|null  $cinema  See App\Domain\Cinema\Programme.
+     * @param  array{open: bool, lights: string, screenings: list<array<string, mixed>>}|null  $cinema  See App\Domain\Cinema\Programme.
      */
     public function __construct(
         public RoomInstance $instance,

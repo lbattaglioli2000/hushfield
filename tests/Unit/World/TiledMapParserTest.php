@@ -186,7 +186,7 @@ it('reads fixtures players can use, and rejects ones it does not understand', fu
     $bad['layers'][3]['objects'][0]['properties'][0]['value'] = 'bakery';
 
     expect(fn () => (new TiledMapParser)->parse(json_encode($bad)))
-        ->toThrow(InvalidMapException::class, 'Fixture "counter" needs a "kind" property: shop, fishing.');
+        ->toThrow(InvalidMapException::class, 'Fixture "counter" needs a "kind" property: shop, fishing, concessions.');
 });
 
 it('rejects room properties it does not understand', function (array $property, string $message) {

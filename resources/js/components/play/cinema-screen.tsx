@@ -76,6 +76,7 @@ export default function CinemaBar({
             </span>
             <div className="min-w-0 flex-1">
                 <p className="truncate">
+                    {state.film?.premiere && <PremiereBadge />}
                     {state.film ? (
                         <span
                             className="amber-glow uppercase"
@@ -92,9 +93,8 @@ export default function CinemaBar({
                     {state.next && (
                         <span className="text-bakelite/50">
                             {' '}
-                            · Next {startTime.format(
-                                state.next.startsAtMs,
-                            )}:{' '}
+                            · Next{state.next.premiere && ' premiere'}{' '}
+                            {startTime.format(state.next.startsAtMs)}:{' '}
                             {state.next.title}
                         </span>
                     )}
@@ -122,5 +122,16 @@ export default function CinemaBar({
                 </RadioKey>
             )}
         </section>
+    );
+}
+
+function PremiereBadge() {
+    return (
+        <span
+            className="mr-2 rounded-sm bg-red-700 px-1.5 py-0.5 align-middle font-sans text-[10px] font-bold tracking-[0.2em] text-bakelite uppercase"
+            data-test="cinema-premiere"
+        >
+            Premiere
+        </span>
     );
 }

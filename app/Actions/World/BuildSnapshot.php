@@ -40,7 +40,7 @@ final readonly class BuildSnapshot
             ->map(fn (User $user): PlayerState => new PlayerState($user, $paths[$user->id]))
             ->all());
 
-        $cinema = $this->programme->isCinema($instance->room) ? $this->programme->payload() : null;
+        $cinema = $this->programme->isTheater($instance->room) ? $this->programme->payload($instance->room->slug) : null;
 
         return new Snapshot($instance, $now, $players, $this->assets->current()['version'], $cinema);
     }

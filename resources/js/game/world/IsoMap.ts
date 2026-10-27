@@ -221,24 +221,29 @@ export class IsoMap {
      * A map that fits in the view stays centred in it; a bigger one scrolls
      * with the player, a little past its edges. Phaser pins a view larger than
      * its bounds to their top-left corner, so a fitting map gets bounds the
-     * size of the view, centred on the map. A room with a TV never scrolls
-     * down past the top of its walls: the TV stays in view, and in a short
-     * view the front of the room goes off the bottom instead.
+     * size of the view, centred on the map. A room with a TV zooms out until
+     * the room fits across the view, so the whole TV can be seen from a seat.
      */
     fitCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
+        camera.setZoom(
+            this.screen
+                ? Phaser.Math.Clamp(
+                      camera.width /
+                          (this.sizePx.width + CAMERA.screenMarginPx * 2),
+                      CAMERA.minZoom,
+                      1,
+                  )
+                : 1,
+        );
+
         const span = (map: number, view: number) =>
             map <= view ? view : map + CAMERA.boundsPadding * 2;
         const tall = this.sizePx.height - this.topPx;
         const width = span(this.sizePx.width, camera.displayWidth);
-        const height =
-            this.screen && tall > camera.displayHeight
-                ? camera.displayHeight
-                : span(tall, camera.displayHeight);
+        const height = span(tall, camera.displayHeight);
         camera.setBounds(
             (this.sizePx.width - width) / 2,
-            this.screen && tall > camera.displayHeight
-                ? this.topPx
-                : this.topPx + (tall - height) / 2,
+            this.topPx + (tall - height) / 2,
             width,
             height,
         );

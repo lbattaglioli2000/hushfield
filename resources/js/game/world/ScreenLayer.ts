@@ -71,13 +71,12 @@ export class ScreenLayer {
             height: Math.round(this.screen.height * camera.zoom),
             slope: this.screen.slope,
         };
-        // The film plays only while all of the screen is on the glass: its top-left corner to its bottom-right.
+        // The film plays while any of the TV is on the glass; the glass crops the rest.
         const inView =
-            rect.x >= camera.x &&
-            rect.y >= camera.y &&
-            rect.x + rect.width <= camera.x + camera.width &&
-            rect.y + rect.height + rect.width * rect.slope <=
-                camera.y + camera.height;
+            rect.x < camera.x + camera.width &&
+            rect.x + rect.width > camera.x &&
+            rect.y < camera.y + camera.height &&
+            rect.y + rect.height + rect.width * rect.slope > camera.y;
         const key = `${rect.x},${rect.y},${rect.width},${rect.height},${inView}`;
 
         if (key === this.last) return;

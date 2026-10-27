@@ -8,6 +8,7 @@ const film = (id: number, starts: number, ends: number): Screening => ({
     title: `Film ${id}`,
     starts_at_ms: starts,
     ends_at_ms: ends,
+    premiere: false,
 });
 
 describe('showing', () => {

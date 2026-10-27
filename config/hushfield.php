@@ -119,17 +119,23 @@ return [
     ],
 
     /*
-     * The VFA: the Hushfield branch of the Victorville Film Archive. Staff queue
-     * YouTube films in the admin; everyone in the room watches the same moment.
+     * The VFA: the Hushfield branch of the Victorville Film Archive. A lobby with
+     * a concession counter, and theaters off it. Staff program each theater in
+     * the admin; everyone in a theater watches the same moment.
      */
     'cinema' => [
-        // The room whose snapshot carries the programme, and whose instances hear it change.
-        'room' => 'vfa',
+        // The theaters, by room slug: each has its own programme and house lights.
+        'theaters' => [
+            'vfa-1' => 'Screen 1',
+            'vfa-2' => 'Screen 2',
+        ],
         // Looks films up when staff queue them: title, length, and whether they may be shown.
         'youtube_key' => env('YOUTUBE_DATA_API_KEY'),
         // The house lights stay up this long between one film and the next.
         'intermission_seconds' => 60,
         'max_minutes' => 240,
+        // While a film plays, voices in its theater carry only this many tiles: a whisper.
+        'whisper_tiles' => 3,
     ],
 
     'maps' => [

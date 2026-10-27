@@ -35,7 +35,7 @@ final readonly class SetWorldFlag
 
         // The screen goes dark, or lights up, for everyone watching at once.
         if ($flag === WorldFlag::Cinema) {
-            $this->programme->announce();
+            $this->programme->announceAll();
         }
 
         return true;

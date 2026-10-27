@@ -34,9 +34,10 @@ import {
     itemTexture,
     mirroredTexture,
 } from '../world/FurnitureLayer';
+import { HouseLights } from '../world/HouseLights';
 import { ScreenLayer } from '../world/ScreenLayer';
 import { WallLayer, wallTexture } from '../world/WallLayer';
-import type { MapBuilding } from '../world/IsoMap';
+import type { MapBuilding, ScreenRect } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
 import { KeyboardMovement } from '../world/KeyboardMovement';
 import type { MovementPort } from '../world/MovementController';
@@ -181,6 +182,7 @@ export class RoomScene
         this.decorate.create(this);
 
         this.fishingLine = new FishingLine(this);
+        new HouseLights(this, this.bus);
 
         this.input.on('pointermove', (pointer: Phaser.Input.Pointer) =>
             this.onHover(pointer),
@@ -259,7 +261,39 @@ export class RoomScene
         this.furniture?.update(seen, delta);
 
         this.fishingLine?.update(time, self?.target ?? null);
+
+        if (self && this.map.screen)
+            this.followInTheater(self.target, this.map.screen);
+
         this.screen?.update();
+    }
+
+    /**
+     * In a room with a TV the camera keeps the TV in view as long as the
+     * player stays in it too: it follows the player across, and up and down
+     * only as far as the top of the TV allows, unless the player would
+     * otherwise leave the bottom of the view.
+     */
+    private followInTheater(
+        target: { x: number; y: number },
+        screen: ScreenRect,
+    ): void {
+        const camera = this.cameras.main;
+        // Phaser zooms about the middle of the view, so steer by where the middle should be.
+        const height = camera.height / camera.zoom;
+        const centred = target.y - height / 2;
+        const keepsTv = Math.min(centred, screen.y - CAMERA.screenMarginPx);
+        const top = Math.max(
+            keepsTv,
+            target.y + CAMERA.playerMarginPx - height,
+        );
+        const scrollY = top + height / 2 - camera.height / 2;
+        const scrollX = target.x - camera.width / 2;
+
+        camera.setScroll(
+            camera.scrollX + (scrollX - camera.scrollX) * CAMERA.followLerp,
+            camera.scrollY + (scrollY - camera.scrollY) * CAMERA.followLerp,
+        );
     }
 
     /** Game → scene: where the player's line is. The bobber lands on the water beside them. */
@@ -397,13 +431,16 @@ export class RoomScene
 
         const self = this.avatars.get(selfId);
 
-        if (self) {
+        // A room with a TV steers the camera itself, each frame (see followInTheater).
+        if (self && !this.map.screen) {
             this.cameras.main.startFollow(
                 self.target,
                 true,
                 CAMERA.followLerp,
                 CAMERA.followLerp,
             );
+        } else {
+            this.cameras.main.stopFollow();
         }
 
         this.drainQueue();

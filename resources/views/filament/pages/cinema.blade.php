@@ -1,4 +1,6 @@
 @php
+    /** @var array<string, string> $theaters */
+    /** @var \App\Domain\Cinema\HouseLights $lights */
     /** @var \App\Models\Screening|null $showing */
     /** @var \Illuminate\Database\Eloquent\Collection<int, \App\Models\Screening> $queued */
     /** @var bool $open */
@@ -11,6 +13,14 @@
 
 <x-filament-panels::page>
     <div wire:poll.10s style="display: flex; flex-direction: column; gap: 1.5rem">
+        <x-filament::tabs>
+            @foreach ($theaters as $slug => $name)
+                <x-filament::tabs.item :active="$theater === $slug" wire:click="$set('theater', '{{ $slug }}')" wire:key="theater-{{ $slug }}">
+                    {{ $name }}
+                </x-filament::tabs.item>
+            @endforeach
+        </x-filament::tabs>
+
         @unless ($open)
             <x-filament::section>
                 <x-slot name="heading">
@@ -24,7 +34,15 @@
         @endunless
 
         <x-filament::section :description="'Times are Hushfield time (' . $tz . '). Last updated ' . $now->timezone($tz)->format('g:i:s A') . '.'">
-            <x-slot name="heading">Now showing</x-slot>
+            <x-slot name="heading">
+                Now showing
+                <x-filament::badge color="gray" icon="heroicon-o-light-bulb" style="display: inline-flex; margin-inline-start: .5rem">
+                    House lights: {{ $lights->getLabel() }}
+                </x-filament::badge>
+                @if ($showing?->premiere)
+                    <x-filament::badge color="warning" style="display: inline-flex; margin-inline-start: .25rem">Premiere</x-filament::badge>
+                @endif
+            </x-slot>
 
             @if ($showing)
                 @php($elapsed = (int) $showing->starts_at->diffInSeconds($now))
@@ -52,7 +70,7 @@
             @endif
         </x-filament::section>
 
-        <x-filament::section :description="config('hushfield.cinema.intermission_seconds') . ' second intermission between films.'">
+        <x-filament::section :description="config('hushfield.cinema.intermission_seconds') . ' second intermission between films. Premieres keep their time; the queue flows around them.'">
             <x-slot name="heading">Up next</x-slot>
 
             @if ($queued->isEmpty())
@@ -71,8 +89,11 @@
                     <tbody>
                         @foreach ($queued as $screening)
                             <tr wire:key="screening-{{ $screening->id }}">
-                                <td style="{{ $cell }} font-variant-numeric: tabular-nums; white-space: nowrap">{{ $screening->starts_at->timezone($tz)->format('g:i A') }}</td>
+                                <td style="{{ $cell }} font-variant-numeric: tabular-nums; white-space: nowrap">{{ $screening->starts_at->timezone($tz)->isSameDay($now->timezone($tz)) ? $screening->starts_at->timezone($tz)->format('g:i A') : $screening->starts_at->timezone($tz)->format('D j M, g:i A') }}</td>
                                 <td style="{{ $cell }}">
+                                    @if ($screening->premiere)
+                                        <x-filament::badge color="warning" style="display: inline-flex; margin-inline-end: .25rem">Premiere</x-filament::badge>
+                                    @endif
                                     <a href="{{ $link($screening) }}" target="_blank" rel="noopener">{{ $screening->title }}</a>
                                     <span style="opacity: .7">· {{ $screening->channel ?? 'Unknown channel' }}@if ($screening->made_for_kids) · made for kids @endif</span>
                                 </td>
