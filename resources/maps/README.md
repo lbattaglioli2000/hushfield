@@ -336,7 +336,8 @@ Uploads are served from `HUSHFIELD_ASSET_URL` when it is set, and from the
 `php artisan storage:link`.
 
 The artist's guide to all this, in plain words and with footprint templates,
-is [`docs/art/furniture.md`](../../docs/art/furniture.md). Keep the two in step.
+is [`docs/art/furniture.md`](../../docs/art/furniture.md), and for buildings
+[`docs/art/buildings.md`](../../docs/art/buildings.md). Keep them in step.
 
 Buildings and furniture share one canvas rule, in art pixels, for the
 footprint as it lies (a 2 × 1 love seat is 48 across at every facing):

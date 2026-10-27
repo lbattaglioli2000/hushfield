@@ -1,6 +1,7 @@
 # Drawing furniture for Hushfield
 
 How to draw a piece of furniture and get it into the game, in five steps.
+Drawing a building? See [buildings.md](buildings.md).
 If an upload is refused, the [last table](#if-the-upload-says-no) says why
 and how to fix it.
 
