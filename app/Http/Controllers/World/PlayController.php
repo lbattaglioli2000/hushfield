@@ -60,6 +60,12 @@ final class PlayController extends Controller
         'voice_muted',
         'voice_mic_blocked',
         'voice_hold',
+        'cinema_branch',
+        'cinema_idle',
+        'cinema_dark',
+        'cinema_muted',
+        'cinema_out_of_view',
+        'cinema_unavailable',
     ];
 
     public function __invoke(Request $request, LiveKit $liveKit): Response

@@ -34,6 +34,7 @@ import {
     itemTexture,
     mirroredTexture,
 } from '../world/FurnitureLayer';
+import { ScreenLayer } from '../world/ScreenLayer';
 import { WallLayer, wallTexture } from '../world/WallLayer';
 import type { MapBuilding } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
@@ -115,6 +116,7 @@ export class RoomScene
     private walkGrid: Grid | null = null;
     private buildings: BuildingLayer | null = null;
     private walls: WallLayer | null = null;
+    private screen: ScreenLayer | null = null;
     private readonly decorate: DecorateMode;
     private readonly arrivals: Arrivals;
     private readonly assets: AssetLoader;
@@ -257,6 +259,7 @@ export class RoomScene
         this.furniture?.update(seen, delta);
 
         this.fishingLine?.update(time, self?.target ?? null);
+        this.screen?.update();
     }
 
     /** Game → scene: where the player's line is. The bobber lands on the water beside them. */
@@ -351,7 +354,9 @@ export class RoomScene
             this.furniture?.destroy();
             this.buildings?.destroy();
             this.walls?.destroy();
+            this.screen?.destroy();
             this.furniture = this.buildings = this.walls = null;
+            this.screen = null;
             this.map?.destroy();
             this.fishingLine?.reset();
             this.map = new IsoMap(this, key);
@@ -371,6 +376,7 @@ export class RoomScene
             this.furniture = new FurnitureLayer(this, this.map);
             this.buildings = new BuildingLayer(this, this.map);
             this.walls = new WallLayer(this, this.map);
+            this.screen = ScreenLayer.forMap(this, this.bus, this.map);
         }
 
         this.setFurniture(snapshot.furniture);

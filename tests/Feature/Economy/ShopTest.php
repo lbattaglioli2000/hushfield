@@ -38,7 +38,7 @@ test('the shop lists only items on sale', function () {
 
     asResident($this->resident, $this->token)->getJson(route('world.shop'))
         ->assertOk()
-        ->assertJsonPath('protocol', 2)
+        ->assertJsonPath('protocol', 3)
         ->assertJsonPath('open', true)
         ->assertJsonPath('items.*.id', [$locked->id, $hat->id])
         ->assertJsonPath('items.1.name', 'Moth Hat')
@@ -151,7 +151,7 @@ test('while the shop is switched off nothing can be bought, but the shelves, bel
 
     buy($hat)
         ->assertStatus(409)
-        ->assertJsonPath('protocol', 2)
+        ->assertJsonPath('protocol', 3)
         ->assertJsonPath('reason', 'shop_closed')
         ->assertJsonPath('message', __('hushfield.shop_closed'));
 

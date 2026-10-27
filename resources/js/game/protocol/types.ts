@@ -1,5 +1,5 @@
 /** Must match config('hushfield.protocol'). A server payload with a higher value means this build is outdated. */
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 
 export type Tile = [number, number];
 
@@ -69,8 +69,22 @@ export type Snapshot = {
     /** Set when the instance is someone's residence. */
     home: HomeInfo | null;
     furniture: PlacedFurniture[];
+    /** The VFA's programme when the instance is the cinema; null everywhere else. */
+    cinema: CinemaProgramme | null;
     players: PlayerState[];
 };
+
+/** One film on the VFA's programme, from start to end in server time. */
+export type Screening = {
+    id: number;
+    video_id: string;
+    title: string;
+    starts_at_ms: number;
+    ends_at_ms: number;
+};
+
+/** What the VFA's screen shows: dark while switched off, else the films showing and to come, in order. */
+export type CinemaProgramme = { open: boolean; screenings: Screening[] };
 
 type Stamped = { protocol: number; at_ms: number };
 
@@ -87,6 +101,8 @@ export type IdleWhisper = { user_id: number; idle: boolean };
 export type FurnitureChangedEvent = Stamped & {
     furniture: PlacedFurniture[];
 };
+
+export type CinemaChangedEvent = Stamped & { cinema: CinemaProgramme };
 
 export type InstanceReassignedEvent = Stamped & {
     message: string;

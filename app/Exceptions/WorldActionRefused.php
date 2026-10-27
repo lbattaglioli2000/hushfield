@@ -139,6 +139,15 @@ final class WorldActionRefused extends RuntimeException
         return new self('voice_paused', 409);
     }
 
+    /**
+     * 409 like the shop's switch. Nothing players do is refused for it yet;
+     * the screen just goes dark, with these words.
+     */
+    public static function cinemaDark(): self
+    {
+        return new self('cinema_dark', 409);
+    }
+
     public static function voiceAdultsOnly(): self
     {
         return new self('voice_adults_only', 403);

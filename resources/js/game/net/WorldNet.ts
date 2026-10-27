@@ -8,6 +8,7 @@ import {
 } from '../protocol/channels';
 import type {
     ChatMessageSentEvent,
+    CinemaChangedEvent,
     VoiceGrant,
     FishingCast,
     FriendsList,
@@ -424,6 +425,7 @@ export class WorldNet {
             ownHome: snapshot.home?.owner_id === this.selfId,
         });
         this.showFurniture(snapshot.furniture, true);
+        this.bus.emit('cinema', { programme: snapshot.cinema });
     }
 
     /** After any connection drop: replace local state with a fresh snapshot, then say we're back. */
@@ -606,6 +608,12 @@ export class WorldNet {
                 ROOM_EVENTS.furnitureChanged,
                 guardProtocol((e: FurnitureChangedEvent) =>
                     this.showFurniture(e.furniture),
+                ),
+            )
+            .listen(
+                ROOM_EVENTS.cinemaChanged,
+                guardProtocol((e: CinemaChangedEvent) =>
+                    this.bus.emit('cinema', { programme: e.cinema }),
                 ),
             )
             .listen(

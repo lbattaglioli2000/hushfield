@@ -18,7 +18,7 @@ test('starting a session issues a token', function () {
     $response = $this->actingAs($user)->postJson(route('world.session.start'));
 
     $response->assertCreated()
-        ->assertJsonPath('protocol', 2)
+        ->assertJsonPath('protocol', 3)
         ->assertJsonPath('user_id', $user->id);
 
     expect($response->json('session_token'))->toBeString()->toHaveLength(48)

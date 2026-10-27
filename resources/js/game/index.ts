@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { EventBus } from './bus';
+import { connectCinema } from './cinema';
 import type { Copy } from './copy';
 import { connectEconomy } from './economy';
 import { connectFishing } from './fishing';
@@ -17,6 +18,8 @@ import { COLORS } from './theme';
 export { EventBus } from './bus';
 export type {
     ArmedPiece,
+    CinemaPhase,
+    CinemaState,
     ConnectionState,
     FatalKind,
     FishingPhase,
@@ -190,6 +193,7 @@ export function startGame(
     cleanups.push(connectFishing(net, bus, config.copy, () => scene));
     const social = connectSocial(net, bus, config.copy);
     cleanups.push(() => social.dispose());
+    cleanups.push(connectCinema(net, bus));
 
     if (config.voice) {
         cleanups.push(

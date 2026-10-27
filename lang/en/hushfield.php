@@ -120,6 +120,14 @@ return [
         'lost_hour' => ['name' => 'The hour that went missing on Tuesday', 'description' => 'It is smaller than you expected. Please keep it. We have been managing without.'],
     ],
 
+    // The VFA: the Hushfield branch of the Victorville Film Archive
+    'cinema_branch' => 'Victorville Film Archive · Hushfield Branch',
+    'cinema_idle' => 'Nothing is showing. The archive is resting its eyes.',
+    'cinema_dark' => 'The projector is off for now. Nobody in the booth will say why.',
+    'cinema_muted' => 'The film is playing with the sound down. Press Sound to hear it.',
+    'cinema_out_of_view' => 'Step back until you can see the whole screen. The film waits for no one, but it will not play to a corner.',
+    'cinema_unavailable' => 'This film will not play here. The archive apologizes to everyone involved.',
+
     // Friends
     'friends_title' => 'Neighbors',
     'friends_empty' => 'No friends yet. Everyone starts somewhere, usually here.',
@@ -152,6 +160,7 @@ return [
         'night-market' => 'Night Market',
         'hearthmore-residences' => 'Hearthmore',
         'whsh' => 'WHSH',
+        'vfa' => 'VFA',
     ],
     'chat_placeholder' => 'Press TALK or Enter, and say something kind…',
     'on_air_host' => 'Augustin Moss',

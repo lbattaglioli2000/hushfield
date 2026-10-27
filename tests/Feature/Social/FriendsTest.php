@@ -38,7 +38,7 @@ function befriend(User $a, User $b): void
 test('a request by name reaches the recipient, who accepts it, and both see each other', function () {
     asWren()->postJson(route('world.friends.requests.send'), ['username' => 'moth'])
         ->assertCreated()
-        ->assertJsonPath('protocol', 2)
+        ->assertJsonPath('protocol', 3)
         ->assertJsonPath('message', __('hushfield.friend_request_sent'))
         ->assertJsonPath('friends.outgoing.0.user.username', 'Moth');
 

@@ -14,7 +14,7 @@ import {
 } from '../shared/iso';
 import type { WallSide } from '../shared/walls';
 import { underWall, wallSides } from '../shared/walls';
-import { CAMERA, COLORS, DEPTH, DOOR, FONT_FAMILY } from '../theme';
+import { CAMERA, COLORS, DEPTH, DOOR, FONT_FAMILY, WALL } from '../theme';
 
 /** Names inside the Tiled map and the texture key its tileset is drawn from. */
 export const MAP_LAYERS = {
@@ -24,7 +24,27 @@ export const MAP_LAYERS = {
     exits: 'exits',
     fixtures: 'fixtures',
     buildings: 'buildings',
+    screen: 'screen',
 } as const;
+
+/** A 16:9 TV; YouTube's player shows nothing below about 200 px tall. */
+const SCREEN_ASPECT = 16 / 9;
+/** How far above the floor a TV hangs, and how much wall shows above it. */
+const SCREEN_LIFT_PX = 16;
+const SCREEN_HEADROOM_PX = 24;
+
+/**
+ * A TV on the right back wall, in world pixels: the top of its left edge, how
+ * wide it runs across the screen and how tall it stands, and `slope`, how far
+ * its top and bottom drop per pixel across, as the wall's foot does.
+ */
+export type ScreenRect = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    slope: number;
+};
 export const TILES_TEXTURE = 'tiles';
 
 /**
@@ -62,12 +82,20 @@ export class IsoMap {
     readonly doors: MapDoor[];
     readonly fixtures: MapFixture[];
     readonly buildings: MapBuilding[];
+    /**
+     * Where the room's TV hangs, if it has one: on the right back wall, as
+     * wide as the stretch of wall it spans, a little above the floor.
+     */
+    readonly screen: ScreenRect | null;
+    /** How tall the placeholder walls stand (the map's "wall_height" property, in pixels). */
+    readonly wallHeight: number;
     /** The style of the room's back walls (the map's "walls" property), or null for a room without. */
     readonly walls: string | null;
     /** The back edges the walls stand on (the map's "wall_sides" property): both by default. */
     readonly wallSides: readonly WallSide[];
     /** The map's diamond, from world (0, 0). */
     private readonly sizePx: { width: number; height: number };
+    private readonly topPx: number;
     private readonly layer: Phaser.Tilemaps.TilemapLayer | null = null;
     private readonly decorations: Phaser.GameObjects.GameObject[] = [];
     private readonly labels: Array<{
@@ -135,6 +163,12 @@ export class IsoMap {
 
         const walls = rawProperty(map, 'walls');
         this.walls = typeof walls === 'string' ? walls : null;
+        const wallHeight = rawProperty(map, 'wall_height');
+        this.wallHeight =
+            typeof wallHeight === 'number' ? wallHeight : WALL.heightPx;
+        // A TV hangs on the right back wall (row 0): one rectangle across the tiles it spans.
+        const screen = objects(MAP_LAYERS.screen)[0];
+        this.screen = screen ? this.screenOn(place(screen)) : null;
         this.wallSides = wallSides(rawProperty(map, 'wall_sides'));
 
         // Back walls replace the back row and column they stand on: only the floor of a door opening in them is drawn.
@@ -176,6 +210,10 @@ export class IsoMap {
             width: (map.width + map.height) * (TILE_WIDTH / 2),
             height: (map.width + map.height) * (TILE_HEIGHT / 2),
         };
+        // A room with a TV keeps the top of its walls, and so the TV, in view.
+        this.topPx = this.screen
+            ? Math.min(0, this.screen.y - SCREEN_HEADROOM_PX - TILE_HEIGHT / 2)
+            : 0;
         this.fitCamera(scene.cameras.main);
     }
 
@@ -183,16 +221,24 @@ export class IsoMap {
      * A map that fits in the view stays centred in it; a bigger one scrolls
      * with the player, a little past its edges. Phaser pins a view larger than
      * its bounds to their top-left corner, so a fitting map gets bounds the
-     * size of the view, centred on the map.
+     * size of the view, centred on the map. A room with a TV never scrolls
+     * down past the top of its walls: the TV stays in view, and in a short
+     * view the front of the room goes off the bottom instead.
      */
     fitCamera(camera: Phaser.Cameras.Scene2D.Camera): void {
         const span = (map: number, view: number) =>
             map <= view ? view : map + CAMERA.boundsPadding * 2;
+        const tall = this.sizePx.height - this.topPx;
         const width = span(this.sizePx.width, camera.displayWidth);
-        const height = span(this.sizePx.height, camera.displayHeight);
+        const height =
+            this.screen && tall > camera.displayHeight
+                ? camera.displayHeight
+                : span(tall, camera.displayHeight);
         camera.setBounds(
             (this.sizePx.width - width) / 2,
-            (this.sizePx.height - height) / 2,
+            this.screen && tall > camera.displayHeight
+                ? this.topPx
+                : this.topPx + (tall - height) / 2,
             width,
             height,
         );
@@ -232,6 +278,22 @@ export class IsoMap {
 
     isWalkable(tile: Tile): boolean {
         return isWalkable(this.grid, tile[0], tile[1]);
+    }
+
+    private screenOn(place: Footprint): ScreenRect {
+        // The wall's foot runs along the floor's back edge, the tile corners at y = 1.
+        const left = this.toWorld(place.x - 0.5, 0.5);
+        const right = this.toWorld(place.x + place.wide - 0.5, 0.5);
+        const width = right.x - left.x;
+        const height = Math.round(width / SCREEN_ASPECT);
+
+        return {
+            x: left.x,
+            y: left.y - SCREEN_LIFT_PX - height,
+            width,
+            height,
+            slope: (right.y - left.y) / width,
+        };
     }
 
     /** Centre of a (possibly fractional) tile in world pixels. */

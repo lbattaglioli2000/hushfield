@@ -3,6 +3,7 @@
 namespace App\Actions\World;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Cinema\Programme;
 use App\Features\WorldFlag;
 use App\Features\WorldFlags;
 use App\Models\User;
@@ -13,6 +14,8 @@ use App\Models\User;
  */
 final readonly class SetWorldFlag
 {
+    public function __construct(private Programme $programme) {}
+
     /**
      * @return bool Whether the flag changed.
      */
@@ -29,6 +32,11 @@ final readonly class SetWorldFlag
             ->withProperties(['flag' => $flag->value, 'active' => $active, 'reason' => $reason])
             ->event($active ? 'flag.enabled' : 'flag.disabled')
             ->log($flag->getLabel().($active ? ' turned on' : ' turned off'));
+
+        // The screen goes dark, or lights up, for everyone watching at once.
+        if ($flag === WorldFlag::Cinema) {
+            $this->programme->announce();
+        }
 
         return true;
     }

@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import ChatBar from '@/components/play/chat-bar';
+import CinemaBar, { CinemaLayer } from '@/components/play/cinema-screen';
 import ConnectionBanner from '@/components/play/connection-banner';
 import EconomyHud from '@/components/play/economy-hud';
 import FatalScreen from '@/components/play/fatal-screen';
@@ -21,6 +22,7 @@ import type { GameBootProps, GameEvents } from '@/game';
 import { EventBus, startGame } from '@/game';
 import { useGameBus } from '@/hooks/use-game-bus';
 import { useRadioSound } from '@/hooks/use-radio-sound';
+import { cn } from '@/lib/utils';
 
 type PlayProps = { game: GameBootProps };
 
@@ -39,6 +41,12 @@ export default function Play({ game }: PlayProps) {
     const [room, setRoom] = useState<GameEvents['room'] | null>(null);
     const [retune, setRetune] = useState(0);
     const [tray, setTray] = useState<HTMLDivElement | null>(null);
+    // Signals stack on the side of the glass away from a TV in the room, so they never hide the film.
+    const [trayLeft, setTrayLeft] = useState(false);
+    useGameBus(bus, 'cinema-screen-rect', ({ rect }) => {
+        const glass = tray?.parentElement?.clientWidth ?? 0;
+        setTrayLeft(rect !== null && rect.x + rect.width / 2 > glass / 2);
+    });
     const { volume, setVolume, crackle } = useRadioSound();
 
     // Every snapshot repeats the room; only a different station moves the needle.
@@ -64,7 +72,7 @@ export default function Play({ game }: PlayProps) {
         return () => handle.destroy();
     }, [bus]);
 
-    // Voices come through the set's speaker, so the Volume knob turns them too.
+    // Voices and the VFA's films come through the set's speaker, so the Volume knob turns them too.
     useEffect(() => bus.emit('voice-volume', { volume }), [bus, volume]);
 
     return (
@@ -83,6 +91,7 @@ export default function Play({ game }: PlayProps) {
                             {/* The bezel: the ticker, the glass, and the talk strip. */}
                             <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-2xl bg-walnut-deep p-3 shadow-[inset_0_2px_6px_rgb(0_0_0/0.6)]">
                                 <OnAirTicker copy={game.copy} />
+                                <CinemaBar bus={bus} copy={game.copy} />
                                 <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-glass">
                                     <div
                                         ref={parent}
@@ -94,10 +103,18 @@ export default function Play({ game }: PlayProps) {
                                         aria-hidden
                                         className="pointer-events-none absolute inset-0 rounded-lg bg-[linear-gradient(160deg,rgb(255_255_255/0.06),transparent_35%)] shadow-[inset_0_0_40px_rgb(0_0_0/0.55)]"
                                     />
+                                    {/* Over everything else on the glass: nothing covers the film on the VFA's TV. */}
+                                    <CinemaLayer bus={bus} />
                                     <InstanceLabel bus={bus} />
                                     <div
                                         ref={setTray}
-                                        className="absolute top-3 right-3 flex max-h-[calc(100%-1.5rem)] w-80 flex-col gap-2 overflow-y-auto"
+                                        className={cn(
+                                            'absolute flex w-80 flex-col gap-2 overflow-y-auto',
+                                            // Below the room's label when on its side of the glass.
+                                            trayLeft
+                                                ? 'top-12 left-3 max-h-[calc(100%-3.75rem)]'
+                                                : 'top-3 right-3 max-h-[calc(100%-1.5rem)]',
+                                        )}
                                         data-test="signal-tray"
                                     />
                                 </div>

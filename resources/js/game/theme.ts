@@ -17,6 +17,8 @@ export const DEPTH = {
     walls: 0.6,
     /** Rugs lie on the floor: over doors, under everything that stands. */
     rugs: 0.75,
+    /** A TV hangs on the back wall, behind everyone standing in the room. */
+    screen: 0.8,
     hover: 1,
     marker: 2,
     avatars: 10,
@@ -81,6 +83,15 @@ export const WALL = {
     /** A doorway is open from the floor up to here, between narrow jambs. */
     doorHeightPx: 64,
     jambTiles: 0.12,
+} as const;
+
+/** A TV on the wall, as it shows while no film plays on it: a dark screen in a bezel, with a standby light. */
+export const SCREEN = {
+    color: 0x120806,
+    frameColor: 0x1a1a1a,
+    framePx: 8,
+    lightColor: 0xc8372d,
+    lightRadius: 2,
 } as const;
 
 export const TRAVEL = {

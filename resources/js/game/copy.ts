@@ -37,7 +37,13 @@ export type CopyKey =
     | 'on_air_host'
     | 'voice_muted'
     | 'voice_mic_blocked'
-    | 'voice_hold';
+    | 'voice_hold'
+    | 'cinema_branch'
+    | 'cinema_idle'
+    | 'cinema_dark'
+    | 'cinema_muted'
+    | 'cinema_out_of_view'
+    | 'cinema_unavailable';
 
 /** `on_air` is the one list: the lines the ON AIR ticker picks from. */
 export type Copy = Record<CopyKey, string> & { on_air: string[] };

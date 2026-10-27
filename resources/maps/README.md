@@ -116,6 +116,26 @@ To add a kind (a minigame, say):
    Player copy goes in `lang/en/hushfield.php` and, for client keys, in both
    `PlayController::COPY_KEYS` and `resources/js/game/copy.ts`.
 
+## A TV
+
+An indoor room can hang a TV on its right back wall (the row y = 0): a
+rectangle on an object layer named `screen`, one tile deep, across the tiles
+of that row it spans. Only the client reads it; the VFA's films play on it
+(`App\Domain\Cinema\Programme`, `resources/js/game/cinema.ts`).
+
+- **On the wall**: 16:9, as wide as the wall it spans, 16 px above the
+  floor, slanted with the wall's foot. The film plays in a frame the browser
+  lays over the canvas, so nobody can stand in front of it: keep the floor
+  before it (the VFA's stage) unwalkable.
+- **Big enough**: YouTube's player shows nothing much below 200 px tall, so
+  span at least 12 tiles (384 × 216), and give the room walls tall enough to
+  hold it with the map property **`wall_height`** (pixels; the VFA's is 256).
+  It sets the placeholder walls' height; wall art brings its own.
+- **In view**: the camera never scrolls past the top of the walls in a room
+  with a TV, so the TV stays on the glass and, in a short window, the front
+  of the room goes off the bottom instead. A film plays only while all of
+  the TV is on the glass; otherwise it pauses and the room draws the TV dark.
+
 ## Buildings
 
 A building is a rectangle object on an object layer named `buildings`:

@@ -41,7 +41,7 @@ export class WallLayer {
             map.doors,
             map.wallSides,
         )) {
-            const texture = this.texture(style, panel);
+            const texture = this.texture(style, panel, map.wallHeight);
 
             if (!texture) continue;
 
@@ -66,6 +66,7 @@ export class WallLayer {
     private texture(
         style: string,
         { side, doorway }: WallPanel,
+        wallHeight: number,
     ): string | null {
         const name = `${style}/${side}`;
         const art = (file: string) =>
@@ -76,16 +77,18 @@ export class WallLayer {
         if (doorway) {
             return (
                 art(`${name}-door`) ??
-                (art(name) ? null : this.placeholder(style, side, true))
+                (art(name)
+                    ? null
+                    : this.placeholder(style, side, true, wallHeight))
             );
         }
 
-        return art(name) ?? this.placeholder(style, side, false);
+        return art(name) ?? this.placeholder(style, side, false, wallHeight);
     }
 
     /**
      * A stand-in panel the size real art would be: a face as tall as
-     * WALL.heightPx on a canvas one tile edge across, tinted by the style's
+     * the map's wall height (WALL.heightPx unless it says) on a canvas one tile edge across, tinted by the style's
      * name, with a pale top band and a dark skirting board; a doorway is open
      * up to WALL.doorHeightPx between narrow jambs.
      */
@@ -93,12 +96,13 @@ export class WallLayer {
         style: string,
         side: WallSide,
         doorway: boolean,
+        wallHeight: number,
     ): string {
-        const key = `wall-placeholder:${style}:${side}${doorway ? ':door' : ''}`;
+        const key = `wall-placeholder:${style}:${side}:${wallHeight}${doorway ? ':door' : ''}`;
 
         if (this.scene.textures.exists(key)) return key;
 
-        const height = WALL.heightPx + TILE_HEIGHT / 2;
+        const height = wallHeight + TILE_HEIGHT / 2;
         const base = colourFor(style, WALL.saturation, WALL.lightness);
         const tint = (factor: number) =>
             Phaser.Display.Color.GetColor(
@@ -145,7 +149,7 @@ export class WallLayer {
             : [[0, 1, 0]];
 
         for (const [from, to, bottom] of strips) {
-            band(from, to, bottom, WALL.heightPx, tint(1));
+            band(from, to, bottom, wallHeight, tint(1));
 
             if (bottom === 0)
                 band(from, to, 0, WALL.skirtingPx, tint(WALL.skirtingDarken));
@@ -154,8 +158,8 @@ export class WallLayer {
         band(
             0,
             1,
-            WALL.heightPx - WALL.trimPx,
-            WALL.heightPx,
+            wallHeight - WALL.trimPx,
+            wallHeight,
             tint(WALL.trimLighten),
         );
         g.generateTexture(key, PANEL_WIDTH, height);

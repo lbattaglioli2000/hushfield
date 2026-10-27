@@ -15,6 +15,7 @@ use App\Events\Moderation\WorldAccessRevoked;
 use App\Events\Presence\InstanceReassigned;
 use App\Events\Presence\SessionSuperseded;
 use App\Events\Social\FriendsUpdated;
+use App\Events\World\CinemaChanged;
 use App\Events\World\FurnitureChanged;
 use App\Events\World\PlayerJoined;
 use App\Events\World\PlayerLeft;
@@ -64,6 +65,7 @@ const WORLD_EVENTS = [
     FurnitureChanged::class,
     FriendsUpdated::class,
     RareCatchLanded::class,
+    CinemaChanged::class,
 ];
 
 function fakeWorldEvents(): void

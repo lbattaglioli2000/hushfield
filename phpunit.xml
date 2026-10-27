@@ -50,5 +50,6 @@
         <env name="LIVEKIT_URL" value="" force="true"/>
         <env name="LIVEKIT_API_KEY" value="" force="true"/>
         <env name="LIVEKIT_API_SECRET" value="" force="true"/>
+        <env name="YOUTUBE_DATA_API_KEY" value="" force="true"/>
     </php>
 </phpunit>

@@ -1,4 +1,5 @@
 import type {
+    CinemaProgramme,
     FishingCatch,
     FixtureKind,
     FriendsList,
@@ -28,6 +29,41 @@ export type FishingPhase = 'idle' | 'casting' | 'waiting' | 'bite' | 'reeling';
  * or unavailable (switched off, refused, or no microphone; the message says why).
  */
 export type VoiceState = 'connecting' | 'ready' | 'talking' | 'unavailable';
+
+/**
+ * The VFA's screen: dark (switched off), idle (nothing showing; `next` says
+ * what is coming), loading or playing a film, or unable to play the one on.
+ */
+export type CinemaPhase =
+    | 'dark'
+    | 'idle'
+    | 'loading'
+    | 'playing'
+    | 'unavailable';
+
+export type CinemaState = {
+    phase: CinemaPhase;
+    /** The film on now; null when nothing is. */
+    film: { title: string } | null;
+    next: { title: string; startsAtMs: number } | null;
+    /** The film is playing without sound until the player presses Sound. */
+    muted: boolean;
+    /** All of the screen is on the glass; a film plays only then. */
+    inView: boolean;
+};
+
+/**
+ * Where a room's TV is on the glass, in CSS pixels from its top-left corner:
+ * the top of its left edge, its size, and how far its top and bottom drop per
+ * pixel across, slanted with the wall.
+ */
+export type ScreenBox = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    slope: number;
+};
 
 /** Why the game stopped for good. 'unavailable' covers boot failures and lost rooms. */
 export type FatalKind =
@@ -95,14 +131,24 @@ export type GameEvents = {
     };
     /** Where push-to-talk stands; a message explains a refusal. Only for adults. */
     voice: { state: VoiceState; message?: string };
+    /** After every snapshot and programme change: the VFA's programme in the cinema, null anywhere else. */
+    cinema: { programme: CinemaProgramme | null };
+    /** What the VFA's screen is doing, for the set to show around it. Null outside the cinema. */
+    'cinema-state': { state: CinemaState | null };
+    /** Every frame it moves: where the room's screen is on the glass, and whether all of it is; null in a room without one. */
+    'cinema-screen-rect': { rect: ScreenBox | null; inView: boolean };
     /** The player walked off while their line was in the water; it is abandoned. */
     'fishing-interrupted': Record<string, never>;
 
     // UI → Game
     /** TALK pressed (true) or let go (false). */
     'voice-talk': { active: boolean };
-    /** The Volume knob, 0–1: voices play at this share of their distance volume. */
+    /** The Volume knob, 0–1: voices play at this share of their distance volume, and the VFA's film at this volume. */
     'voice-volume': { volume: number };
+    /** The layer over the glass the VFA's film plays in, laid over the screen in the room; null once the set is gone. */
+    'cinema-screen': { element: HTMLElement | null };
+    /** Sound pressed: a click, so the browser lets the film play aloud. Handled before the click returns. */
+    'cinema-sound': Record<string, never>;
     'send-chat': { body: string };
     'send-report': {
         userId: number;
