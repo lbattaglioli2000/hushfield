@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Redis;
 use Laravel\Fortify\Features;
 use RuntimeException;
@@ -19,8 +20,20 @@ abstract class TestCase extends BaseTestCase
         config(['hushfield.maps.path' => base_path('tests/fixtures/maps')]);
 
         // Built assets go to a scratch folder, built on first use, so tests never touch a dev build.
+        // They build the real tiles and UI, but not the real buildings, walls and furniture: those
+        // stand on the real maps, and the fixture maps don't have them.
         $assets = sys_get_temp_dir().'/hushfield-test-assets-'.getmypid();
-        config(['hushfield.assets.output' => "{$assets}/built", 'hushfield.assets.index' => "{$assets}/assets.json"]);
+
+        if (! File::isDirectory("{$assets}/art")) {
+            File::copyDirectory(resource_path('art'), "{$assets}/art");
+            collect(['buildings', 'walls', 'items'])->each(fn (string $kind) => File::deleteDirectory("{$assets}/art/{$kind}"));
+        }
+
+        config([
+            'hushfield.assets.sources' => "{$assets}/art",
+            'hushfield.assets.output' => "{$assets}/built",
+            'hushfield.assets.index' => "{$assets}/assets.json",
+        ]);
 
         $this->withoutVite();
         $this->flushWorldRedis();

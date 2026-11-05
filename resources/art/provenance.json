@@ -40,6 +40,11 @@
         "received": "2026-10-26",
         "notes": "hardwood"
     },
+    "art/buildings/vfa.png": {
+        "by": "Luigi",
+        "received": "2026-11-05",
+        "notes": "handed over in an Amp thread; 45 faint stray pixels (shadow below the footprint) cleared, nothing else changed"
+    },
     "art/ui/*.png": {
         "by": "Hushfield team",
         "received": "2026-10-25",

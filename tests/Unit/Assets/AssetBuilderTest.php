@@ -8,11 +8,15 @@ use App\Domain\Items\ItemSlot;
 use App\Models\Item;
 use Illuminate\Support\Facades\File;
 
-/** A scratch copy of resources/art and of one real map, with the build pointed at it. */
+/**
+ * A scratch copy of resources/art and of one real map, with the build pointed at it.
+ * The real buildings, walls and furniture stay out: tests draw their own.
+ */
 function scratchArt(): string
 {
     $root = sys_get_temp_dir().'/hushfield-art-'.uniqid();
     File::copyDirectory(resource_path('art'), "{$root}/art");
+    collect(['buildings', 'walls', 'items'])->each(fn (string $kind) => File::deleteDirectory("{$root}/art/{$kind}"));
     File::ensureDirectoryExists("{$root}/maps");
     File::copy(resource_path('maps/library.json'), "{$root}/maps/library.json");
     File::copy(resource_path('maps/lantern-street.json'), "{$root}/maps/lantern-street.json");
