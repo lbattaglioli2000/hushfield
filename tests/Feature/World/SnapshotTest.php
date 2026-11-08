@@ -22,7 +22,7 @@ test('the snapshot describes the instance and every player in it', function () {
     $response = asResident($me, $token)->getJson(route('world.instances.snapshot', $instance));
 
     $response->assertOk()
-        ->assertJsonPath('protocol', 5)
+        ->assertJsonPath('protocol', 6)
         ->assertJsonPath('server_time_ms', now()->getTimestampMs())
         // Clients compare it with the manifest they loaded their art from.
         ->assertJsonPath('assets_version', $this->getJson(route('assets.manifest'))->json('version'))

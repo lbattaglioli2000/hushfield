@@ -7,15 +7,14 @@ use App\Models\RoomInstance;
 /**
  * Everything a client needs to draw an instance from scratch, including the
  * home and its furniture when the instance is someone's residence, the
- * programme when it is the cinema, and what WHSH has on the air, which every
- * room hears.
+ * programme when it is the cinema, and WHSH's lineup, which every room hears.
  */
 final readonly class Snapshot
 {
     /**
      * @param  list<PlayerState>  $players
      * @param  array{open: bool, lights: string, screenings: list<array<string, mixed>>}|null  $cinema  See App\Domain\Cinema\Programme.
-     * @param  array{id: int, title: string, url: string, starts_at_ms: int, ends_at_ms: int}|null  $broadcast  See App\Domain\Radio\Airwaves.
+     * @param  list<array{id: int, title: string, url: string, starts_at_ms: int, ends_at_ms: int}>  $broadcasts  See App\Domain\Radio\Airwaves.
      */
     public function __construct(
         public RoomInstance $instance,
@@ -23,11 +22,11 @@ final readonly class Snapshot
         public array $players,
         public string $assetsVersion,
         public ?array $cinema = null,
-        public ?array $broadcast = null,
+        public array $broadcasts = [],
     ) {}
 
     /**
-     * @return array{protocol: int, server_time_ms: int, assets_version: string, instance: array<string, mixed>, room: array<string, mixed>, home: array<string, mixed>|null, furniture: list<array<string, mixed>>, cinema: array<string, mixed>|null, broadcast: array<string, mixed>|null, players: list<array<string, mixed>>}
+     * @return array{protocol: int, server_time_ms: int, assets_version: string, instance: array<string, mixed>, room: array<string, mixed>, home: array<string, mixed>|null, furniture: list<array<string, mixed>>, cinema: array<string, mixed>|null, broadcasts: list<array<string, mixed>>, players: list<array<string, mixed>>}
      */
     public function toArray(): array
     {
@@ -57,7 +56,7 @@ final readonly class Snapshot
             'home' => $home?->toPayload(),
             'furniture' => $home !== null ? $this->instance->furniturePayload() : [],
             'cinema' => $this->cinema,
-            'broadcast' => $this->broadcast,
+            'broadcasts' => $this->broadcasts,
             'players' => array_map(fn (PlayerState $player): array => $player->toArray(), $this->players),
         ];
     }

@@ -1,5 +1,5 @@
 /** Must match config('hushfield.protocol'). A server payload with a higher value means this build is outdated. */
-export const PROTOCOL = 5;
+export const PROTOCOL = 6;
 
 export type Tile = [number, number];
 
@@ -110,12 +110,12 @@ export type Snapshot = {
     furniture: PlacedFurniture[];
     /** The programme when the instance is one of the VFA's theaters; null everywhere else. */
     cinema: CinemaProgramme | null;
-    /** What WHSH has on the air, heard in every room; null while it is off the air. */
-    broadcast: Broadcast | null;
+    /** WHSH's lineup, heard in every room: on the air now and still to come, in order. */
+    broadcasts: Broadcast[];
     players: PlayerState[];
 };
 
-/** An MP3 on WHSH's air, from start to end in server time. */
+/** An MP3 on WHSH's lineup, from start to end in server time; it ends early where the next one starts. */
 export type Broadcast = {
     id: number;
     title: string;
@@ -168,7 +168,7 @@ export type FurnitureChangedEvent = Stamped & {
 
 export type CinemaChangedEvent = Stamped & { cinema: CinemaProgramme };
 
-export type BroadcastChangedEvent = Stamped & { broadcast: Broadcast | null };
+export type BroadcastChangedEvent = Stamped & { broadcasts: Broadcast[] };
 
 export type InstanceReassignedEvent = Stamped & {
     message: string;

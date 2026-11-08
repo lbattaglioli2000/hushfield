@@ -147,8 +147,8 @@ export type GameEvents = {
     'cinema-state': { state: CinemaState | null };
     /** Every frame it moves: where the room's TV is on the glass, and whether any of it is; null in a room without one. */
     'cinema-screen-rect': { rect: ScreenBox | null; inView: boolean };
-    /** After every snapshot and whenever staff go on or off the air: what WHSH has on, as the server sent it. */
-    broadcast: { broadcast: Broadcast | null };
+    /** After every snapshot and whenever staff change it: WHSH's lineup, as the server sent it. */
+    broadcast: { lineup: Broadcast[] };
     /** Whether WHSH is on the air at this moment, and whether this set is playing it. */
     'broadcast-state': { state: BroadcastState | null };
     /** The player walked off while their line was in the water; it is abandoned. */

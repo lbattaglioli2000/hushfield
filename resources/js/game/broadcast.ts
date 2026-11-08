@@ -10,21 +10,18 @@ const SYNC = {
     seekCooldownMs: 5000,
 } as const;
 
-/** The broadcast on the air at `nowMs`, if any. */
-export function airing(
-    broadcast: Broadcast | null,
-    nowMs: number,
-): Broadcast | null {
-    return broadcast &&
-        broadcast.starts_at_ms <= nowMs &&
-        nowMs < broadcast.ends_at_ms
-        ? broadcast
-        : null;
+/** The broadcast on the lineup that is on the air at `nowMs`, if any. */
+export function airing(lineup: Broadcast[], nowMs: number): Broadcast | null {
+    return (
+        lineup.find((b) => b.starts_at_ms <= nowMs && nowMs < b.ends_at_ms) ??
+        null
+    );
 }
 
 /**
- * WHSH through the set's speaker: whatever staff have on the air plays in
- * every room, at the moment the town is at, at the Volume knob's level.
+ * WHSH through the set's speaker: whatever is on the air plays in every
+ * room, at the moment the town is at, at the Volume knob's level. The set has
+ * the whole lineup, so a scheduled broadcast starts on its own at its time.
  * Nobody can pause it. Browsers hold the sound back until the player has
  * clicked something; until then the set offers Listen, and it starts with
  * the next click. Keeps playing in a hidden tab, as a radio would.
@@ -33,7 +30,7 @@ export function airing(
 export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
     const audio = new Audio();
     audio.preload = 'auto';
-    let broadcast: Broadcast | null = null;
+    let lineup: Broadcast[] = [];
     /** The broadcast loaded into the speaker. */
     let loaded: number | null = null;
     let blocked = false;
@@ -55,7 +52,7 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
         (net.serverNow() - on.starts_at_ms) / 1000;
 
     const report = () => {
-        const on = airing(broadcast, net.serverNow());
+        const on = airing(lineup, net.serverNow());
 
         emit(
             on && {
@@ -85,7 +82,7 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
     };
 
     const tick = () => {
-        const on = airing(broadcast, net.serverNow());
+        const on = airing(lineup, net.serverNow());
 
         if (!on) {
             if (loaded !== null) {
@@ -127,7 +124,7 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
 
     const offs = [
         bus.on('broadcast', (next) => {
-            broadcast = next.broadcast;
+            lineup = next.lineup;
             tick();
         }),
         bus.on('voice-volume', (next) => {
@@ -136,7 +133,7 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
         }),
         // Runs inside the click, so the browser counts it as the player's own.
         bus.on('broadcast-listen', () => {
-            const on = airing(broadcast, net.serverNow());
+            const on = airing(lineup, net.serverNow());
 
             if (!on || loaded !== on.id) return;
 

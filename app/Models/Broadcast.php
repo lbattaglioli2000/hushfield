@@ -3,18 +3,16 @@
 namespace App\Models;
 
 use App\Domain\Assets\ItemArt;
-use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Scope;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * One MP3 WHSH put on the air (see App\Domain\Radio\Airwaves). Everyone
- * hears it from `starts_at` to `ends_at`; one taken off the air early ends
- * when it was.
+ * One MP3 on WHSH's lineup (see App\Domain\Radio\Airwaves), on the air now
+ * or scheduled. Everyone hears it from `starts_at` to `ends_at`, unless
+ * another broadcast starts first; one taken off the air early ends when it
+ * was.
  *
  * @property int $id
  * @property string $title
@@ -45,17 +43,6 @@ class Broadcast extends Model
     public function scheduler(): BelongsTo
     {
         return $this->belongsTo(User::class, 'scheduled_by');
-    }
-
-    /**
-     * On the air at `$now`.
-     *
-     * @param  Builder<self>  $query
-     */
-    #[Scope]
-    protected function onAir(Builder $query, CarbonInterface $now): void
-    {
-        $query->where('starts_at', '<=', $now)->where('ends_at', '>', $now)->latest('starts_at');
     }
 
     /** Where browsers fetch the recording: the public bucket, or the public disk. */

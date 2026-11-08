@@ -29,7 +29,7 @@ test('verified residents get the game shell', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('Play')
             ->where('auth.user.username', $user->username)
-            ->where('game.protocol', 5)
+            ->where('game.protocol', 6)
             ->where('game.chatMaxLength', 120)
             ->where('game.manifestUrl', route('assets.manifest'))
             ->has('game.reportReasons', 7)
