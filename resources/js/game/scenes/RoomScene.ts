@@ -251,7 +251,9 @@ export class RoomScene
 
             if (this.marker.visible) this.marker.setVisible(false);
 
-            this.arrivals.arrived(this.map, avatar.state, pos.tile);
+            const walk = this.movement.arrivedAt(pos.tile);
+
+            if (walk) this.arrivals.arrived(this.map, walk, pos.tile);
         }
 
         this.map.hideLabelsNear(positions);

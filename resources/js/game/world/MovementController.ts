@@ -28,7 +28,7 @@ export type MovementDeps = {
  */
 export class MovementController {
     private seq = 0;
-    /** The last path the server accepted, to fall back to when a move is dropped or refused. */
+    /** The last path the server accepted, with the server's timing: what doors act on, and what a dropped or refused move falls back to. */
     private confirmed: PathState | null = null;
 
     constructor(private readonly deps: MovementDeps) {}
@@ -36,6 +36,24 @@ export class MovementController {
     /** Records a path the server sent for this player (snapshot or join). */
     confirm(state: PathState): void {
         this.confirmed = state;
+    }
+
+    /**
+     * The walk the server accepted, once it has ended on `tile` by the server's clock; null before.
+     * Doors and fixtures act on this rather than on the predicted walk, which runs ahead of the
+     * server by the move's latency and may not have reached it at all (in flight, or dropped).
+     */
+    arrivedAt(tile: Tile): PathState | null {
+        const walk = this.confirmed;
+
+        if (!walk) return null;
+
+        const end = walk.path[walk.path.length - 1];
+        const settled = positionOf(walk, this.deps.port.serverNow()).finished;
+
+        return settled && end[0] === tile[0] && end[1] === tile[1]
+            ? walk
+            : null;
     }
 
     /**
@@ -97,7 +115,7 @@ export class MovementController {
                 current.setState(confirmed, port.serverNow());
             }
 
-            this.confirmed = current.state;
+            this.confirmed = confirmed;
 
             return;
         }
