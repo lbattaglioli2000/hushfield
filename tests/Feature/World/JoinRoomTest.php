@@ -187,9 +187,14 @@ test('joins are rate limited', function () {
     $user = resident();
     asResident($user, startSession($user));
 
-    foreach (range(1, 10) as $attempt) {
+    foreach (range(1, 30) as $attempt) {
         $this->postJson(route('world.rooms.join', $this->room))->assertOk();
     }
 
-    $this->postJson(route('world.rooms.join', $this->room))->assertTooManyRequests();
+    // The client waits out Retry-After before rejoining on its own, so it must be there.
+    $this->postJson(route('world.rooms.join', $this->room))
+        ->assertTooManyRequests()
+        ->assertJsonPath('reason', 'join_too_fast')
+        ->assertJsonPath('message', __('hushfield.join_too_fast'))
+        ->assertHeader('Retry-After');
 });

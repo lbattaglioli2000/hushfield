@@ -118,7 +118,10 @@ class AppServiceProvider extends ServiceProvider
             ->by('voice:'.$request->user()?->id)
             ->response(fn (): JsonResponse => WorldActionRefused::voiceTooFast()->render()));
 
-        RateLimiter::for('join-room', fn (Request $request): Limit => Limit::perMinute(10)->by('join:'.$request->user()?->id));
+        // Page loads, doors and the town map all count. Retry-After tells a client rejoining in the background how long to wait.
+        RateLimiter::for('join-room', fn (Request $request): Limit => Limit::perMinute(30)
+            ->by('join:'.$request->user()?->id)
+            ->response(fn (Request $request, array $headers): JsonResponse => WorldActionRefused::joinTooFast()->render()->withHeaders($headers)));
 
         RateLimiter::for('registration', fn (Request $request): Limit => Limit::perHour(5)->by('register:'.$request->ip()));
     }

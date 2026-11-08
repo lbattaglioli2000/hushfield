@@ -16,6 +16,7 @@ return [
     'instance_full' => 'This square is full. Another one has been arranged.',
     'instance_closed' => 'This square is being folded away. You have been shown to another.',
     'joins_paused' => 'The square is not admitting visitors right now. Please try again in a few minutes.',
+    'join_too_fast' => 'The doors need a moment to stop swinging. Please try again shortly.',
     'not_in_room' => "You aren't in this square anymore. Reload to find your way back.",
 
     // Doors

@@ -50,6 +50,11 @@ final class WorldActionRefused extends RuntimeException
         return new self('joins_paused', 503);
     }
 
+    public static function joinTooFast(): self
+    {
+        return new self('join_too_fast', 429);
+    }
+
     public static function chatPaused(): self
     {
         return new self('chat_paused', 503);

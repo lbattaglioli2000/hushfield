@@ -6,6 +6,8 @@ export class RefusedError extends Error {
         public readonly reason: string,
         public readonly status: number,
         message: string,
+        /** From Retry-After on a 429: how long the server wants us to wait. */
+        public readonly retryAfterMs: number | null = null,
     ) {
         super(message);
     }
@@ -24,6 +26,8 @@ export type JsonResponse = {
     statusText: string;
     /** The parsed body, or {} when it wasn't JSON. */
     data: Record<string, unknown>;
+    /** Retry-After in milliseconds, when the server sent one in seconds. */
+    retryAfterMs: number | null;
 };
 
 function xsrfToken(): string {
@@ -68,12 +72,14 @@ export class Http {
             string,
             unknown
         >;
+        const retryAfter = Number(response.headers.get('Retry-After'));
 
         return {
             ok: response.ok,
             status: response.status,
             statusText: response.statusText,
             data,
+            retryAfterMs: retryAfter > 0 ? retryAfter * 1000 : null,
         };
     }
 

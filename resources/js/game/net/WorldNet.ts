@@ -452,6 +452,9 @@ export class WorldNet {
                 if (!this.instance) return;
 
                 const sent = Date.now();
+                const instanceId = this.instance.id;
+                // Waits out a rate limit here: handing it to recover() would drop the socket and rejoin every second.
+                const rejoin = () => this.retrying(() => this.join(instanceId));
 
                 try {
                     const snapshot = await this.request<Snapshot>(
@@ -465,12 +468,12 @@ export class WorldNet {
                         error.reason === 'session_expired'
                     ) {
                         await this.startSession();
-                        await this.join(this.instance.id);
+                        await rejoin();
                     } else if (
                         error instanceof RefusedError &&
                         error.reason === 'not_in_room'
                     ) {
-                        await this.join(this.instance.id);
+                        await rejoin();
                     } else {
                         throw error;
                     }
@@ -714,11 +717,8 @@ export class WorldNet {
         body?: Record<string, unknown>,
         handleSessionErrors = true,
     ): Promise<T> {
-        const { ok, status, statusText, data } = await this.http.send(
-            method,
-            path,
-            body,
-        );
+        const { ok, status, statusText, data, retryAfterMs } =
+            await this.http.send(method, path, body);
 
         // Every response may carry the protocol; one from a newer server means this build is outdated.
         if (
@@ -743,6 +743,6 @@ export class WorldNet {
             if (reason === 'banned') this.fail('banned', message);
         }
 
-        throw new RefusedError(reason, status, message);
+        throw new RefusedError(reason, status, message, retryAfterMs);
     }
 }

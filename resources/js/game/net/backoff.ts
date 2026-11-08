@@ -10,12 +10,19 @@ export function backoffDelay(attempt: number): number {
     return BACKOFF_MIN_MS + Math.random() * (ceiling - BACKOFF_MIN_MS);
 }
 
-/** Network failures and refusals without a machine-readable reason (5xx, 429, 419) may succeed later. */
+/** Network failures, refusals without a machine-readable reason (5xx, 419) and rate limits (429) may succeed later. */
 export function isTransient(error: unknown): boolean {
-    return !(error instanceof RefusedError) || error.reason === 'error';
+    return (
+        !(error instanceof RefusedError) ||
+        error.reason === 'error' ||
+        error.status === 429
+    );
 }
 
-/** Retries `attempt` with backoff while it fails transiently; rethrows refusals, and stops once `stopped()` is true. */
+/**
+ * Retries `attempt` with backoff while it fails transiently, waiting at least as long as a
+ * rate limit's Retry-After; rethrows refusals, and stops once `stopped()` is true.
+ */
 export async function retryWhileTransient<T>(
     attempt: () => Promise<T>,
     stopped: () => boolean,
@@ -30,8 +37,13 @@ export async function retryWhileTransient<T>(
             if (stopped() || !isTransient(error)) throw error;
 
             onRetry();
+            const retryAfterMs =
+                error instanceof RefusedError ? (error.retryAfterMs ?? 0) : 0;
             await new Promise((resolve) =>
-                setTimeout(resolve, backoffDelay(failures)),
+                setTimeout(
+                    resolve,
+                    Math.max(backoffDelay(failures), retryAfterMs),
+                ),
             );
         }
     }
