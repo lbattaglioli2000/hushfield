@@ -1,16 +1,18 @@
 <?php
 
 /*
- * Draws the footprint templates in this folder: for docs/art/furniture.md,
- * one per size and facing; for docs/art/buildings.md, one per building on
- * the maps, in buildings/; for docs/art/walls.md, one per wall panel, in
- * walls/. Each is at 100% in art pixels, with an 8× preview for the guides. Run from the repository root:
+ * Draws the templates in this folder: for docs/art/tiles.md, a full cube and
+ * a half slab, in tiles/; for docs/art/furniture.md, one per size and facing,
+ * in furniture/; for docs/art/buildings.md, one per building on the maps, in
+ * buildings/; for docs/art/walls.md, the panels each wall style on the maps
+ * needs, at its height, in walls/{style}/. Each is at 100% in art pixels, with
+ * an 8× preview for the guides under previews/. Run from the repository root:
  *
  *     php docs/art/templates/make-templates.php
  *
- * To add a size, add it to PIECES. Buildings are read from the maps, so a new
- * one gets its template on the next run. Uses the game's own Footprint, so shapes
- * turn exactly as they do in the game.
+ * To add a furniture size, add it to PIECES. Buildings and wall styles are
+ * read from the maps, so a new one gets its templates on the next run. Uses
+ * the game's own Footprint, so shapes turn exactly as they do in the game.
  */
 
 use App\Domain\Assets\Image;
@@ -46,36 +48,101 @@ const DARK = [168, 192, 216, 255];
 const EDGE = [72, 96, 128, 255];
 const FRONT = [232, 128, 40, 255];
 const GAP = [236, 120, 120, 120];
+// A ground tile's lit left side and shaded right side.
+const SIDE_LIT = [150, 170, 196, 255];
+const SIDE_SHADE = [120, 140, 168, 255];
 
-$out = __DIR__;
-@mkdir("{$out}/previews");
+foreach (['full' => false, 'half' => true] as $height => $half) {
+    save("tiles/{$height}", tile($half));
+}
 
 foreach (PIECES as $name => [$wide, $deep, $shape]) {
     foreach (range(0, 3) as $facing) {
         $lies = (new Footprint(0, 0, $wide, $deep, $shape))->turned($facing);
-        $template = template($lies, $facing);
-        file_put_contents("{$out}/{$name}-facing-{$facing}.png", Png::encode($template));
-        file_put_contents("{$out}/previews/{$name}-facing-{$facing}.png", Png::encode(onChecks($template)->scale(PREVIEW_SCALE)));
+        save("furniture/{$name}-facing-{$facing}", template($lies, $facing));
     }
 }
 
-@mkdir("{$out}/buildings");
-@mkdir("{$out}/previews/buildings");
-
 foreach (buildings() as $slug => [$footprint, $door, $walls]) {
     // Room above the placeholder's walls for a roof; drawing taller is fine.
-    $template = template($footprint, null, $door, $walls + 48);
-    file_put_contents("{$out}/buildings/{$slug}.png", Png::encode($template));
-    file_put_contents("{$out}/previews/buildings/{$slug}.png", Png::encode(onChecks($template)->scale(PREVIEW_SCALE)));
+    save("buildings/{$slug}", template($footprint, null, $door, $walls + 48));
 }
 
-@mkdir("{$out}/walls");
-@mkdir("{$out}/previews/walls");
+foreach (wallStyles() as $style => [$parts, $face]) {
+    foreach ($parts as $part) {
+        save("walls/{$style}/{$part}", panel(str_starts_with($part, 'left'), str_ends_with($part, '-door'), $face));
+    }
+}
 
-foreach (['left', 'right', 'left-door', 'right-door'] as $part) {
-    $template = panel(str_starts_with($part, 'left'), str_ends_with($part, '-door'));
-    file_put_contents("{$out}/walls/{$part}.png", Png::encode($template));
-    file_put_contents("{$out}/previews/walls/{$part}.png", Png::encode(onChecks($template)->scale(PREVIEW_SCALE)));
+/** Writes a template at 100%, and its preview for the guides. */
+function save(string $name, Image $template): void
+{
+    foreach (["{$name}.png" => $template, "previews/{$name}.png" => onChecks($template)->scale(PREVIEW_SCALE)] as $path => $image) {
+        @mkdir(dirname(__DIR__."/{$path}"), recursive: true);
+        file_put_contents(__DIR__."/{$path}", Png::encode($image));
+    }
+}
+
+/**
+ * Every map in resources/maps, decoded.
+ *
+ * @return list<array<string, mixed>>
+ */
+function maps(): array
+{
+    return array_map(
+        fn (string $file): array => json_decode((string) file_get_contents($file), true, flags: JSON_THROW_ON_ERROR),
+        glob(__DIR__.'/../../../resources/maps/*.json') ?: [],
+    );
+}
+
+/**
+ * Every wall style on the maps, by slug: the panels it needs (a side for
+ * each back edge it lines, and that side's doorway where a door is on that
+ * edge), and how tall its face stands in art pixels: the tallest
+ * `wall_height` among the maps using it, or the game's default of 96.
+ *
+ * @return array<string, array{list<string>, int}>
+ */
+function wallStyles(): array
+{
+    $found = [];
+
+    foreach (maps() as $map) {
+        $props = array_column($map['properties'] ?? [], 'value', 'name');
+
+        if (! isset($props['walls'])) {
+            continue;
+        }
+
+        $sides = match ($props['wall_sides'] ?? 'both') {
+            'left' => ['left'],
+            'right' => ['right'],
+            default => ['left', 'right'],
+        };
+        $parts = $sides;
+
+        foreach ($map['layers'] as $layer) {
+            foreach ($layer['name'] === 'exits' ? $layer['objects'] ?? [] : [] as $exit) {
+                // The left wall runs down the column x = 0, the right along the row y = 0.
+                $on = ['left' => intdiv((int) $exit['x'], 32) === 0, 'right' => intdiv((int) $exit['y'], 32) === 0];
+
+                foreach ($sides as $side) {
+                    if ($on[$side]) {
+                        $parts[] = "{$side}-door";
+                    }
+                }
+            }
+        }
+
+        [$had, $face] = $found[$props['walls']] ?? [[], 0];
+        $parts = array_values(array_intersect(['left', 'right', 'left-door', 'right-door'], [...$had, ...$parts]));
+        $found[$props['walls']] = [$parts, max($face, intdiv((int) ($props['wall_height'] ?? 96), 2))];
+    }
+
+    ksort($found);
+
+    return $found;
 }
 
 /**
@@ -88,9 +155,7 @@ function buildings(): array
 {
     $found = [];
 
-    foreach (glob(__DIR__.'/../../../resources/maps/*.json') ?: [] as $file) {
-        /** @var array{layers: list<array{type: string, name: string, objects?: list<array<string, mixed>>}>} $map */
-        $map = json_decode((string) file_get_contents($file), true, flags: JSON_THROW_ON_ERROR);
+    foreach (maps() as $map) {
         $objects = array_merge(...array_map(fn (array $layer): array => $layer['objects'] ?? [], $map['layers']));
         $exits = array_column(array_filter($objects, fn (array $o): bool => ($o['type'] ?? '') === 'exit'), null, 'name');
 
@@ -191,15 +256,62 @@ function template(Footprint $lies, ?int $facing, ?array $door = null, int $headr
 }
 
 /**
- * A wall panel, 16 × 56, as resources/maps/README.md, "Wall panels", lays it
- * out: the face standing 48 above a floor edge that climbs 8 across the
+ * A ground tile on its 32 × 32 canvas, as resources/maps/README.md, "Ground
+ * tiles", lays it out and the build's placeholder tiles draw it: a block
+ * standing on the bottom of the canvas, its 32 × 16 top face on rows 0 to 15
+ * for a full cube, 8 lower for a half slab. The top face is checkered in
+ * quarters so its middle shows; the lit left side and shaded right side are
+ * tinted; everything is outlined.
+ */
+function tile(bool $half): Image
+{
+    $top = $half ? 8 : 0;
+    $shape = function (int $x, int $y) use ($top): ?string {
+        if ($x < 0 || $x > 31 || $y < 0 || $y > 31) {
+            return null;
+        }
+
+        // Half the block's width on this row, and of its top face.
+        $block = $y < $top ? 0 : ($y <= $top + 7 ? 2 * ($y - $top + 1) : ($y <= 24 ? 16 : 16 - 2 * ($y - 24)));
+        $face = $y < $top ? 0 : ($y <= $top + 7 ? 2 * ($y - $top + 1) : max(0, 16 - 2 * ($y - $top - 8)));
+        $from = abs($x - 15.5) + 0.5;
+
+        return $from > $block ? null : ($from <= $face ? 'top' : ($x < 16 ? 'left' : 'right'));
+    };
+
+    $pixels = '';
+
+    for ($y = 0; $y < 32; $y++) {
+        for ($x = 0; $x < 32; $x++) {
+            $part = $shape($x, $y);
+            $outline = $part !== null && ($shape($x - 1, $y) !== $part || $shape($x + 1, $y) !== $part
+                || $shape($x, $y - 1) !== $part || $shape($x, $y + 1) !== $part);
+            $colour = match (true) {
+                $part === null => null,
+                $outline => EDGE,
+                $part === 'top' => (($x < 16) xor ($y < $top + 8)) ? DARK : LIGHT,
+                $part === 'left' => SIDE_LIT,
+                default => SIDE_SHADE,
+            };
+
+            $pixels .= $colour === null ? "\0\0\0\0" : pack('C4', ...$colour);
+        }
+    }
+
+    return new Image(32, 32, $pixels);
+}
+
+/**
+ * A wall panel, 16 wide, as resources/maps/README.md, "Wall panels", lays it
+ * out: the face standing `face` above a floor edge that climbs 8 across the
  * panel (up to the right on `left`, down to the right on `right`), outlined,
  * with nothing below the edge. A doorway's opening, from the floor up to
  * 32 between narrow jambs as the game's placeholder draws it, is orange.
  */
-function panel(bool $left, bool $door): Image
+function panel(bool $left, bool $door, int $face): Image
 {
-    [$width, $height, $face, $climb, $jamb, $opening] = [16, 56, 48, 8, 2, 32];
+    [$width, $climb, $jamb, $opening] = [16, 8, 2, 32];
+    $height = $face + $climb;
     $pixels = '';
 
     for ($y = 0; $y < $height; $y++) {

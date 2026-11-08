@@ -57,8 +57,9 @@ To turn walls on, give the map a string property **`walls`** naming a style,
 a slug such as `plaster`. It names the style's art; until there is some, each
 panel is a plain block tinted by the style's name. In use: `plaster` (the
 Library), `acoustic` (WHSH), `tiled` (the Coin Laundry), `wallpaper` (every
-house in Hearthmore Residences), `siding` (the back of the house, seen from
-its yard, with `wall_sides` `left`).
+house in Hearthmore Residences), `velvet` (the VFA's lobby and screens),
+`siding` (the back of the house, seen from its yard, with `wall_sides`
+`left`).
 
 - **Where they stand**: on the back row and column (or the one edge
   `wall_sides` names), their faces on those
@@ -130,7 +131,8 @@ of that row it spans. Only the client reads it; the VFA's films play on it
   before it (the VFA's stage) unwalkable.
 - **Big enough**: YouTube's player shows nothing much below 200 px tall, so
   span at least 12 tiles (384 × 216), and give the room walls tall enough to
-  hold it with the map property **`wall_height`** (pixels; the VFA's is 256).
+  hold it with the map property **`wall_height`** (pixels; 296 in the VFA's
+  screens).
   It sets the placeholder walls' height; wall art brings its own.
 - **In view**: the camera never scrolls past the top of the walls in a room
   with a TV, so the TV stays on the glass and, in a short window, the front
@@ -234,7 +236,7 @@ orb's own browser. S3Mock allows every origin and enforces no privacy, so
 the bucket's CORS rule and the private bucket's privacy can only be checked
 on Laravel Cloud. Without those variables both disks are local folders.
 
-
+### Ground tiles
 
 One folder per tile type, `resources/art/tiles/{type}/`, with one file per
 slab height. Each is drawn at half size on a 32 × 32 canvas (the build
@@ -337,10 +339,9 @@ Uploads are served from `HUSHFIELD_ASSET_URL` when it is set, and from the
 `public` disk's own URL otherwise. For a local folder, that needs
 `php artisan storage:link`.
 
-The artist's guide to all this, in plain words and with footprint templates,
-is [`docs/art/furniture.md`](../../docs/art/furniture.md), and for buildings
-[`docs/art/buildings.md`](../../docs/art/buildings.md), and for walls
-[`docs/art/walls.md`](../../docs/art/walls.md). Keep them in step.
+The artist's guides to all this, in plain words and with templates, start
+at [`docs/art/README.md`](../../docs/art/README.md): one each for tiles,
+furniture, buildings, building animations and walls. Keep them in step.
 
 Buildings and furniture share one canvas rule, in art pixels, for the
 footprint as it lies (a 2 × 1 love seat is 48 across at every facing):

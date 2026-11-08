@@ -1,9 +1,10 @@
 # Drawing walls and wallpaper for Hushfield
 
 How to draw the back walls of a room, such as the wallpaper in every
-Hearthmore house, and get them into the game. Like tiles, a wall is drawn as
-**one small panel** that the game repeats along the wall, so you never draw a
-whole room.
+Hearthmore house, and get them into the game. Like [tiles](tiles.md), a wall
+is drawn as **one small panel** that the game repeats along the wall, so you
+never draw a whole room. Drawing something else? See
+[all the art guides](README.md).
 
 ## 1. How walls work
 
@@ -25,15 +26,17 @@ Each wall is built from **panels one tile wide**, repeated edge to edge. A
 
 Until a style has art, its walls are plain tinted blocks.
 
-## 2. Pick the template
+## 2. Pick the templates
 
-Open the template for the panel from
-[`templates/walls/`](templates/walls/):
+Each style has a folder of templates in
+[`templates/walls/`](templates/walls/), with exactly the panels it needs,
+named the way you'll name yours: `templates/walls/velvet/` holds
+`left.png`, `right.png`, `left-door.png` and `right-door.png`.
 
-![Left panel](templates/previews/walls/left.png)
-![Left doorway](templates/previews/walls/left-door.png)
-![Right panel](templates/previews/walls/right.png)
-![Right doorway](templates/previews/walls/right-door.png)
+![Left panel](templates/previews/walls/wallpaper/left.png)
+![Left doorway](templates/previews/walls/siding/left-door.png)
+![Right panel](templates/previews/walls/wallpaper/right.png)
+![Right doorway](templates/previews/walls/plaster/right-door.png)
 
 | Panel         | File             | Faces                       | Light        |
 | ------------- | ---------------- | --------------------------- | ------------ |
@@ -42,8 +45,9 @@ Open the template for the panel from
 | Left doorway  | `left-door.png`  | as `left`, with an opening  | in shade     |
 | Right doorway | `right-door.png` | as `right`, with an opening | lit          |
 
-Every panel is **16 × 56** pixels: one tile edge across, and 48 pixels of
-wall above a floor edge that climbs 8 pixels across the panel.
+A panel is **16 × 56** pixels: one tile edge across, and 48 pixels of wall
+above a floor edge that climbs 8 pixels across the panel. `velvet`'s are
+taller, **16 × 156**, to hold the VFA's screen.
 
 ## 3. Draw on the panel
 
@@ -65,8 +69,8 @@ Put your drawing on a layer above the template.
   board or a top trim should end cleanly at both edges so the corner joins.
 - Draw at **half size**, like everything else: the game doubles every pixel.
 - **Taller is fine.** Extend the canvas upwards for a taller wall; the
-  bottom edge is what lines up. The VFA's screens need tall walls to hold
-  the TV: about 148 pixels of wall (a 156-tall canvas) for `velvet`.
+  bottom edge is what lines up. Keep each style's panels the height of its
+  templates, so the wall's top stays level.
 
 ## 4. Doorways
 
@@ -107,6 +111,8 @@ panels to Luigi; they appear after the next deploy.
 _For developers: the rules behind this guide are in "Walls" and "Wall
 panels" in [`resources/maps/README.md`](../../resources/maps/README.md#wall-panels),
 which win if the two disagree. The templates come from
-`php docs/art/templates/make-templates.php`. Her panels go in
+`php docs/art/templates/make-templates.php`, which reads each style's panels
+and height from the maps, so rerun it after adding a style or a door on a
+back wall. Her panels go in
 `resources/art/walls/{style}/{part}.png`, with an entry in
 `resources/art/provenance.json`._

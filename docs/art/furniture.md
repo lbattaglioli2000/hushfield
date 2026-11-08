@@ -1,8 +1,7 @@
 # Drawing furniture for Hushfield
 
 How to draw a piece of furniture and get it into the game, in five steps.
-Drawing a building? See [buildings.md](buildings.md). Walls or wallpaper?
-See [walls.md](walls.md).
+Drawing something else? See [all the art guides](README.md).
 If an upload is refused, the [last table](#if-the-upload-says-no) says why
 and how to fix it.
 
@@ -10,7 +9,8 @@ and how to fix it.
 
 Every piece covers a block of floor tiles, **wide** × **deep**. Ask Luigi, or
 look on the item's page in the admin catalog ("Tiles wide" and "Tiles deep").
-Then open the matching template from [`templates/`](templates/):
+Then open the matching template from
+[`templates/furniture/`](templates/furniture/):
 
 | Size        | Canvas width | Template                              | For example        |
 | ----------- | ------------ | ------------------------------------- | ------------------ |
@@ -34,7 +34,7 @@ isn't here? Ask; making one takes a minute.
 
 Put your drawing on a layer above the template.
 
-![2 × 1 template, facing 0](templates/previews/2x1-facing-0.png)
+![2 × 1 template, facing 0](templates/previews/furniture/2x1-facing-0.png)
 
 - **The piece stands on the diamond, and nothing may go below it.** The
   diamond is the floor the piece covers. Its base should fill the diamond,
@@ -60,9 +60,9 @@ Players turn furniture, so a piece has up to four pictures, one per template:
 | 2      | the upper right | back        |
 | 3      | the lower right | front       |
 
-| Facing 0                                         | Facing 1                                         | Facing 2                                         | Facing 3                                         |
-| ------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------ |
-| ![Facing 0](templates/previews/2x1-facing-0.png) | ![Facing 1](templates/previews/2x1-facing-1.png) | ![Facing 2](templates/previews/2x1-facing-2.png) | ![Facing 3](templates/previews/2x1-facing-3.png) |
+| Facing 0                                                   | Facing 1                                                   | Facing 2                                                   | Facing 3                                                   |
+| ---------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| ![Facing 0](templates/previews/furniture/2x1-facing-0.png) | ![Facing 1](templates/previews/furniture/2x1-facing-1.png) | ![Facing 2](templates/previews/furniture/2x1-facing-2.png) | ![Facing 3](templates/previews/furniture/2x1-facing-3.png) |
 
 The game flips a missing facing from its mirror: **0 ↔ 3** and **1 ↔ 2**. So:
 

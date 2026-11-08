@@ -3,7 +3,7 @@
 How to draw a building's outside and get it into the game. It works like
 [furniture](furniture.md), with two differences: a building is **one
 picture** (buildings never turn), and you **send it to Luigi** instead of
-uploading it.
+uploading it. Drawing something else? See [all the art guides](README.md).
 
 ## 1. Pick the template
 

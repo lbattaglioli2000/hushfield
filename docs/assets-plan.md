@@ -2,8 +2,12 @@
 
 Where Hushfield's art and audio live, how they're named, built, versioned and
 delivered, and how we get there from today. Written against `github/main` at
-`bf34fbc` and revised with the decisions in §11. This is a plan: nothing in it
-is built yet.
+`bf34fbc` and revised with the decisions in §11. Steps 1 to 3 and 5 of §12
+have landed, with step 4's crisp rendering and cross-origin loading and
+step 8's furniture uploads; avatars, wearables and audio are still to come.
+The rules as built are in "Art" in `resources/maps/README.md`, and the
+artist's guides in [`docs/art/`](art/README.md); §1 describes the starting
+point.
 
 **In one paragraph:** The artist draws everything at half size: tiles,
 buildings, furniture, walls, avatars and wearables. The build doubles it, so
@@ -586,6 +590,10 @@ Each step is its own PR and leaves the game working.
    import command and zip action, then the shop requiring published art.
 
 ## 13. For the artist: how to hand over files
+
+How to draw each kind of art, with templates, is now in the artist's guides,
+starting at [`docs/art/README.md`](art/README.md); they win where they
+differ from this section. This layout remains the shape of a bulk handover.
 
 **Send** a zip or a shared folder laid out like this. Send the `.aseprite`
 beside each PNG if it's under 1 MB. Put anything bigger in the masters bucket
