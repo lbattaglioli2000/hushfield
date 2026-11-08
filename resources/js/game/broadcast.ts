@@ -1,6 +1,7 @@
 import type { BroadcastState, EventBus } from './bus';
 import type { WorldNet } from './net/WorldNet';
 import type { Broadcast } from './protocol/types';
+import { RadioVoice } from './voiceRadio';
 
 /** How the set keeps up with WHSH: checked every tick, and put back in step when it drifts too far. */
 const SYNC = {
@@ -25,11 +26,22 @@ export function airing(lineup: Broadcast[], nowMs: number): Broadcast | null {
  * Nobody can pause it. Browsers hold the sound back until the player has
  * clicked something; until then the set offers Listen, and it starts with
  * the next click. Keeps playing in a hidden tab, as a radio would.
- * Returns the cleanup.
+ *
+ * It comes over the air as voices do (RadioVoice): squeezed into the set's
+ * band and lightly driven, with hiss under it, and a burst of squelch as it
+ * goes on and off the air. Returns the cleanup.
  */
 export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
     const audio = new Audio();
     audio.preload = 'auto';
+    // Web Audio hears a recording from the asset bucket, another origin, only if it was fetched with CORS.
+    audio.crossOrigin = 'anonymous';
+    /** Made with the first broadcast; until a click, browsers keep it suspended. */
+    let speaker: {
+        context: AudioContext;
+        radio: RadioVoice;
+        level: GainNode;
+    } | null = null;
     let lineup: Broadcast[] = [];
     /** The broadcast loaded into the speaker. */
     let loaded: number | null = null;
@@ -47,6 +59,26 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
         bus.emit('broadcast-state', { state });
     };
 
+    const connectSpeaker = () => {
+        if (speaker) return speaker;
+
+        const context = new AudioContext();
+        const radio = new RadioVoice(context);
+        // The Volume knob turns the hiss too, so it sits after the radio.
+        const level = context.createGain();
+        level.gain.value = volume;
+        const chain = [
+            context.createMediaElementSource(audio),
+            ...radio.nodes,
+            level,
+            context.destination,
+        ];
+        chain.reduce((from, to) => (from.connect(to), to));
+        speaker = { context, radio, level };
+
+        return speaker;
+    };
+
     /** Seconds into the broadcast the town is at. */
     const position = (on: Broadcast) =>
         (net.serverNow() - on.starts_at_ms) / 1000;
@@ -58,14 +90,18 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
             on && {
                 id: on.id,
                 title: on.title,
-                listening: !blocked && (!audio.paused || audio.ended),
+                listening:
+                    !blocked &&
+                    speaker?.context.state === 'running' &&
+                    (!audio.paused || audio.ended),
             },
         );
     };
 
     /** Only reports how it went: the next tick tries again, never this, or a refusal would loop. */
     const play = () => {
-        audio.volume = volume;
+        // Allowed once the player has clicked anywhere on the page; until then it stays suspended.
+        void speaker?.context.resume().then(report);
         audio
             .play()
             .then(() => {
@@ -90,6 +126,7 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
                 audio.removeAttribute('src');
                 audio.load();
                 loaded = null;
+                speaker?.radio.keyDown();
             }
 
             report();
@@ -99,6 +136,7 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
 
         if (loaded !== on.id) {
             loaded = on.id;
+            connectSpeaker().radio.keyUp();
             audio.src = on.url;
             audio.currentTime = position(on);
             lastSeekAt = Date.now();
@@ -129,7 +167,8 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
         }),
         bus.on('voice-volume', (next) => {
             volume = next.volume;
-            audio.volume = volume;
+
+            if (speaker) speaker.level.gain.value = volume;
         }),
         // Runs inside the click, so the browser counts it as the player's own.
         bus.on('broadcast-listen', () => {
@@ -148,5 +187,7 @@ export function connectBroadcast(net: WorldNet, bus: EventBus): () => void {
         audio.pause();
         audio.removeAttribute('src');
         audio.load();
+        speaker?.radio.dispose();
+        void speaker?.context.close();
     };
 }
