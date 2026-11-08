@@ -43,8 +43,9 @@ art:
 - **Tiles:** the hedge (on every map).
 - **Buildings:** the Public Library. WHSH's beacon animation is a stand-in
   until you draw the real one ([animations.md](animations.md#example-the-whsh-beacon)).
-- **Walls:** every style (wallpaper, plaster, acoustic, tiled, velvet,
-  siding).
+- **Walls:** every style but the Library's `plaster` (wallpaper, acoustic,
+  tiled, velvet, siding). Its doorway, `plaster/right-door`, is a stand-in
+  cut from `right` until you draw the real one.
 - **Furniture:** the admin item list shows each piece's art as none,
   partial or complete.
 

@@ -60,6 +60,21 @@
         "received": "2026-11-08",
         "notes": "stand-in to test building animations: her beacon from whsh.png, recoloured brighter in three of four frames, until she draws the real one"
     },
+    "art/walls/plaster/left.png": {
+        "by": "Luigi",
+        "received": "2026-11-08",
+        "notes": "handed over in an Amp thread as backrooms-wallpaper-left; the Library's wallpaper; added as drawn"
+    },
+    "art/walls/plaster/right.png": {
+        "by": "Luigi",
+        "received": "2026-11-08",
+        "notes": "handed over in an Amp thread as backrooms-wallpaper-right; the Library's wallpaper; added as drawn"
+    },
+    "art/walls/plaster/right-door.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "stand-in for the Library's doorway: right.png with the template's opening cut out, until a door panel is drawn"
+    },
     "art/ui/*.png": {
         "by": "Hushfield team",
         "received": "2026-10-25",
