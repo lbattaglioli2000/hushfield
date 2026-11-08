@@ -3,8 +3,8 @@
 /*
  * Draws the footprint templates in this folder: for docs/art/furniture.md,
  * one per size and facing; for docs/art/buildings.md, one per building on
- * the maps, in buildings/. Each is at 100% in art pixels, with an 8× preview
- * for the guides. Run from the repository root:
+ * the maps, in buildings/; for docs/art/walls.md, one per wall panel, in
+ * walls/. Each is at 100% in art pixels, with an 8× preview for the guides. Run from the repository root:
  *
  *     php docs/art/templates/make-templates.php
  *
@@ -67,6 +67,15 @@ foreach (buildings() as $slug => [$footprint, $door, $walls]) {
     $template = template($footprint, null, $door, $walls + 48);
     file_put_contents("{$out}/buildings/{$slug}.png", Png::encode($template));
     file_put_contents("{$out}/previews/buildings/{$slug}.png", Png::encode(onChecks($template)->scale(PREVIEW_SCALE)));
+}
+
+@mkdir("{$out}/walls");
+@mkdir("{$out}/previews/walls");
+
+foreach (['left', 'right', 'left-door', 'right-door'] as $part) {
+    $template = panel(str_starts_with($part, 'left'), str_ends_with($part, '-door'));
+    file_put_contents("{$out}/walls/{$part}.png", Png::encode($template));
+    file_put_contents("{$out}/previews/walls/{$part}.png", Png::encode(onChecks($template)->scale(PREVIEW_SCALE)));
 }
 
 /**
@@ -175,6 +184,38 @@ function template(Footprint $lies, ?int $facing, ?array $door = null, int $headr
             }
 
             $pixels .= pack('C4', ...$colour);
+        }
+    }
+
+    return new Image($width, $height, $pixels);
+}
+
+/**
+ * A wall panel, 16 × 56, as resources/maps/README.md, "Wall panels", lays it
+ * out: the face standing 48 above a floor edge that climbs 8 across the
+ * panel (up to the right on `left`, down to the right on `right`), outlined,
+ * with nothing below the edge. A doorway's opening, from the floor up to
+ * 32 between narrow jambs as the game's placeholder draws it, is orange.
+ */
+function panel(bool $left, bool $door): Image
+{
+    [$width, $height, $face, $climb, $jamb, $opening] = [16, 56, 48, 8, 2, 32];
+    $pixels = '';
+
+    for ($y = 0; $y < $height; $y++) {
+        for ($x = 0; $x < $width; $x++) {
+            // The floor edge at this column's middle, as the build measures it.
+            $edge = (int) floor($height - ($left ? $x + 0.5 : $width - $x - 0.5) * $climb / $width);
+            $up = $edge - $y;
+
+            $colour = match (true) {
+                $up < 0 || $up > $face => null,
+                $up === 0 || $up === $face || $x === 0 || $x === $width - 1 => EDGE,
+                $door && $up <= $opening && $x >= $jamb && $x < $width - $jamb => FRONT,
+                default => intdiv($up - 1, 16) % 2 === 0 ? LIGHT : DARK,
+            };
+
+            $pixels .= $colour === null ? "\0\0\0\0" : pack('C4', ...$colour);
         }
     }
 
