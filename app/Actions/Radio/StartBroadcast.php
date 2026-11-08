@@ -41,8 +41,10 @@ final readonly class StartBroadcast
         $info = (new getID3)->analyze($file);
         $seconds = (int) ceil((float) ($info['playtime_seconds'] ?? 0));
 
-        if (($info['audio']['dataformat'] ?? null) !== 'mp3' || $seconds < 1) {
-            throw new BroadcastRefused('That file is not an MP3 the set can play.');
+        $format = $info['audio']['dataformat'] ?? $info['fileformat'] ?? null;
+
+        if ($format !== 'mp3' || $seconds < 1) {
+            throw new BroadcastRefused('That file is not an MP3 the set can play'.(is_string($format) && $format !== 'mp3' ? ' (it looks like '.strtoupper($format).')' : '').'.');
         }
 
         if ($seconds > $maxMinutes * 60) {

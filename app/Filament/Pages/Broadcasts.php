@@ -87,14 +87,20 @@ class Broadcasts extends Page
                         return;
                     }
 
+                    // Livewire may keep uploads on a bucket, where the path is a key and not a file here: copy it to one.
+                    $local = (string) tempnam(sys_get_temp_dir(), 'broadcast');
+                    file_put_contents($local, $file->readStream());
+
                     try {
-                        $broadcast = $start(trim((string) $data['title']), $file->getRealPath(), Staff::current());
+                        $broadcast = $start(trim((string) $data['title']), $local, Staff::current());
                     } catch (BroadcastRefused $refused) {
                         Notification::make()->danger()->title("WHSH can't air that")->body($refused->getMessage())->send();
                         // Keeps the form open, so another file can be tried.
                         $action->halt();
 
                         return;
+                    } finally {
+                        @unlink($local);
                     }
 
                     $action->successNotificationTitle("On the air: {$broadcast->title}");

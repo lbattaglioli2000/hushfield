@@ -91,6 +91,7 @@ test('only MP3s go on the air, and none longer than the limit', function (string
     expect(Broadcast::query()->count())->toBe(0)
         ->and(Storage::disk('public')->allFiles())->toBe([]);
     Event::assertNotDispatched(BroadcastChanged::class);
+    unlink($file);
 })->with([
     'not audio' => [str_repeat('not an mp3 ', 100), [], 'not an MP3'],
     'too long' => [(string) file_get_contents(TONE), ['hushfield.radio.max_minutes' => 0], 'runs 1 minutes; a broadcast may be up to 0'],
