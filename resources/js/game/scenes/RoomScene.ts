@@ -6,6 +6,7 @@ import type { WorldListener } from '../net/WorldNet';
 import type {
     AssetManifest,
     ChatMessageSentEvent,
+    OutfitChangedEvent,
     PlayerJoinedEvent,
     PlayerLeftEvent,
     PlacedFurniture,
@@ -24,7 +25,12 @@ import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
 import { Arrivals } from '../world/Arrivals';
 import type { AssetFile } from '../world/AssetLoader';
 import { AssetLoader } from '../world/AssetLoader';
-import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
+import type { AvatarPose } from '../world/AvatarView';
+import {
+    AVATAR_TEXTURE,
+    avatarBootFiles,
+    AvatarView,
+} from '../world/AvatarView';
 import {
     animationTexture,
     BuildingLayer,
@@ -48,7 +54,7 @@ import type { MovementPort } from '../world/MovementController';
 import { MovementController } from '../world/MovementController';
 
 /** The textures every room needs, loaded before anything is drawn. Each room's own art loads with it. */
-function bootAssets(): AssetFile[] {
+function bootAssets(manifest: AssetManifest): AssetFile[] {
     return [
         {
             key: TILES_TEXTURE,
@@ -61,6 +67,7 @@ function bootAssets(): AssetFile[] {
         { key: AVATAR_TEXTURE, url: (m) => m.images.resident },
         { key: 'marker', url: (m) => m.images.marker },
         { key: 'hover', url: (m) => m.images.hover },
+        ...avatarBootFiles(manifest),
     ];
 }
 
@@ -170,7 +177,9 @@ export class RoomScene
 
     create(): void {
         this.cameras.main.setBackgroundColor(COLORS.night);
-        void this.assets.load(bootAssets()).then(() => this.start());
+        void this.assets
+            .load(bootAssets(this.assets.manifest))
+            .then(() => this.start());
     }
 
     /** Sets the room up once the textures every room needs are in. */
@@ -484,6 +493,15 @@ export class RoomScene
         this.whenDrawable(() => this.avatars.get(userId)?.setIdle(idle));
     }
 
+    outfitChanged(event: OutfitChangedEvent): void {
+        this.whenDrawable(() => this.dress(event.user_id, event.avatar));
+    }
+
+    /** Sits, waves or stands the player's own avatar, on this screen only, to try the rig's poses. */
+    poseOwn(pose: AvatarPose): void {
+        this.avatars.get(this.selfId)?.setPose(pose, this.port.serverNow());
+    }
+
     furnitureChanged(placed: PlacedFurniture[]): void {
         this.whenDrawable(() => this.setFurniture(placed));
     }
@@ -762,14 +780,33 @@ export class RoomScene
 
         if (existing) {
             existing.setState(pathState(player), this.port.serverNow());
-            existing.setLook(player.avatar);
+            this.dress(player.id, player.avatar);
 
             return;
         }
 
-        const avatar = new AvatarView(this, player, isSelf);
+        const avatar = new AvatarView(
+            this,
+            player,
+            isSelf,
+            this.assets.manifest.avatar ?? null,
+        );
         avatar.setOnAir(this.onAir.has(player.id));
         this.avatars.set(player.id, avatar);
+        this.dress(player.id, player.avatar);
+    }
+
+    /** Shows a resident's look, and again once the art it needs has loaded. */
+    private dress(userId: number, look: PlayerState['avatar']): void {
+        this.avatars.get(userId)?.setLook(look);
+
+        const files = AvatarView.files(look, this.assets.manifest);
+
+        if (this.assets.missing(files).length === 0) return;
+
+        void this.assets
+            .load(files)
+            .then(() => this.avatars.get(userId)?.setLook(look));
     }
 
     private remove(id: number): void {

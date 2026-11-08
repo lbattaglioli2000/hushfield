@@ -34,7 +34,7 @@ final readonly class BuildSnapshot
         $paths = $this->positions->manyOrSpawn($memberIds, $instance->room, $now);
 
         $players = array_values(User::query()
-            ->with('avatar')
+            ->with('avatar.worn.item')
             ->whereIn('id', $memberIds)
             ->get()
             ->map(fn (User $user): PlayerState => new PlayerState($user, $paths[$user->id]))

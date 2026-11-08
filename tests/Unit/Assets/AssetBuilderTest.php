@@ -16,7 +16,9 @@ function scratchArt(): string
 {
     $root = sys_get_temp_dir().'/hushfield-art-'.uniqid();
     File::copyDirectory(resource_path('art'), "{$root}/art");
-    collect(['buildings', 'walls', 'items'])->each(fn (string $kind) => File::deleteDirectory("{$root}/art/{$kind}"));
+    foreach (['buildings', 'walls', 'items', 'avatars'] as $kind) {
+        File::deleteDirectory("{$root}/art/{$kind}");
+    }
     File::ensureDirectoryExists("{$root}/maps");
     File::copy(resource_path('maps/library.json'), "{$root}/maps/library.json");
     File::copy(resource_path('maps/lantern-street.json'), "{$root}/maps/lantern-street.json");
@@ -570,3 +572,106 @@ it('reports how much of an item\'s art is built, counting facings the game mirro
         ->and($art->status($furniture('wrong-table', 2, 1)))->toBe(ArtStatus::Partial)
         ->and($art->status($furniture('standard-bed', 2, 2)))->toBe(ArtStatus::None);
 });
+
+/** The stand-in avatar, its anchors' strips redrawn so each anchor moves frame by frame (see anchorStrip). */
+function avatarArt(string $root): void
+{
+    File::copyDirectory(resource_path('art/avatars'), "{$root}/art/avatars");
+    File::put("{$root}/art/avatars/base/front-anchors.png", anchorStrip());
+    File::put("{$root}/art/avatars/base/back-anchors.png", anchorStrip());
+    File::ensureDirectoryExists("{$root}/art/items/wool-cap");
+    File::copy(resource_path('art/items/wool-cap/front.png'), "{$root}/art/items/wool-cap/front.png");
+    File::put("{$root}/art/provenance.json", (string) json_encode([
+        'art/tiles/*/*.png' => ['by' => 'our artist'],
+        'art/ui/*.png' => ['by' => 'us'],
+        'art/avatars/*/*.png' => ['by' => 'our artist'],
+        'art/avatars/*/*/*.png' => ['by' => 'our artist'],
+        'art/items/*/*.png' => ['by' => 'our artist'],
+    ]));
+}
+
+/**
+ * Nine 48 × 72 frames of anchors, one pixel each in rig.json's colours: in
+ * frame n the head is at (20 + n, 10), the hand at (8, 40 + n), and the rest
+ * stay put. `skip` leaves one anchor out of one frame.
+ *
+ * @param  array{int, string}|null  $skip  frame, anchor
+ */
+function anchorStrip(?array $skip = null): string
+{
+    $image = new Image(48 * 9, 72, str_repeat("\0\0\0\0", 48 * 9 * 72));
+
+    foreach (range(0, 8) as $n) {
+        $at = ['head' => [20 + $n, 10, "\xFF\0\0"], 'chest' => [24, 30, "\0\xFF\0"], 'hand' => [8, 40 + $n, "\0\0\xFF"], 'hip' => [24, 44, "\xFF\xFF\0"], 'feet' => [24, 70, "\xFF\0\xFF"]];
+
+        foreach ($at as $anchor => [$x, $y, $rgb]) {
+            if ($skip !== [$n, $anchor]) {
+                $image = $image->paste(new Image(1, 1, "{$rgb}\xFF"), $n * 48 + $x, $y);
+            }
+        }
+    }
+
+    return Png::encode($image);
+}
+
+it('doubles avatar and wearable strips, and lists the rig with every anchor in every frame, in game pixels', function () {
+    $root = scratchArt();
+    avatarArt($root);
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $index = builtIndex();
+    $avatar = $index['avatar'];
+
+    expect($index['sizes'])->toMatchArray([
+        'avatars/base/front' => [864, 144],
+        'avatars/hair/short/back' => [96, 144],
+        'items/wool-cap/front' => [96, 144],
+    ])
+        // The anchors are read, not shipped.
+        ->and($index['files'])->not->toHaveKey('avatars/base/front-anchors')
+        ->and($avatar['frame'])->toBe([96, 144])
+        ->and($avatar['frames'])->toBe(9)
+        ->and($avatar['anchors']['front'][0])->toBe(['head' => [40, 20], 'chest' => [48, 60], 'hand' => [16, 80], 'hip' => [48, 88], 'feet' => [48, 140]])
+        ->and($avatar['anchors']['back'][5]['head'])->toBe([50, 20])
+        ->and($avatar['anchors']['back'][5]['hand'])->toBe([16, 90]);
+
+    $manifest = $this->getJson(route('assets.manifest'))->assertOk();
+
+    expect($manifest->json('avatar.base.front'))->toBe(asset('assets').'/'.$index['files']['avatars/base/front'])
+        ->and($manifest->json('avatar.anchors.front.8.head'))->toBe([56, 20]);
+
+    // Moved anchors change no shipped file, but must still reach open tabs.
+    $strip = Png::decode(anchorStrip());
+    File::put("{$root}/art/avatars/base/front-anchors.png", Png::encode((new Image(48 * 9, 72, str_repeat("\0\0\0\0", 48 * 9 * 72)))->paste($strip, 0, 1)));
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    expect(builtIndex()['version'])->not->toBe($index['version'])
+        ->and(builtIndex()['avatar']['anchors']['front'][0]['head'])->toBe([40, 22]);
+});
+
+it('refuses avatar art that does not fit the rig', function (Closure $draw, string $message) {
+    $root = scratchArt();
+    avatarArt($root);
+    $draw($root);
+
+    $this->artisan('hushfield:build-assets')
+        ->expectsOutputToContain($message)
+        ->assertFailed();
+})->with([
+    'a frame missing an anchor' => [
+        fn (string $root) => File::put("{$root}/art/avatars/base/front-anchors.png", anchorStrip([4, 'hand'])),
+        "Frame 5 of the avatar's anchors has no hand anchor.",
+    ],
+    'a base exported at 200%' => [
+        fn (string $root) => File::put("{$root}/art/avatars/base/back.png", Png::encode(Png::decode((string) file_get_contents("{$root}/art/avatars/base/back.png"))->scale(2))),
+        'art/avatars/base/back.png is already scaled up to 864×144. Export it at 100%: 432×72.',
+    ],
+    'a hat two frames wide' => [
+        fn (string $root) => File::put("{$root}/art/items/wool-cap/front.png", Png::encode(new Image(96, 72, str_repeat("\0\0\0\0", 96 * 72)))),
+        'art/items/wool-cap/front.png is 96×72; it must be one frame, 48 × 72 or 9 frames of 48 × 72 side by side.',
+    ],
+    'a body without its anchors' => [
+        fn (string $root) => File::delete("{$root}/art/avatars/base/back-anchors.png"),
+        'Avatar art needs art/avatars/base/back-anchors.png',
+    ],
+]);

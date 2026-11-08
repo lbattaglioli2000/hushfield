@@ -249,6 +249,16 @@ final class WorldActionRefused extends RuntimeException
         return new self('furniture_full', 409);
     }
 
+    public static function notWearable(): self
+    {
+        return new self('not_wearable', 422);
+    }
+
+    public static function wearTooFast(): self
+    {
+        return new self('wear_too_fast', 429);
+    }
+
     public static function homeTooFast(): self
     {
         return new self('home_too_fast', 429);

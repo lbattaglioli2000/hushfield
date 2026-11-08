@@ -1,3 +1,4 @@
+import type { AvatarPose } from './world/AvatarView';
 import Phaser from 'phaser';
 import type { EventBus } from './bus';
 import { connectCinema } from './cinema';
@@ -121,6 +122,7 @@ export function startGame(
             chat: (e) => scene?.chat(e),
             idle: (id, idle) => scene?.idle(id, idle),
             furnitureChanged: (placed) => scene?.furnitureChanged(placed),
+            outfitChanged: (e) => scene?.outfitChanged(e),
         },
     );
 
@@ -147,6 +149,16 @@ export function startGame(
     cleanups.push(
         bus.on('send-chat', ({ body }) => {
             touch();
+
+            // Tries the rig's poses on this screen only, until poses are server state (docs/assets-plan.md §14.5).
+            const pose = /^\/(sit|wave|stand)$/.exec(body.trim())?.[1];
+
+            if (pose) {
+                scene?.poseOwn(pose as AvatarPose);
+
+                return;
+            }
+
             net.chat(body)
                 .then(
                     (message) =>

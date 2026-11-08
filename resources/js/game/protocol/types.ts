@@ -1,9 +1,48 @@
 /** Must match config('hushfield.protocol'). A server payload with a higher value means this build is outdated. */
-export const PROTOCOL = 3;
+export const PROTOCOL = 4;
 
 export type Tile = [number, number];
 
-export type AvatarLook = { body_color: string; sprite_key: string } | null;
+/** Something a resident wears: its slot, and its art by part (`front`, `back`, `front-behind`), for the parts drawn. */
+export type Worn = {
+    slot: ItemSlot;
+    slug: string;
+    art: Partial<Record<string, string>>;
+};
+
+export type AvatarLook = {
+    body_color: string;
+    hair: string;
+    worn: Worn[];
+} | null;
+
+type Animation = { frames: number[]; frame_ms?: number };
+
+/**
+ * How avatars are drawn (resources/art/avatars/rig.json, docs/assets-plan.md
+ * §14), in game pixels, with the art every resident shares.
+ */
+export type AvatarRig = {
+    frame: [number, number];
+    frames: number;
+    animations: {
+        idle: Animation;
+        walk: Animation;
+        sit: Animation;
+        wave: Animation;
+    };
+    /** Screen pixels walked per whole walk cycle. */
+    stride_px: number;
+    /** The anchor a rigid layer follows, by slot (`hair` too); null for drawn slots. */
+    slots: Record<string, string | null>;
+    /** Back to front, by facing: slots, `base` and `behind`. */
+    layers: Record<'front' | 'back', string[]>;
+    /** Each anchor's position in each frame, by facing. */
+    anchors: Record<'front' | 'back', Record<string, [number, number]>[]>;
+    base: Partial<Record<'front' | 'back', string>>;
+    /** Hair styles' art, by style and facing. */
+    hair: Record<string, Partial<Record<'front' | 'back', string>>>;
+};
 
 export type PathState = {
     path: Tile[];
@@ -107,6 +146,11 @@ export type ChatMessageSentEvent = Stamped & {
 };
 export type IdleWhisper = { user_id: number; idle: boolean };
 
+export type OutfitChangedEvent = Stamped & {
+    user_id: number;
+    avatar: AvatarLook;
+};
+
 export type FurnitureChangedEvent = Stamped & {
     furniture: PlacedFurniture[];
 };
@@ -144,6 +188,8 @@ export type AssetManifest = {
     animations: Record<string, Record<string, BuildingAnimation>>;
     /** Art for wall styles that have it, by style and part: `left`, `right`, `left-door`, `right-door`. */
     walls: Record<string, Record<string, string>>;
+    /** Null until the build has avatar art: residents are then one tinted sprite. */
+    avatar: AvatarRig | null;
 };
 
 /** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */
@@ -197,6 +243,8 @@ export type Wallet = {
     balance: number;
     stipend: { amount: number; available: boolean; next_at: string };
     inventory: OwnedItem[];
+    /** The pieces the resident has on. */
+    worn: number[];
 };
 
 /** An item the resident owns, newest first, with the id of every piece of it they own. */

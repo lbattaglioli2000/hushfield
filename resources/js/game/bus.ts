@@ -120,7 +120,7 @@ export type GameEvents = {
     'use-fixture': { kind: FixtureKind };
     /** The answer to a 'load-shop'. */
     shop: { items: Item[]; open: boolean };
-    /** The answer to a 'purchase-item' or 'claim-stipend', and failures of 'load-shop'. */
+    /** The answer to a 'purchase-item', 'claim-stipend' or 'wear-item', and failures of 'load-shop'. */
     'economy-result': { ok: boolean; message: string };
     /** Where the player's line is: see FishingPhase. */
     fishing: { phase: FishingPhase };
@@ -160,6 +160,8 @@ export type GameEvents = {
     'load-shop': Record<string, never>;
     'purchase-item': { itemId: number };
     'claim-stipend': Record<string, never>;
+    /** Put on (true) or take off one owned piece. */
+    'wear-item': { piece: number; on: boolean };
     /** Put a line in the water, or reel the one that is in. The server judges both. */
     'cast-line': Record<string, never>;
     'reel-in': Record<string, never>;

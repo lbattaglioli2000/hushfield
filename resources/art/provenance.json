@@ -79,5 +79,100 @@
         "by": "Hushfield team",
         "received": "2026-10-25",
         "notes": "full-size stand-ins from the first playable build, until she draws the marker, hover and avatars"
+    },
+    "art/avatars/base/back-anchors.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/avatars/base/back.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/avatars/base/front-anchors.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/avatars/base/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/avatars/hair/short/back.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/avatars/hair/short/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/brass-lantern/back.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/brass-lantern/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/moth-wing-cloak/back.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/moth-wing-cloak/front-behind.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/moth-wing-cloak/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/municipal-raincoat/back.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/municipal-raincoat/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/quiet-boots/back.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/quiet-boots/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/resident-pin/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/round-spectacles/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/wool-cap/back.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/items/wool-cap/front.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
     }
 }

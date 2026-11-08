@@ -16,6 +16,7 @@ import type {
     FriendsUpdatedEvent,
     HomeVisitors,
     FurnitureChangedEvent,
+    OutfitChangedEvent,
     HomesList,
     IdleWhisper,
     InstanceReassignedEvent,
@@ -59,6 +60,7 @@ export type WorldListener = {
     chat(event: ChatMessageSentEvent): void;
     idle(userId: number, idle: boolean): void;
     furnitureChanged(placed: PlacedFurniture[]): void;
+    outfitChanged(event: OutfitChangedEvent): void;
 };
 
 type JoinBody = { notice: string | null; snapshot: Snapshot };
@@ -224,6 +226,14 @@ export class WorldNet {
             'POST',
             `/world/shop/${itemId}/purchase`,
             { key },
+        );
+    }
+
+    /** Puts a piece on, or takes it off; the room redraws the wearer from OutfitChanged. */
+    wear(piece: number, on: boolean): Promise<WalletUpdate> {
+        return this.request<WalletUpdate>(
+            on ? 'POST' : 'DELETE',
+            `/world/outfit/${piece}`,
         );
     }
 
@@ -606,6 +616,12 @@ export class WorldNet {
             .listen(
                 ROOM_EVENTS.chatMessageSent,
                 guardProtocol((e: ChatMessageSentEvent) => listener.chat(e)),
+            )
+            .listen(
+                ROOM_EVENTS.outfitChanged,
+                guardProtocol((e: OutfitChangedEvent) =>
+                    listener.outfitChanged(e),
+                ),
             )
             .listen(
                 ROOM_EVENTS.furnitureChanged,

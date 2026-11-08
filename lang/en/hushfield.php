@@ -51,6 +51,10 @@ return [
     'furniture_full' => 'Your home holds all the furniture it is going to. The floor has asked, politely, for no more.',
     'home_too_fast' => 'Your residence needs a moment to settle. Please try again shortly.',
 
+    // Wardrobe
+    'not_wearable' => "That isn't something you can wear. Not here, anyway.",
+    'wear_too_fast' => 'The mirror needs a moment. Please try again shortly.',
+
     // Movement
     'unreachable' => "You can't get there from here. Few can.",
 

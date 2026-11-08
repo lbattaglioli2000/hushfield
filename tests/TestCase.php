@@ -26,7 +26,9 @@ abstract class TestCase extends BaseTestCase
 
         if (! File::isDirectory("{$assets}/art")) {
             File::copyDirectory(resource_path('art'), "{$assets}/art");
-            collect(['buildings', 'walls', 'items'])->each(fn (string $kind) => File::deleteDirectory("{$assets}/art/{$kind}"));
+            foreach (['buildings', 'walls', 'items'] as $kind) {
+                File::deleteDirectory("{$assets}/art/{$kind}");
+            }
         }
 
         config([

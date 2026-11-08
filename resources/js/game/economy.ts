@@ -61,6 +61,9 @@ export function connectEconomy(
                     }
                 });
         }),
+        bus.on('wear-item', ({ piece, on }) => {
+            net.wear(piece, on).then(applied).catch(fail);
+        }),
         bus.on('claim-stipend', () => {
             net.claimStipend().then(applied).catch(fail);
         }),

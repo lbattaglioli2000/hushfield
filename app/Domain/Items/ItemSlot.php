@@ -19,6 +19,12 @@ enum ItemSlot: string implements HasLabel
     case Background = 'background';
     case Furniture = 'furniture';
 
+    /** Whether a resident can put it on. Background is being dropped (docs/assets-plan.md §14.2). */
+    public function isWorn(): bool
+    {
+        return ! in_array($this, [self::Background, self::Furniture], true);
+    }
+
     public function getLabel(): string
     {
         return match ($this) {

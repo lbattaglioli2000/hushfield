@@ -55,7 +55,7 @@ export default function EconomyHud({
 
     if (!wallet) return null;
 
-    const request = <K extends 'purchase-item' | 'claim-stipend'>(
+    const request = <K extends 'purchase-item' | 'claim-stipend' | 'wear-item'>(
         event: K,
         payload: GameEvents[K],
     ) => {
@@ -124,6 +124,9 @@ export default function EconomyHud({
                 wallet={wallet}
                 open={panel === 'inventory'}
                 onClose={() => setPanel(null)}
+                busy={busy}
+                onWear={(piece, on) => request('wear-item', { piece, on })}
+                result={resultLine}
             />
         </>
     );

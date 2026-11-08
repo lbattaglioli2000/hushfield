@@ -16,7 +16,8 @@ use Illuminate\Http\Request;
  * animations by building and part, with where they lie on it (see
  * resources/maps/README.md, "Art"); furniture art comes with each item
  * (Item::toPayload), as it may be uploaded. Anything without art is drawn
- * as a placeholder.
+ * as a placeholder. The avatar rig comes with the base body and hair
+ * (docs/assets-plan.md §14).
  */
 final class AssetManifestController extends Controller
 {
@@ -31,6 +32,7 @@ final class AssetManifestController extends Controller
         $buildings = [];
         $animations = [];
         $walls = [];
+        $avatar = ['base' => [], 'hair' => []];
 
         foreach ($index['files'] as $name => $file) {
             $url = "{$base}/{$file}";
@@ -40,6 +42,8 @@ final class AssetManifestController extends Controller
                 $parts[0] === 'buildings' && count($parts) === 2 => $buildings[$parts[1]] = $url,
                 $parts[0] === 'buildings' => $animations[$parts[1]][$parts[2]] = ['url' => $url, ...($index['animations'][$name] ?? [])],
                 $parts[0] === 'walls' => $walls[$parts[1]][$parts[2]] = $url,
+                $parts[0] === 'avatars' && $parts[1] === 'base' => $avatar['base'][$parts[2]] = $url,
+                $parts[0] === 'avatars' && $parts[1] === 'hair' => $avatar['hair'][$parts[2]][$parts[3]] = $url,
                 default => null,
             };
         }
@@ -50,6 +54,8 @@ final class AssetManifestController extends Controller
             'buildings' => (object) $buildings,
             'animations' => (object) array_map(fn (array $parts): object => (object) $parts, $animations),
             'walls' => (object) array_map(fn (array $parts): object => (object) $parts, $walls),
+            // The rig, and the base body and hair styles by facing; wearables' art comes with each resident.
+            'avatar' => isset($index['avatar']) ? [...$index['avatar'], 'base' => (object) $avatar['base'], 'hair' => (object) $avatar['hair']] : null,
         ])->header('Cache-Control', 'no-cache');
 
         $response->setEtag(hash('xxh128', (string) $response->getContent()));

@@ -53,6 +53,30 @@ final class ItemArt
         return $facings;
     }
 
+    /**
+     * A wearable's art, by part: front, back, and front-behind (a cape's part
+     * drawn behind the body), for the parts drawn. Built art only for now;
+     * wearable uploads come later (docs/assets-plan.md §14.6).
+     *
+     * @return array<string, string>
+     */
+    public function wearable(Item $item): array
+    {
+        $index = $this->index ??= $this->assets->current();
+        $base = $this->publisher->baseUrl($index['version']);
+        $parts = [];
+
+        foreach (['front', 'back', 'front-behind'] as $part) {
+            $file = $index['files']["items/{$item->slug}/{$part}"] ?? null;
+
+            if ($file !== null) {
+                $parts[$part] = "{$base}/{$file}";
+            }
+        }
+
+        return $parts;
+    }
+
     /** Where browsers fetch an upload: the public bucket's URL, or the public disk's own. */
     public function url(string $path): string
     {

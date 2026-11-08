@@ -1,0 +1,44 @@
+{
+    "frame": [48, 72],
+    "animations": {
+        "idle": { "frames": [0, 1], "frame_ms": 700 },
+        "walk": { "frames": [2, 3, 4, 5] },
+        "sit": { "frames": [6] },
+        "wave": { "frames": [7, 8], "frame_ms": 250 }
+    },
+    "stride_px": 72,
+    "anchors": {
+        "head": "ff0000",
+        "chest": "00ff00",
+        "hand": "0000ff",
+        "hip": "ffff00",
+        "feet": "ff00ff"
+    },
+    "palette": {
+        "skin": ["ffe0c8", "f0b898", "d08868", "a06048"],
+        "recolour": ["8ff0e0", "40c8b8", "208c88", "105858"]
+    },
+    "slots": {
+        "hair": "head",
+        "head": "head",
+        "face": "head",
+        "pin": "chest",
+        "hand": "hand",
+        "body": null,
+        "feet": null
+    },
+    "layers": {
+        "front": [
+            "behind",
+            "base",
+            "feet",
+            "body",
+            "pin",
+            "face",
+            "hair",
+            "head",
+            "hand"
+        ],
+        "back": ["behind", "hand", "base", "feet", "body", "hair", "head"]
+    }
+}

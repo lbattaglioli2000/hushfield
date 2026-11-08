@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Avatars\OutfitController;
 use App\Http\Controllers\Economy\ClaimStipendController;
 use App\Http\Controllers\Economy\PurchaseItemController;
 use App\Http\Controllers\Economy\ShopController;
@@ -75,6 +76,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::delete('friends/requests/{friendRequest}', [FriendsController::class, 'dismiss'])->name('friends.requests.dismiss');
                 Route::delete('friends/{friend}', [FriendsController::class, 'remove'])->name('friends.remove');
                 Route::post('friends/settings', [FriendsController::class, 'settings'])->name('friends.settings');
+            });
+
+            Route::middleware('throttle:wear')->group(function () {
+                Route::post('outfit/{piece}', [OutfitController::class, 'wear'])->name('outfit.wear');
+                Route::delete('outfit/{piece}', [OutfitController::class, 'takeOff'])->name('outfit.take-off');
             });
 
             Route::get('homes', HomesController::class)->name('homes');

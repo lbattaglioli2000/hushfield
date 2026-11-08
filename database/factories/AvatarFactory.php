@@ -16,7 +16,7 @@ class AvatarFactory extends Factory
         return [
             'user_id' => User::factory(),
             'body_color' => fake()->randomElement(Avatar::BODY_COLORS),
-            'sprite_key' => Avatar::DEFAULT_SPRITE,
+            'hair' => Avatar::DEFAULT_HAIR,
         ];
     }
 }

@@ -17,6 +17,7 @@ use App\Events\Presence\SessionSuperseded;
 use App\Events\Social\FriendsUpdated;
 use App\Events\World\CinemaChanged;
 use App\Events\World\FurnitureChanged;
+use App\Events\World\OutfitChanged;
 use App\Events\World\PlayerJoined;
 use App\Events\World\PlayerLeft;
 use App\Events\World\PlayerMoved;
@@ -66,6 +67,7 @@ const WORLD_EVENTS = [
     FriendsUpdated::class,
     RareCatchLanded::class,
     CinemaChanged::class,
+    OutfitChanged::class,
 ];
 
 function fakeWorldEvents(): void

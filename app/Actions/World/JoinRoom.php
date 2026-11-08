@@ -76,7 +76,7 @@ final readonly class JoinRoom
 
         $user->forceFill(['last_room_instance_id' => $instance->id])->save();
         $user->setRelation('lastRoomInstance', $instance);
-        $user->loadMissing('avatar');
+        $user->loadMissing('avatar.worn.item');
 
         WorldBroadcast::toOthers(new PlayerJoined($instance->id, new PlayerState($user, $position)));
 

@@ -43,6 +43,8 @@ final readonly class WalletResponse
                     ])
                     ->values()
                     ->all(),
+                // The pieces the resident has on.
+                'worn' => $user->avatar?->worn()->pluck('inventory_items.id')->all() ?? [],
             ],
         ], $status);
     }

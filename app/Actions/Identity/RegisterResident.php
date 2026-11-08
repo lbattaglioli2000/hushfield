@@ -24,7 +24,7 @@ final readonly class RegisterResident
 
             $user->avatar()->create([
                 'body_color' => Avatar::BODY_COLORS[array_rand(Avatar::BODY_COLORS)],
-                'sprite_key' => Avatar::DEFAULT_SPRITE,
+                'hair' => Avatar::DEFAULT_HAIR,
             ]);
 
             return $user;

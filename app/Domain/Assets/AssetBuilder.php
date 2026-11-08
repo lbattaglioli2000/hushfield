@@ -51,6 +51,12 @@ final class AssetBuilder
     /** How long each frame of each building animation shows, by building and part: see docs/art/animations.md. */
     private const string ANIMATIONS = 'buildings/animations.json';
 
+    /** The avatar rig: frame size, animations, anchors and layer order (docs/assets-plan.md §14). */
+    private const string RIG = 'avatars/rig.json';
+
+    /** An avatar or wearable part: a facing, its anchors' strip (base only), or a part behind the body. */
+    private const string AVATAR_PART = '(front|back)(-anchors|-behind)?';
+
     /** Wall panel parts, by side: plain, a doorway, and (not drawn yet) a window. */
     public const string WALL_PART = '(left|right)(-door|-window)?';
 
@@ -65,7 +71,7 @@ final class AssetBuilder
         return $this->warnings;
     }
 
-    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>} */
+    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>} */
     public function build(bool $maps = true): array
     {
         $this->warnings = [];
@@ -78,6 +84,7 @@ final class AssetBuilder
         $outputs = ['tiles' => $sheet];
         $buildings = null;
         $animated = [];
+        $dressing = [];
 
         foreach ($files as $file) {
             $name = substr($file, 0, -4);
@@ -93,8 +100,12 @@ final class AssetBuilder
                 $outputs[$name] = $this->wall($sources, $file, str_starts_with(basename($file), 'left'));
             } elseif (preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', $file)) {
                 $outputs[$name] = $this->furniture($sources, $file);
+            } elseif (preg_match('#^(avatars/(base|hair/'.self::SLUG.')|items/'.self::SLUG.')/(front|back)(-behind)?\.png$#', $file)) {
+                $dressing[] = $file;
             }
         }
+
+        $avatar = $dressing === [] ? null : $this->avatar($sources, $files, $dressing, $outputs);
 
         $timings = $this->animationTimings($sources, $files, array_keys($animated));
         $animations = [];
@@ -104,7 +115,7 @@ final class AssetBuilder
             [$outputs[$name], $animations[$name]] = $this->animation($sources, "{$name}.png", $slug, $files, $buildings[$slug] ?? null, $timings[substr($name, strlen('buildings/'))] ?? null);
         }
 
-        $index = $this->write($outputs, $animations);
+        $index = $this->write($outputs, $animations, $avatar);
 
         if ($maps) {
             $this->writeMaps(Png::encode($sheet), $sheet, $slots);
@@ -137,12 +148,14 @@ final class AssetBuilder
             }
 
             $png = preg_replace('/\.(aseprite|ase)$/', '.png', $file);
-            $known = in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS], true)
+            $known = in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG], true)
                 || preg_match('#^tiles/'.TileRegistry::NAME.'\.png$#', (string) $png)
                 || preg_match('#^(ui|buildings)/'.self::SLUG.'\.png$#', (string) $png)
                 || preg_match('#^buildings/'.self::SLUG.'/'.self::SLUG.'\.png$#', (string) $png)
                 || preg_match('#^walls/'.self::SLUG.'/'.self::WALL_PART.'\.png$#', (string) $png)
-                || preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', (string) $png);
+                || preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', (string) $png)
+                || preg_match('#^avatars/base/'.self::AVATAR_PART.'\.png$#', (string) $png)
+                || preg_match('#^(avatars/hair|items)/'.self::SLUG.'/(front|back)(-behind)?\.png$#', (string) $png);
 
             if (! $known) {
                 throw new InvalidAssetException("art/{$file} isn't a file the build knows. Names are lowercase words joined with hyphens, in the folders resources/maps/README.md lists.");
@@ -173,7 +186,7 @@ final class AssetBuilder
 
         $unclaimed = array_filter(
             $files,
-            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS], true)
+            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG], true)
                 && ! array_any(array_keys($entries), fn (int|string $pattern): bool => fnmatch((string) $pattern, "art/{$file}", FNM_PATHNAME)),
         );
 
@@ -372,6 +385,136 @@ final class AssetBuilder
             'frames' => $count,
             'frame_ms' => $times,
         ]];
+    }
+
+    /**
+     * The avatar: checks every base, hair and wearable strip against the rig,
+     * adds each to `outputs` at game size, and returns what the game needs to
+     * play them: the rig in game pixels, with the anchors read from the base's
+     * anchor strips, frame by frame. The anchors aren't shipped as images.
+     *
+     * @param  list<string>  $files
+     * @param  list<string>  $dressing  every avatar and wearable strip but the anchors
+     * @param  array<string, Image>  $outputs
+     * @return array<string, mixed>
+     */
+    private function avatar(string $sources, array $files, array $dressing, array &$outputs): array
+    {
+        $rig = in_array(self::RIG, $files, true) ? json_decode((string) file_get_contents("{$sources}/".self::RIG), true) : null;
+        $valid = is_array($rig) && is_array($rig['frame'] ?? null) && is_int($rig['frame'][0] ?? null) && is_int($rig['frame'][1] ?? null)
+            && is_array($rig['animations'] ?? null) && is_array($rig['anchors'] ?? null) && is_array($rig['slots'] ?? null) && is_array($rig['layers'] ?? null);
+
+        if (! $valid) {
+            throw new InvalidAssetException('Avatar art needs art/'.self::RIG.': its frame size, animations, anchors, slots and layers (docs/assets-plan.md §14).');
+        }
+
+        $scale = $this->scale('avatars');
+        [$w, $h] = $rig['frame'];
+        $count = 1 + max(0, ...array_merge(...array_map(fn (array $a): array => $a['frames'] ?? [0], array_values($rig['animations']))));
+        $anchors = [];
+
+        foreach (['front', 'back'] as $facing) {
+            foreach (["avatars/base/{$facing}.png", "avatars/base/{$facing}-anchors.png"] as $needed) {
+                if (! in_array($needed, $files, true)) {
+                    throw new InvalidAssetException("Avatar art needs art/{$needed}: the base body every resident wears, {$count} frames of {$w} × {$h} side by side.");
+                }
+            }
+
+            $anchors[$facing] = $this->anchors($this->strip($sources, "avatars/base/{$facing}-anchors.png", $w, $h, [$count], $scale), $w, $h, $count, $rig['anchors'], $scale);
+        }
+
+        foreach ($dressing as $file) {
+            // The base and drawn wearables have every frame; hair and rigid wearables one, moved to its anchor.
+            $frames = str_starts_with($file, 'avatars/base/') ? [$count] : (str_starts_with($file, 'avatars/hair/') ? [1] : [1, $count]);
+            $outputs[substr($file, 0, -4)] = $this->strip($sources, $file, $w, $h, $frames, $scale)->scale($scale);
+        }
+
+        return [
+            'frame' => [$w * $scale, $h * $scale],
+            'frames' => $count,
+            'animations' => $rig['animations'],
+            'stride_px' => $rig['stride_px'] ?? 64,
+            'slots' => $rig['slots'],
+            'layers' => $rig['layers'],
+            'anchors' => $anchors,
+        ];
+    }
+
+    /**
+     * A strip of frames `w` × `h` art pixels, side by side, as many as one of
+     * `frames` allows, in solid pixels.
+     *
+     * @param  list<int>  $frames
+     */
+    private function strip(string $sources, string $file, int $w, int $h, array $frames, int $scale): Image
+    {
+        $strip = Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}");
+
+        if ($scale > 1 && $strip->height === $h * $scale && in_array(intdiv($strip->width, $w * $scale), $frames, true) && $strip->isScaledUp($scale)) {
+            throw new InvalidAssetException("art/{$file} is already scaled up to {$strip->width}×{$strip->height}. Export it at 100%: ".intdiv($strip->width, $scale)."×{$h}.");
+        }
+
+        if ($strip->height !== $h || $strip->width % $w !== 0 || ! in_array(intdiv($strip->width, $w), $frames, true)) {
+            $what = implode(' or ', array_map(fn (int $n): string => $n === 1 ? "one frame, {$w} × {$h}" : "{$n} frames of {$w} × {$h} side by side", $frames));
+
+            throw new InvalidAssetException("art/{$file} is {$strip->width}×{$strip->height}; it must be {$what}.");
+        }
+
+        for ($y = 0; $y < $strip->height; $y++) {
+            for ($x = 0; $x < $strip->width; $x++) {
+                $alpha = $strip->alphaAt($x, $y);
+
+                if ($alpha > 0 && $alpha < 255) {
+                    throw new InvalidAssetException('Frame '.(intdiv($x, $w) + 1)." of art/{$file} has a half-transparent pixel at (".($x % $w).", {$y}). Use solid pixels.");
+                }
+            }
+        }
+
+        return $strip;
+    }
+
+    /**
+     * Where each anchor is in each frame, in game pixels: the one pixel of its
+     * colour in that frame of the anchors' strip.
+     *
+     * @param  array<string, string>  $colours  anchor => hex
+     * @return list<array<string, array{int, int}>>
+     */
+    private function anchors(Image $strip, int $w, int $h, int $count, array $colours, int $scale): array
+    {
+        $frames = [];
+
+        foreach (range(0, $count - 1) as $n) {
+            $found = [];
+
+            for ($y = 0; $y < $h; $y++) {
+                for ($x = 0; $x < $w; $x++) {
+                    $at = (($y * $strip->width) + $n * $w + $x) * 4;
+
+                    if (ord($strip->pixels[$at + 3]) === 0) {
+                        continue;
+                    }
+
+                    $name = array_search(bin2hex(substr($strip->pixels, $at, 3)), $colours, true);
+
+                    if ($name === false || isset($found[$name])) {
+                        throw new InvalidAssetException('Frame '.($n + 1)." of the avatar's anchors has ".($name === false ? 'a pixel that marks no anchor' : "two {$name} anchors")." at ({$x}, {$y}). Mark each anchor with one pixel of its colour: ".implode(', ', array_map(fn (string $a, string $c): string => "{$a} #{$c}", array_keys($colours), $colours)).'.');
+                    }
+
+                    $found[(string) $name] = [$x * $scale, $y * $scale];
+                }
+            }
+
+            foreach (array_keys($colours) as $name) {
+                if (! isset($found[$name])) {
+                    throw new InvalidAssetException('Frame '.($n + 1)." of the avatar's anchors has no {$name} anchor.");
+                }
+            }
+
+            $frames[] = $found;
+        }
+
+        return $frames;
     }
 
     /**
@@ -691,9 +834,10 @@ final class AssetBuilder
      *
      * @param  array<string, Image>  $outputs
      * @param  array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>  $animations
-     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}
+     * @param  array<string, mixed>|null  $avatar
+     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>}
      */
-    private function write(array $outputs, array $animations = []): array
+    private function write(array $outputs, array $animations = [], ?array $avatar = null): array
     {
         $dir = (string) config('hushfield.assets.output');
         $files = [];
@@ -715,11 +859,16 @@ final class AssetBuilder
         ksort($sizes);
         ksort($animations);
         // Frame times aren't in any file's hash, so they count towards the version too.
-        $versioned = $animations === [] ? $files : [$files, $animations];
+        // So does the avatar's rig.
+        $versioned = $animations === [] && $avatar === null ? $files : [$files, $animations, $avatar];
         $index = ['version' => substr(hash('sha256', (string) json_encode($versioned)), 0, 16), 'files' => $files, 'sizes' => $sizes];
 
         if ($animations !== []) {
             $index['animations'] = $animations;
+        }
+
+        if ($avatar !== null) {
+            $index['avatar'] = $avatar;
         }
 
         $path = (string) config('hushfield.assets.index');

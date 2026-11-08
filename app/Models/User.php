@@ -219,7 +219,7 @@ class User extends Authenticatable implements FilamentUser, HasName, MustVerifyE
     /**
      * The public view of a player that other clients see.
      *
-     * @return array{id: int, username: string, avatar: array{body_color: string, sprite_key: string}|null}
+     * @return array{id: int, username: string, avatar: array{body_color: string, hair: string, worn: list<array{slot: string, slug: string, art: object}>}|null}
      */
     public function toPlayerPayload(): array
     {

@@ -22,7 +22,7 @@ test('the snapshot describes the instance and every player in it', function () {
     $response = asResident($me, $token)->getJson(route('world.instances.snapshot', $instance));
 
     $response->assertOk()
-        ->assertJsonPath('protocol', 3)
+        ->assertJsonPath('protocol', 4)
         ->assertJsonPath('server_time_ms', now()->getTimestampMs())
         // Clients compare it with the manifest they loaded their art from.
         ->assertJsonPath('assets_version', $this->getJson(route('assets.manifest'))->json('version'))
@@ -40,7 +40,7 @@ test('the snapshot describes the instance and every player in it', function () {
 
     expect($players[$me->id])->toMatchArray([
         'username' => $me->username,
-        'avatar' => ['body_color' => $me->avatar->body_color, 'sprite_key' => 'resident'],
+        'avatar' => ['body_color' => $me->avatar->body_color, 'hair' => 'short', 'worn' => []],
         'path' => [[1, 1]],
     ])
         ->and($players[$other->id])->toMatchArray([
