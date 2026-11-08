@@ -22,8 +22,8 @@ export const AVATAR_TEXTURE = 'resident';
 const SMOOTHING_MS = 100;
 /** Corrections larger than this (teleport, resync, spawn) snap instead of easing. */
 const SNAP_TILES = 1.5;
-/** How far above the head anchor the name sits, in game pixels: room for a hat 12 art pixels tall. */
-const HAT_ROOM_PX = 24;
+/** How far above the head anchor the name sits, in game pixels: room for a hat 6 art pixels tall. */
+const HAT_ROOM_PX = 14;
 
 type Facing = 'front' | 'back';
 

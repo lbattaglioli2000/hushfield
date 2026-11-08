@@ -85,7 +85,7 @@ multiplies by the scale with nearest-neighbour. Nothing else reads it.
 | Ground tile               | 32×32 block; its top face is a 32×16 diamond at the top                                                                                                                                                            | 64×64, lifted 16 px                                                            |
 | Building, furniture       | (wide + deep) × 16 across. The footprint diamond is (wide + deep) × 8 tall at the bottom: bottom corner at x = wide × 16, left corner wide × 8 above the bottom, right corner deep × 8 above it. Any height above. | ×2. A 1×1 stool is 32 px across in art, a 2×1 love seat 48, a 7×5 building 192 |
 | Wall panel                | 16 × 56: the floor edge climbs 8 px across it, and the face stands 48 px above that edge                                                                                                                           | 32 × 112                                                                       |
-| Avatar and wearable frame | 48 × 72, with a fixed anchor                                                                                                                                                                                       | 96 × 144                                                                       |
+| Avatar and wearable frame | 40 × 48, with a fixed anchor; the body about 28 tall, to fit under a doorway                                                                                                                                       | 80 × 96                                                                        |
 | Marker, hover             | 32 × 16 diamond                                                                                                                                                                                                    | 64 × 32                                                                        |
 
 Every rule in the README's "Art" and "Wall panels" sections halves exactly,
@@ -132,7 +132,7 @@ would touch every layer and every hit-test.
 **Detail budget.** A 1×1 piece has 32 art pixels across, every line is at
 least 2 game pixels wide, and the smallest readable sign text is about 3×5
 art pixels. That suits buildings and furniture. **Avatars are the risky
-case**: a 48×72 frame leaves a face a handful of pixels wide, and every
+case**: a 40×48 frame leaves a face a handful of pixels wide, and every
 wearable repeats that decision for 7 slots × 2 facings × every walk frame.
 Before more of the avatar brief is written, have her draw one base front
 strip and one hat at half size, and look at them in the game over the ground. The avatar design is §14.
@@ -155,7 +155,7 @@ Sources are half-size pixel art, so Git copes for years:
 | Ground tile (32×32)                            | 0.3–1 KB        | 100–300         | < 0.3 MB                         |
 | Building (≈ 200×250)                           | 3–15 KB         | 30–60           | < 1 MB                           |
 | Furniture (up to 4 facings)                    | 1–3 KB each     | 300–1000 items  | ≈ 2–10 MB                        |
-| Wearable (front + back strips of 48×72 frames) | 2–8 KB          | 500–2000 items  | ≈ 3–15 MB                        |
+| Wearable (front + back strips of 40×48 frames) | 2–8 KB          | 500–2000 items  | ≈ 3–15 MB                        |
 | `.aseprite` working files                      | ≈ 1–3× the PNG  |                 | roughly doubles that             |
 | Room music (Opus ≈ 96 kbps, 2-min loop)        | ≈ 1.5 MB        | 10–30           | 15–45 MB                         |
 | Masters (PSD, WAV, `.blend`)                   | 5–200 MB        |                 | **private bucket, not Git** (§7) |
@@ -185,10 +185,10 @@ resources/
       {style}/left-window.png  # reserved; the game doesn't draw windows yet
     items/
       {slug}/0.png … 3.png     # furniture facings; missing ones mirror or borrow (facingArt)
-      {slug}/front.png         # wearable: strip of 48×72 frames
+      {slug}/front.png         # wearable: strip of 40×48 frames
       {slug}/back.png
     avatars/
-      base/front.png           # strip of 48×72 frames; the full layout is in §14.3
+      base/front.png           # strip of 40×48 frames; the full layout is in §14.3
       base/back.png
     ui/
       marker.png               # 32×16
@@ -607,7 +607,7 @@ handover-2026-11-02/
   walls/brick/left.png            16×56 panel; right.png, and left-door.png / right-door.png if any
   items/love-seat/0.png           furniture facings 0–3 (0 faces lower left), 48 wide for a 2×1
   items/love-seat/1.png           leave out any facing that mirrors another
-  items/red-beanie/front.png      wearable: strip of 48×72 frames, in the avatar brief's order
+  items/red-beanie/front.png      wearable: strip of 40×48 frames, in the avatar brief's order
   items/red-beanie/back.png
   NOTES.txt                       anything you want us to know
 ```
@@ -622,7 +622,7 @@ change size on your own: the build rejects any file that doesn't match.
 | Ground tile, half slab    | The same 32×32 canvas, top face and bottom edge, with sides 8 tall (rows 16–24), so the top face starts on row 8. Bottom-aligned.                                                                                                        |
 | Building or furniture     | (wide + deep) × 16 across, with the footprint diamond (wide + deep) × 8 tall touching the bottom edge, its bottom corner wide × 16 from the left. A 1×1 stool is 32 across, a 2×1 love seat 48, a 7×5 building 192. As tall as it needs. |
 | Wall panel                | 16 wide × 56 tall (or taller): the floor edge climbs 8 across the bottom, and the face is 48 tall above it. `walls/{style}/left.png`, `right.png`, optional `left-door.png`, `right-door.png`                                            |
-| Avatar and wearable frame | 48×72                                                                                                                                                                                                                                    |
+| Avatar and wearable frame | 40×48                                                                                                                                                                                                                                    |
 
 **Rules**
 
@@ -660,10 +660,14 @@ One file, `resources/art/avatars/rig.json`, describes the avatar the base
 body and every wearable are drawn on. The build checks every strip against
 it, as it checks furniture canvases against their footprints.
 
-- **Frame:** 48 × 72 art pixels (96 × 144 in game, §2), the feet's anchor in
-  the same place in every frame.
+- **Frame:** 40 × 48 art pixels (80 × 96 in game, §2), the feet's anchor in
+  the same place in every frame. The body stands about 28 art pixels from
+  the top of its head to its feet (56 in game): under a doorway's 64 and
+  well below a wall's 96. The first stand-ins filled a 48 × 72 frame and
+  stood as tall as the walls; the rest of the frame is room for hats, the
+  wave's raised arm and capes.
 - **Animations, frames per facing:** idle 2, walk 4, sit 1, wave 2: **9**.
-  A strip is those 9 frames side by side, in that order, 432 × 72.
+  A strip is those 9 frames side by side, in that order, 360 × 48.
 - **Anchors per frame:** head, chest, hand, hip, feet. Set once, on the base
   body, by the artist: she marks each with one pixel of a fixed colour on an
   anchors layer, exported as `avatars/base/{facing}-anchors.png`. An anchor
@@ -691,7 +695,7 @@ it, as it checks furniture canvases against their footprints.
 | Skin             | **A fixed set of tones**, each a ramp of 3–4 shades: real skin tones plus a few fantasy ones. The base is painted in reserved key colours and swapped. Existing `body_color`s map to the nearest tone. |
 | Clothes colours  | **Recoloured, not redrawn.** Recolourable parts are painted in a second reserved ramp, so a red and a moss beanie are one drawing, like furniture variants but without new art.                        |
 | Shop icons       | **Rendered by the build** from the front idle frame on the base body. She draws nothing extra; the same renderer gives try-on previews and friends-list portraits.                                     |
-| Capes, big items | A wearable may have a **back part** drawn behind the base. Nothing may leave the 48 × 72 frame.                                                                                                        |
+| Capes, big items | A wearable may have a **back part** drawn behind the base. Nothing may leave the 40 × 48 frame.                                                                                                        |
 
 ### 14.3 Assets and the build
 
@@ -700,9 +704,9 @@ resources/art/
   avatars/
     rig.json
     palette.png                # the skin and recolour key ramps she paints in
-    base/front.png             # 9 frames, 432 × 72; back.png likewise
+    base/front.png             # 9 frames, 360 × 48; back.png likewise
     base/front-anchors.png     # the same strip, one pixel per anchor
-    hair/{slug}/front.png      # one 48 × 72 frame; back.png
+    hair/{slug}/front.png      # one 40 × 48 frame; back.png
   items/
     {slug}/front.png           # body, feet: 9 frames; head, face, pin, hand: 1 frame
     {slug}/back.png
@@ -767,8 +771,8 @@ Pose is server state in `PlayerState`, beside the path:
 
 ### 14.7 Memory in a full room
 
-A 9 × 2-frame atlas at game size is about 1 MB of texture memory; 40
-residents in different outfits could pass 80 MB on a phone. Budget per room;
+A 9 × 2-frame atlas at game size is about 0.5 MB of texture memory; 40
+residents in different outfits could pass 40 MB on a phone. Budget per room;
 trim atlases to their drawn pixels; free a wearable's texture only when
 nobody in the room wears it; above a set number of distinct outfits, fall
 back to base bodies with tints. Load atlases per resident in the room, once

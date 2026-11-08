@@ -1,12 +1,12 @@
 {
-    "frame": [48, 72],
+    "frame": [40, 48],
     "animations": {
         "idle": { "frames": [0, 1], "frame_ms": 700 },
         "walk": { "frames": [2, 3, 4, 5] },
         "sit": { "frames": [6] },
         "wave": { "frames": [7, 8], "frame_ms": 250 }
     },
-    "stride_px": 72,
+    "stride_px": 56,
     "anchors": {
         "head": "ff0000",
         "chest": "00ff00",

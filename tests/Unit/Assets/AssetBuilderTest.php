@@ -591,22 +591,22 @@ function avatarArt(string $root): void
 }
 
 /**
- * Nine 48 × 72 frames of anchors, one pixel each in rig.json's colours: in
- * frame n the head is at (20 + n, 10), the hand at (8, 40 + n), and the rest
+ * Nine 40 × 48 frames of anchors, one pixel each in rig.json's colours: in
+ * frame n the head is at (20 + n, 10), the hand at (8, 30 + n), and the rest
  * stay put. `skip` leaves one anchor out of one frame.
  *
  * @param  array{int, string}|null  $skip  frame, anchor
  */
 function anchorStrip(?array $skip = null): string
 {
-    $image = new Image(48 * 9, 72, str_repeat("\0\0\0\0", 48 * 9 * 72));
+    $image = new Image(40 * 9, 48, str_repeat("\0\0\0\0", 40 * 9 * 48));
 
     foreach (range(0, 8) as $n) {
-        $at = ['head' => [20 + $n, 10, "\xFF\0\0"], 'chest' => [24, 30, "\0\xFF\0"], 'hand' => [8, 40 + $n, "\0\0\xFF"], 'hip' => [24, 44, "\xFF\xFF\0"], 'feet' => [24, 70, "\xFF\0\xFF"]];
+        $at = ['head' => [20 + $n, 10, "\xFF\0\0"], 'chest' => [20, 24, "\0\xFF\0"], 'hand' => [8, 30 + $n, "\0\0\xFF"], 'hip' => [20, 34, "\xFF\xFF\0"], 'feet' => [20, 46, "\xFF\0\xFF"]];
 
         foreach ($at as $anchor => [$x, $y, $rgb]) {
             if ($skip !== [$n, $anchor]) {
-                $image = $image->paste(new Image(1, 1, "{$rgb}\xFF"), $n * 48 + $x, $y);
+                $image = $image->paste(new Image(1, 1, "{$rgb}\xFF"), $n * 40 + $x, $y);
             }
         }
     }
@@ -623,17 +623,17 @@ it('doubles avatar and wearable strips, and lists the rig with every anchor in e
     $avatar = $index['avatar'];
 
     expect($index['sizes'])->toMatchArray([
-        'avatars/base/front' => [864, 144],
-        'avatars/hair/short/back' => [96, 144],
-        'items/wool-cap/front' => [96, 144],
+        'avatars/base/front' => [720, 96],
+        'avatars/hair/short/back' => [80, 96],
+        'items/wool-cap/front' => [80, 96],
     ])
         // The anchors are read, not shipped.
         ->and($index['files'])->not->toHaveKey('avatars/base/front-anchors')
-        ->and($avatar['frame'])->toBe([96, 144])
+        ->and($avatar['frame'])->toBe([80, 96])
         ->and($avatar['frames'])->toBe(9)
-        ->and($avatar['anchors']['front'][0])->toBe(['head' => [40, 20], 'chest' => [48, 60], 'hand' => [16, 80], 'hip' => [48, 88], 'feet' => [48, 140]])
+        ->and($avatar['anchors']['front'][0])->toBe(['head' => [40, 20], 'chest' => [40, 48], 'hand' => [16, 60], 'hip' => [40, 68], 'feet' => [40, 92]])
         ->and($avatar['anchors']['back'][5]['head'])->toBe([50, 20])
-        ->and($avatar['anchors']['back'][5]['hand'])->toBe([16, 90]);
+        ->and($avatar['anchors']['back'][5]['hand'])->toBe([16, 70]);
 
     $manifest = $this->getJson(route('assets.manifest'))->assertOk();
 
@@ -642,7 +642,7 @@ it('doubles avatar and wearable strips, and lists the rig with every anchor in e
 
     // Moved anchors change no shipped file, but must still reach open tabs.
     $strip = Png::decode(anchorStrip());
-    File::put("{$root}/art/avatars/base/front-anchors.png", Png::encode((new Image(48 * 9, 72, str_repeat("\0\0\0\0", 48 * 9 * 72)))->paste($strip, 0, 1)));
+    File::put("{$root}/art/avatars/base/front-anchors.png", Png::encode((new Image(40 * 9, 48, str_repeat("\0\0\0\0", 40 * 9 * 48)))->paste($strip, 0, 1)));
     $this->artisan('hushfield:build-assets')->assertSuccessful();
 
     expect(builtIndex()['version'])->not->toBe($index['version'])
@@ -664,11 +664,11 @@ it('refuses avatar art that does not fit the rig', function (Closure $draw, stri
     ],
     'a base exported at 200%' => [
         fn (string $root) => File::put("{$root}/art/avatars/base/back.png", Png::encode(Png::decode((string) file_get_contents("{$root}/art/avatars/base/back.png"))->scale(2))),
-        'art/avatars/base/back.png is already scaled up to 864×144. Export it at 100%: 432×72.',
+        'art/avatars/base/back.png is already scaled up to 720×96. Export it at 100%: 360×48.',
     ],
     'a hat two frames wide' => [
-        fn (string $root) => File::put("{$root}/art/items/wool-cap/front.png", Png::encode(new Image(96, 72, str_repeat("\0\0\0\0", 96 * 72)))),
-        'art/items/wool-cap/front.png is 96×72; it must be one frame, 48 × 72 or 9 frames of 48 × 72 side by side.',
+        fn (string $root) => File::put("{$root}/art/items/wool-cap/front.png", Png::encode(new Image(80, 48, str_repeat("\0\0\0\0", 80 * 48)))),
+        'art/items/wool-cap/front.png is 80×48; it must be one frame, 40 × 48 or 9 frames of 40 × 48 side by side.',
     ],
     'a body without its anchors' => [
         fn (string $root) => File::delete("{$root}/art/avatars/base/back-anchors.png"),

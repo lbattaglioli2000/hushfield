@@ -14,8 +14,13 @@ Drawing something else? See [all the art guides](README.md).
 ## How an avatar works
 
 A resident is a **base body** with **clothes layered on top**, like a paper
-doll. Everything is drawn on the same **48 × 72** frame, at half size like
+doll. Everything is drawn on the same **40 × 48** frame, at half size like
 the rest of the game, with the feet in the same place in every frame.
+
+- **The body is about 28 pixels tall**, from the top of the head to the
+  feet, as on the templates. Residents walk under doorways 32 pixels tall
+  and stand in rooms with walls 48 tall, so a taller body looks like a giant.
+  The empty rows above the head are for hats and the wave's raised arm.
 
 - **Two facings are drawn:** **front**, turned towards the lower left, and
   **back**, turned towards the upper right. The game mirrors them for the
@@ -30,27 +35,27 @@ the rest of the game, with the feet in the same place in every frame.
     | 7      | sit       | yellow        | used on chairs and on the floor               |
     | 8–9    | wave      | pink          | an arm up, two positions                      |
 
-    A strip is 9 × 48 = **432 × 72**.
+    A strip is 9 × 40 = **360 × 48**.
 
 - **Clothes on the body and feet** (shirts, coats, trousers, shoes) are
   drawn in **every frame**, because arms and legs move.
 - **Hair, hats, glasses, pins and held things** are drawn **once per
-  facing**, as a single 48 × 72 frame. The game moves them to follow the
+  facing**, as a single 40 × 48 frame. The game moves them to follow the
   head, chest or hand in each frame, so a hat bobs with the walk without
   being redrawn.
 
 ## The templates
 
 Every template is in [`templates/avatars/`](templates/avatars/), at 100%.
-Open one in Aseprite with _File → Import Sprite Sheet_, **48 × 72** frames,
+Open one in Aseprite with _File → Import Sprite Sheet_, **40 × 48** frames,
 and each frame becomes an animation frame you can play with Enter. Put your
 drawing on a new layer above the template.
 
 | Template                                    | For                                                          | Size     |
 | ------------------------------------------- | ------------------------------------------------------------ | -------- |
-| `body-front.png`, `body-back.png`           | the base body, and its anchors                               | 432 × 72 |
-| `clothes-front.png`, `clothes-back.png`     | body and feet clothes, and capes                             | 432 × 72 |
-| `accessory-front.png`, `accessory-back.png` | hair, hats, glasses, pins and held things                    | 48 × 72  |
+| `body-front.png`, `body-back.png`           | the base body, and its anchors                               | 360 × 48 |
+| `clothes-front.png`, `clothes-back.png`     | body and feet clothes, and capes                             | 360 × 48 |
+| `accessory-front.png`, `accessory-back.png` | hair, hats, glasses, pins and held things                    | 40 × 48  |
 | `palette.png`                               | the colours to paint skin, recolourable parts and anchors in |          |
 
 Each shows a **faded body** to draw over, a **blue line** for the ground
@@ -115,7 +120,7 @@ anything else, which is why the rest of this guide waits.
 
 ## 3. Hair
 
-- One 48 × 72 frame per facing, on the accessory templates, fitted to the
+- One 40 × 48 frame per facing, on the accessory templates, fitted to the
   head of **frame 1**: `hair/{style}/front.png` and `back.png`, such as
   `hair/short/front.png`.
 - The game moves it with the red head anchor, so draw it only once.
@@ -124,8 +129,8 @@ anything else, which is why the rest of this guide waits.
 
 | Slot                            | Template            | Draw                             | Files                                          |
 | ------------------------------- | ------------------- | -------------------------------- | ---------------------------------------------- |
-| Body (shirts, coats), feet      | `clothes-*.png`     | all 9 frames, both facings       | `items/{slug}/front.png`, `back.png`, 432 × 72 |
-| Head, face, pin, hand           | `accessory-*.png`   | one frame per facing             | `items/{slug}/front.png`, `back.png`, 48 × 72  |
+| Body (shirts, coats), feet      | `clothes-*.png`     | all 9 frames, both facings       | `items/{slug}/front.png`, `back.png`, 360 × 48 |
+| Head, face, pin, hand           | `accessory-*.png`   | one frame per facing             | `items/{slug}/front.png`, `back.png`, 40 × 48  |
 | Anything behind the body (cape) | `clothes-front.png` | the part behind, as its own file | `items/{slug}/front-behind.png`                |
 
 The **slug** is the item's name in lowercase with hyphens, as the admin
@@ -147,7 +152,7 @@ catalog shows it: `wool-cap`, `municipal-raincoat`.
 - **Capes:** the front of the cape (its collar) goes in `front.png` like any
   coat; the part seen behind the body goes in `front-behind.png`. From the
   back the whole cape is in `back.png`.
-- **Nothing leaves the 48 × 72 frame**, however tall the hat.
+- **Nothing leaves the 40 × 48 frame**, however tall the hat.
 
 ### Rules that come from mirroring
 
@@ -179,9 +184,9 @@ Luigi sees these when he puts your files in; they say what to fix.
 
 | The message says                                         | What to do                                                                                       |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| "is 864×144 … already scaled up … Export it at 100%"     | Export again at scale 100%.                                                                      |
-| "is 480×72; it must be 9 frames of 48 × 72 side by side" | Wrong canvas or padding on. Export with padding none and trim off, from the template.            |
-| "it must be one frame, 48 × 72"                          | An accessory or hair exported as a strip. Export the single frame.                               |
+| "is 720×96 … already scaled up … Export it at 100%"      | Export again at scale 100%.                                                                      |
+| "is 400×48; it must be 9 frames of 40 × 48 side by side" | Wrong canvas or padding on. Export with padding none and trim off, from the template.            |
+| "it must be one frame, 40 × 48"                          | An accessory or hair exported as a strip. Export the single frame.                               |
 | "has a half-transparent pixel"                           | Make that pixel fully solid or fully clear. Check antialiasing is off.                           |
 | "Frame 5 of the avatar's anchors has no hand anchor"     | That frame is missing its blue pixel. Every frame needs all five anchors.                        |
 | "has two head anchors" or "a pixel that marks no anchor" | The anchors layer has an extra pixel, or a colour that's slightly off. Use only `palette.png`'s. |
