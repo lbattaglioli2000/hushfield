@@ -55,6 +55,11 @@
         "received": "2026-11-08",
         "notes": "handed over in an Amp thread; added as drawn"
     },
+    "art/buildings/whsh/beacon.png": {
+        "by": "Hushfield team",
+        "received": "2026-11-08",
+        "notes": "stand-in to test building animations: her beacon from whsh.png, recoloured brighter in three of four frames, until she draws the real one"
+    },
     "art/ui/*.png": {
         "by": "Hushfield team",
         "received": "2026-10-25",

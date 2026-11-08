@@ -14,7 +14,7 @@ final class AssetIndex
 {
     public function __construct(private readonly AssetBuilder $builder) {}
 
-    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>} */
+    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>} */
     public function current(): array
     {
         $path = (string) config('hushfield.assets.index');
@@ -22,7 +22,7 @@ final class AssetIndex
 
         if (is_array($index) && is_string($index['version'] ?? null) && is_array($index['files'] ?? null) && is_array($index['sizes'] ?? null)
             && is_string($index['files']['tiles'] ?? null) && is_file($this->path($index['files']['tiles']))) {
-            /** @var array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>} $index */
+            /** @var array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>} $index */
             return $index;
         }
 

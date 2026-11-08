@@ -48,6 +48,9 @@ final class AssetBuilder
     /** A building's, a wall style's or an item's slug. */
     private const string SLUG = '[a-z0-9-]+';
 
+    /** How long each frame of each building animation shows, by building and part: see docs/art/animations.md. */
+    private const string ANIMATIONS = 'buildings/animations.json';
+
     /** Wall panel parts, by side: plain, a doorway, and (not drawn yet) a window. */
     public const string WALL_PART = '(left|right)(-door|-window)?';
 
@@ -62,7 +65,7 @@ final class AssetBuilder
         return $this->warnings;
     }
 
-    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>} */
+    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>} */
     public function build(bool $maps = true): array
     {
         $this->warnings = [];
@@ -74,6 +77,7 @@ final class AssetBuilder
         $sheet = $this->tileSheet($sources, $files, $slots);
         $outputs = ['tiles' => $sheet];
         $buildings = null;
+        $animated = [];
 
         foreach ($files as $file) {
             $name = substr($file, 0, -4);
@@ -83,6 +87,8 @@ final class AssetBuilder
             } elseif (preg_match('#^buildings/('.self::SLUG.')\.png$#', $file, $m)) {
                 $buildings ??= $this->buildingFootprints();
                 $outputs[$name] = $this->building($sources, $file, $buildings[$m[1]] ?? null);
+            } elseif (preg_match('#^buildings/('.self::SLUG.')/'.self::SLUG.'\.png$#', $file, $m)) {
+                $animated[$name] = $m[1];
             } elseif (preg_match('#^walls/'.self::SLUG.'/'.self::WALL_PART.'\.png$#', $file)) {
                 $outputs[$name] = $this->wall($sources, $file, str_starts_with(basename($file), 'left'));
             } elseif (preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', $file)) {
@@ -90,7 +96,15 @@ final class AssetBuilder
             }
         }
 
-        $index = $this->write($outputs);
+        $timings = $this->animationTimings($sources, $files, array_keys($animated));
+        $animations = [];
+
+        foreach ($animated as $name => $slug) {
+            $buildings ??= $this->buildingFootprints();
+            [$outputs[$name], $animations[$name]] = $this->animation($sources, "{$name}.png", $slug, $files, $buildings[$slug] ?? null, $timings[substr($name, strlen('buildings/'))] ?? null);
+        }
+
+        $index = $this->write($outputs, $animations);
 
         if ($maps) {
             $this->writeMaps(Png::encode($sheet), $sheet, $slots);
@@ -123,9 +137,10 @@ final class AssetBuilder
             }
 
             $png = preg_replace('/\.(aseprite|ase)$/', '.png', $file);
-            $known = in_array($file, ['provenance.json', 'tiles/tiles.json'], true)
+            $known = in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS], true)
                 || preg_match('#^tiles/'.TileRegistry::NAME.'\.png$#', (string) $png)
                 || preg_match('#^(ui|buildings)/'.self::SLUG.'\.png$#', (string) $png)
+                || preg_match('#^buildings/'.self::SLUG.'/'.self::SLUG.'\.png$#', (string) $png)
                 || preg_match('#^walls/'.self::SLUG.'/'.self::WALL_PART.'\.png$#', (string) $png)
                 || preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', (string) $png);
 
@@ -158,7 +173,7 @@ final class AssetBuilder
 
         $unclaimed = array_filter(
             $files,
-            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json'], true)
+            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS], true)
                 && ! array_any(array_keys($entries), fn (int|string $pattern): bool => fnmatch((string) $pattern, "art/{$file}", FNM_PATHNAME)),
         );
 
@@ -239,6 +254,124 @@ final class AssetBuilder
         $this->checkFootprint("art/{$file}", $art, $wide * intdiv(32, $this->scale('buildings')), "a {$wide} × {$deep} footprint");
 
         return $art->scale($this->scale('buildings'));
+    }
+
+    /**
+     * How long each frame shows, in milliseconds, by animation ("whsh/beacon"),
+     * from animations.json: `{"whsh/beacon": {"frame_ms": 200}}`, or a list
+     * of times, one for each frame. Every animation needs an entry, and every
+     * entry an animation.
+     *
+     * @param  list<string>  $files
+     * @param  list<string>  $animated  each animation's output name, buildings/{slug}/{part}
+     * @return array<string, mixed>
+     */
+    private function animationTimings(string $sources, array $files, array $animated): array
+    {
+        if (! in_array(self::ANIMATIONS, $files, true)) {
+            return [];
+        }
+
+        $timings = json_decode((string) file_get_contents("{$sources}/".self::ANIMATIONS), true);
+
+        if (! is_array($timings) || ($timings !== [] && array_is_list($timings))) {
+            throw new InvalidAssetException('art/'.self::ANIMATIONS.' must be a JSON object: each animation\'s frame times, by building and part, such as {"whsh/beacon": {"frame_ms": 200}}.');
+        }
+
+        foreach (array_keys($timings) as $key) {
+            if (! in_array("buildings/{$key}", $animated, true)) {
+                throw new InvalidAssetException('art/'.self::ANIMATIONS." times \"{$key}\", but there is no art/buildings/{$key}.png.");
+            }
+        }
+
+        return $timings;
+    }
+
+    /**
+     * A building animation: a strip of frames, each the building's whole
+     * canvas, drawn over it. Checked frame by frame as the building is, then
+     * trimmed to the box around every pixel any frame draws, so the game
+     * loads only what moves, and where that box lies on the building.
+     *
+     * @param  list<string>  $files
+     * @param  array{int, int}|null  $footprint  the building's wide and deep, from the maps
+     * @return array{Image, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}}
+     */
+    private function animation(string $sources, string $file, string $slug, array $files, ?array $footprint, mixed $timing): array
+    {
+        if ($footprint === null || ! in_array("buildings/{$slug}.png", $files, true)) {
+            throw new InvalidAssetException("art/{$file} is drawn over art/buildings/{$slug}.png, which isn't there. Its folder must be named exactly like the building's own art.");
+        }
+
+        $scale = $this->scale('buildings');
+        $building = Png::decode((string) file_get_contents("{$sources}/buildings/{$slug}.png"), "art/buildings/{$slug}.png");
+        $strip = Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}");
+        [$w, $h] = [$building->width, $building->height];
+
+        if ($scale > 1 && $strip->height === $h * $scale && $strip->width % ($w * $scale) === 0 && $strip->isScaledUp($scale)) {
+            throw new InvalidAssetException("art/{$file} is already scaled up to {$strip->width}×{$strip->height}. Export it at 100%: ".intdiv($strip->width, $scale)."×{$h}.");
+        }
+
+        if ($strip->height !== $h || $strip->width % $w !== 0) {
+            throw new InvalidAssetException("art/{$file} is {$strip->width}×{$strip->height}; its frames must be {$w} × {$h}, like art/buildings/{$slug}.png, side by side.");
+        }
+
+        $count = intdiv($strip->width, $w);
+
+        if ($count < 2) {
+            throw new InvalidAssetException("art/{$file} has one frame. An animation needs two or more; a part that doesn't move belongs in art/buildings/{$slug}.png.");
+        }
+
+        $times = match (true) {
+            is_array($timing) && is_int($timing['frame_ms'] ?? null) && $timing['frame_ms'] > 0 => array_fill(0, $count, $timing['frame_ms']),
+            is_array($timing) && is_array($timing['frame_ms'] ?? null) && array_is_list($timing['frame_ms']) && count($timing['frame_ms']) === $count
+                && array_all($timing['frame_ms'], fn (mixed $ms): bool => is_int($ms) && $ms > 0) => $timing['frame_ms'],
+            default => throw new InvalidAssetException("art/{$file} needs its frame times in art/".self::ANIMATIONS.': "'.substr($file, strlen('buildings/'), -4)."\": {\"frame_ms\": 200} shows every frame for 200 ms, or give a list of {$count} times, one for each frame."),
+        };
+
+        [$minX, $minY, $maxX, $maxY] = [$w, $h, -1, -1];
+        $frames = [];
+
+        for ($n = 0; $n < $count; $n++) {
+            $frame = $strip->crop($n * $w, 0, $w, $h);
+            $this->checkFootprint('Frame '.($n + 1)." of art/{$file}", $frame, $footprint[0] * intdiv(32, $scale), "a {$footprint[0]} × {$footprint[1]} footprint");
+
+            for ($y = 0; $y < $h; $y++) {
+                for ($x = 0; $x < $w; $x++) {
+                    $alpha = $frame->alphaAt($x, $y);
+
+                    if ($alpha > 0 && $alpha < 255) {
+                        throw new InvalidAssetException('Frame '.($n + 1)." of art/{$file} has a half-transparent pixel at ({$x}, {$y}). Use solid pixels.");
+                    }
+
+                    if ($alpha > 0) {
+                        [$minX, $minY, $maxX, $maxY] = [min($minX, $x), min($minY, $y), max($maxX, $x), max($maxY, $y)];
+                    }
+                }
+            }
+
+            $frames[] = $frame;
+        }
+
+        if ($maxX < 0) {
+            throw new InvalidAssetException("art/{$file} has nothing drawn in it.");
+        }
+
+        [$width, $height] = [$maxX - $minX + 1, $maxY - $minY + 1];
+        $out = Image::blank($width * $count, $height);
+
+        foreach ($frames as $n => $frame) {
+            $out = $out->paste($frame->crop($minX, $minY, $width, $height), $n * $width, 0);
+        }
+
+        return [$out->scale($scale), [
+            'x' => $minX * $scale,
+            'y' => $minY * $scale,
+            'width' => $width * $scale,
+            'height' => $height * $scale,
+            'frames' => $count,
+            'frame_ms' => $times,
+        ]];
     }
 
     /**
@@ -557,9 +690,10 @@ final class AssetBuilder
      * then deletes outputs no longer listed.
      *
      * @param  array<string, Image>  $outputs
-     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>}
+     * @param  array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>  $animations
+     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}
      */
-    private function write(array $outputs): array
+    private function write(array $outputs, array $animations = []): array
     {
         $dir = (string) config('hushfield.assets.output');
         $files = [];
@@ -579,7 +713,15 @@ final class AssetBuilder
 
         ksort($files);
         ksort($sizes);
-        $index = ['version' => substr(hash('sha256', (string) json_encode($files)), 0, 16), 'files' => $files, 'sizes' => $sizes];
+        ksort($animations);
+        // Frame times aren't in any file's hash, so they count towards the version too.
+        $versioned = $animations === [] ? $files : [$files, $animations];
+        $index = ['version' => substr(hash('sha256', (string) json_encode($versioned)), 0, 16), 'files' => $files, 'sizes' => $sizes];
+
+        if ($animations !== []) {
+            $index['animations'] = $animations;
+        }
+
         $path = (string) config('hushfield.assets.index');
         File::ensureDirectoryExists(dirname($path));
         $this->put($path, json_encode($index, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n");

@@ -298,6 +298,8 @@ them. Each has a folder per slug:
 ```
 resources/art/
   buildings/{slug}.png              one whole image per building, named as in the map
+  buildings/{slug}/{part}.png       an animation over that building (see below)
+  buildings/animations.json         each animation's frame times
   items/{slug}/0.png … 3.png        a furniture item's facings, by item slug
   walls/{style}/left.png            a wall style's panels: left.png, right.png,
   walls/{style}/right.png           and optionally left-door.png, right-door.png
@@ -381,6 +383,37 @@ as the front arm, so someone standing in the corner is drawn over one and
 under the other. Anything of the back arm below that line sorts with the
 front arm, so a sliver of the back arm's foot, a pixel or two, can be drawn
 over someone in the corner.
+
+### Building animations
+
+A part of a building that moves is drawn apart from it, as a horizontal
+strip of frames in `buildings/{slug}/{part}.png`, and is left out of the
+building's own image. Each frame is the building's whole canvas, in art
+pixels, with only the part drawn on it. The artist's guide is
+[`docs/art/animations.md`](../../docs/art/animations.md).
+
+Frame times live in `buildings/animations.json`, by `{slug}/{part}`:
+`{"frame_ms": 200}` for every frame, or a list with one time for each.
+Every animation needs an entry and every entry an animation.
+
+**The build checks** that the building has art, that the strip is a whole
+number of frames of its exact size (at least two), that every pixel is
+solid or clear, and that nothing in any frame hangs below the footprint
+diamond. It refuses a strip exported at 200%. It then trims the frames to
+the box around every pixel any of them draws, doubles them, and records
+that box's place on the building's image and the frame times in the index.
+Frame times count towards the asset version, so changing only them still
+reloads open tabs.
+
+The manifest lists animations under `animations`, by building and part,
+each with its URL, `x`, `y`, `width` and `height` in game pixels on the
+building's image, its frame count and `frame_ms`. The game loads them with
+the room, as spritesheets, and only over buildings drawn from their art.
+`BuildingLayer` crops each animation into one piece per building strip it
+overlaps and draws each piece just over its strip, so it sorts against
+avatars and fades with the building exactly as the art under it does. All
+of a room's animations start when it is drawn and loop on the scene clock.
+With `prefers-reduced-motion`, they hold frame 1.
 
 ### Wall panels
 

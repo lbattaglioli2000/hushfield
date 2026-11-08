@@ -25,7 +25,11 @@ import { Arrivals } from '../world/Arrivals';
 import type { AssetFile } from '../world/AssetLoader';
 import { AssetLoader } from '../world/AssetLoader';
 import { AVATAR_TEXTURE, AvatarView } from '../world/AvatarView';
-import { BuildingLayer, buildingTexture } from '../world/BuildingLayer';
+import {
+    animationTexture,
+    BuildingLayer,
+    buildingTexture,
+} from '../world/BuildingLayer';
 import type { DecoratePort } from '../world/DecorateMode';
 import { DecorateMode } from '../world/DecorateMode';
 import { FishingLine, waterBeside } from '../world/FishingLine';
@@ -408,7 +412,11 @@ export class RoomScene
         if (!this.furniture) {
             this.dropArtExcept(files);
             this.furniture = new FurnitureLayer(this, this.map);
-            this.buildings = new BuildingLayer(this, this.map);
+            this.buildings = new BuildingLayer(
+                this,
+                this.map,
+                this.assets.manifest.animations ?? {},
+            );
             this.walls = new WallLayer(this, this.map);
             this.screen = ScreenLayer.forMap(this, this.bus, this.map);
         }
@@ -613,6 +621,16 @@ export class RoomScene
                 key: buildingTexture(name),
                 url: (m: AssetManifest) => m.buildings[name],
             })),
+            ...map.buildings.flatMap(({ name }) =>
+                Object.entries(manifest.animations?.[name] ?? {}).map(
+                    ([part, { width, height }]) => ({
+                        key: animationTexture(name, part),
+                        url: (m: AssetManifest) =>
+                            m.animations?.[name]?.[part]?.url,
+                        spritesheet: { frameWidth: width, frameHeight: height },
+                    }),
+                ),
+            ),
             ...walls,
             ...this.itemFiles(placed),
         ];

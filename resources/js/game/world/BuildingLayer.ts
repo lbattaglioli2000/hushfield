@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import type { AssetManifest } from '../protocol/types';
 import type { Placement } from '../shared/buildings';
 import { hidesPlayer, placeBuilding } from '../shared/buildings';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
@@ -12,11 +13,28 @@ export function buildingTexture(slug: string): string {
     return `building:${slug}`;
 }
 
+/** The texture key a building animation is loaded under, as a spritesheet. */
+export function animationTexture(slug: string, part: string): string {
+    return `building-animation:${slug}/${part}`;
+}
+
+/** A building animation on screen: one piece per strip it overlaps, all on the same frame. */
+type DrawnAnimation = {
+    pieces: Phaser.GameObjects.Image[];
+    frameMs: number[];
+    totalMs: number;
+    frame: number;
+};
+
+/** Over the strip a piece is cut from, and so sorted against avatars as that strip is. */
+const ANIMATION_DEPTH_EPSILON = 0.001;
+
 type DrawnBuilding = {
     building: MapBuilding;
     texture: string;
     placement: Placement;
     strips: Phaser.GameObjects.Image[];
+    animations: DrawnAnimation[];
     label: Phaser.GameObjects.Text | null;
     alpha: number;
     /** Hiding the player's own avatar: drawn see-through, and taps and hovers pass through it. */
@@ -26,14 +44,21 @@ type DrawnBuilding = {
 /**
  * The buildings standing on a map. Each is drawn from its art, or as a
  * placeholder block until it has some, cut into strips half a tile wide that
- * sort against avatars on their own (see placeBuilding).
+ * sort against avatars on their own (see placeBuilding). A building's
+ * animations play over its art, cut along the same strips, so each piece
+ * sorts like the part of the building it lies on; with reduced motion they
+ * hold their first frame.
  */
 export class BuildingLayer {
     private readonly drawn: DrawnBuilding[];
+    private readonly still = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)',
+    ).matches;
 
     constructor(
         private readonly scene: Phaser.Scene,
         map: IsoMap,
+        animations: AssetManifest['animations'],
     ) {
         this.drawn = map.buildings.map((building) => {
             const texture = scene.textures.exists(
@@ -71,6 +96,22 @@ export class BuildingLayer {
                     .setOrigin(0, 0)
                     .setDepth(DEPTH.avatars + strip.depthY);
             });
+            const drawnAnimations =
+                texture === buildingTexture(building.name)
+                    ? Object.entries(animations[building.name] ?? {})
+                          .filter(([part]) =>
+                              scene.textures.exists(
+                                  animationTexture(building.name, part),
+                              ),
+                          )
+                          .map(([part, animation]) =>
+                              this.animate(
+                                  animationTexture(building.name, part),
+                                  animation,
+                                  placement,
+                              ),
+                          )
+                    : [];
             // Named over its door, where door labels go, so it stays on screen however tall the building is.
             const door = map.toWorld(...building.door.tile);
             const label = building.label
@@ -87,6 +128,7 @@ export class BuildingLayer {
                 texture,
                 placement,
                 strips,
+                animations: drawnAnimations,
                 label,
                 alpha: 1,
                 faded: false,
@@ -143,8 +185,18 @@ export class BuildingLayer {
         deltaMs: number,
     ): void {
         const step = Math.min(1, deltaMs / BUILDING.fadeMs);
+        const now = this.scene.time.now;
 
         for (const drawn of this.drawn) {
+            for (const animation of drawn.animations) {
+                const frame = this.still ? 0 : frameAt(animation, now);
+
+                if (frame !== animation.frame) {
+                    animation.frame = frame;
+                    animation.pieces.forEach((piece) => piece.setFrame(frame));
+                }
+            }
+
             drawn.faded =
                 self !== null &&
                 hidesPlayer(drawn.placement, drawn.building.door, self);
@@ -157,14 +209,57 @@ export class BuildingLayer {
             if (Math.abs(drawn.alpha - target) < 0.01) drawn.alpha = target;
 
             drawn.strips.forEach((strip) => strip.setAlpha(drawn.alpha));
+            drawn.animations.forEach(({ pieces }) =>
+                pieces.forEach((piece) => piece.setAlpha(drawn.alpha)),
+            );
         }
     }
 
     destroy(): void {
-        for (const { strips, label } of this.drawn) {
+        for (const { strips, animations, label } of this.drawn) {
             strips.forEach((strip) => strip.destroy());
+            animations.forEach(({ pieces }) =>
+                pieces.forEach((piece) => piece.destroy()),
+            );
             label?.destroy();
         }
+    }
+
+    /**
+     * An animation over a building, cropped into one piece for each strip of
+     * the building it overlaps, each drawn just over its strip.
+     */
+    private animate(
+        texture: string,
+        animation: AssetManifest['animations'][string][string],
+        placement: Placement,
+    ): DrawnAnimation {
+        const { x, y, width, height } = animation;
+        const pieces = placement.strips.flatMap((strip) => {
+            const left = Math.max(strip.offsetX, x);
+            const right = Math.min(strip.offsetX + strip.width, x + width);
+            const top = Math.max(strip.offsetY, y);
+            const bottom = Math.min(strip.offsetY + strip.height, y + height);
+
+            if (left >= right || top >= bottom) return [];
+
+            return [
+                this.scene.add
+                    .image(placement.left + x, placement.top + y, texture, 0)
+                    .setOrigin(0, 0)
+                    .setCrop(left - x, top - y, right - left, bottom - top)
+                    .setDepth(
+                        DEPTH.avatars + strip.depthY + ANIMATION_DEPTH_EPSILON,
+                    ),
+            ];
+        });
+
+        return {
+            pieces,
+            frameMs: animation.frame_ms,
+            totalMs: animation.frame_ms.reduce((sum, ms) => sum + ms, 0),
+            frame: 0,
+        };
     }
 
     /**
@@ -291,4 +386,17 @@ export class BuildingLayer {
 
         return key;
     }
+}
+
+/** The frame showing `nowMs` into an animation that started at 0 and loops. */
+function frameAt(animation: DrawnAnimation, nowMs: number): number {
+    let t = nowMs % animation.totalMs;
+
+    for (let n = 0; n < animation.frameMs.length; n++) {
+        t -= animation.frameMs[n];
+
+        if (t < 0) return n;
+    }
+
+    return 0;
 }

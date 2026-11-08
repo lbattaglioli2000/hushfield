@@ -313,6 +313,7 @@ function claimAll(string $root): void
         'art/tiles/*/*.png' => ['by' => 'our artist'],
         'art/ui/*.png' => ['by' => 'us'],
         'art/buildings/*.png' => ['by' => 'our artist'],
+        'art/buildings/*/*.png' => ['by' => 'our artist'],
         'art/walls/*/*.png' => ['by' => 'our artist'],
         'art/items/*/*.png' => ['by' => 'our artist'],
     ]));
@@ -363,6 +364,60 @@ it('doubles building, wall and furniture art drawn at half size, and lists it by
     ]);
 });
 
+/**
+ * A strip of frames for the library (192 × 156 art pixels each), every frame
+ * empty but for the blocks given for it: [x, y, width, height, alpha].
+ *
+ * @param  list<list<array{int, int, int, int, int}>>  $frames
+ */
+function libraryStrip(array $frames): string
+{
+    $strip = Image::blank(192 * count($frames), 156);
+
+    foreach ($frames as $n => $blocks) {
+        foreach ($blocks as [$x, $y, $width, $height, $alpha]) {
+            $strip = $strip->paste(new Image($width, $height, str_repeat("\xF0\x90\x20".chr($alpha), $width * $height)), $n * 192 + $x, $y);
+        }
+    }
+
+    return Png::encode($strip);
+}
+
+it('trims a building animation to what moves, doubles it, and lists it with where it lies and its frame times', function () {
+    $root = scratchArt();
+    claimAll($root);
+    File::ensureDirectoryExists("{$root}/art/buildings/library");
+    File::put("{$root}/art/buildings/library.png", standing(192, 112, 60));
+    // Frame 1 shows the building as it is; frames 2 and 3 light different parts of a sign.
+    File::put("{$root}/art/buildings/library/sign.png", libraryStrip([[], [[100, 40, 2, 3, 255]], [[103, 45, 1, 1, 255]]]));
+    File::put("{$root}/art/buildings/animations.json", '{"library/sign": {"frame_ms": [100, 300, 50]}}');
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $index = builtIndex();
+    $lit = fn (int $width, int $height): Image => new Image($width, $height, str_repeat("\xF0\x90\x20\xFF", $width * $height));
+    // The box around every frame is 4 × 6 art pixels from (100, 40): three of them side by side, doubled.
+    $expected = Image::blank(12, 6)->paste($lit(2, 3), 4, 0)->paste($lit(1, 1), 11, 5)->scale(2);
+
+    expect($index['animations'])->toBe(['buildings/library/sign' => ['x' => 200, 'y' => 80, 'width' => 8, 'height' => 12, 'frames' => 3, 'frame_ms' => [100, 300, 50]]])
+        ->and(builtImage('buildings/library/sign')->equals($expected))->toBeTrue();
+
+    $manifest = $this->getJson(route('assets.manifest'))->assertOk();
+    $base = asset('assets');
+
+    expect($manifest->json('buildings'))->toBe(['library' => "{$base}/{$index['files']['buildings/library']}"])
+        ->and($manifest->json('animations'))->toBe(['library' => ['sign' => [
+            'url' => "{$base}/{$index['files']['buildings/library/sign']}",
+            'x' => 200, 'y' => 80, 'width' => 8, 'height' => 12, 'frames' => 3, 'frame_ms' => [100, 300, 50],
+        ]]]);
+
+    // New frame times alone change no file, but must still reach open tabs.
+    File::put("{$root}/art/buildings/animations.json", '{"library/sign": {"frame_ms": 200}}');
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    expect(builtIndex()['version'])->not->toBe($index['version'])
+        ->and(builtIndex()['animations']['buildings/library/sign']['frame_ms'])->toBe([200, 200, 200]);
+});
+
 it('refuses building, wall and furniture art that breaks its canvas rule', function (Closure $draw, string $message) {
     $root = scratchArt();
     claimAll($root);
@@ -399,6 +454,46 @@ it('refuses building, wall and furniture art that breaks its canvas rule', funct
             File::put("{$root}/art/buildings/lighthouse.png", standing(64, 32, 60));
         },
         'art/buildings/lighthouse.png is for a building no map has.',
+    ],
+    'an animation whose frames are not the building\'s size' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings/library");
+            File::put("{$root}/art/buildings/library.png", standing(192, 112, 60));
+            File::put("{$root}/art/buildings/library/sign.png", Png::encode(Image::blank(400, 156)));
+        },
+        'art/buildings/library/sign.png is 400×156; its frames must be 192 × 156, like art/buildings/library.png, side by side.',
+    ],
+    'an animation with no building art beside it' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings/library");
+            File::put("{$root}/art/buildings/library/sign.png", libraryStrip([[], [[100, 40, 2, 3, 255]]]));
+        },
+        'art/buildings/library/sign.png is drawn over art/buildings/library.png, which isn\'t there.',
+    ],
+    'an animation with a soft pixel' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings/library");
+            File::put("{$root}/art/buildings/library.png", standing(192, 112, 60));
+            File::put("{$root}/art/buildings/library/sign.png", libraryStrip([[], [[100, 40, 1, 1, 128]]]));
+            File::put("{$root}/art/buildings/animations.json", '{"library/sign": {"frame_ms": 200}}');
+        },
+        'Frame 2 of art/buildings/library/sign.png has a half-transparent pixel at (100, 40). Use solid pixels.',
+    ],
+    'an animation without frame times' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings/library");
+            File::put("{$root}/art/buildings/library.png", standing(192, 112, 60));
+            File::put("{$root}/art/buildings/library/sign.png", libraryStrip([[], [[100, 40, 2, 3, 255]]]));
+            File::put("{$root}/art/buildings/animations.json", '{"library/sign": {"frame_ms": [200, 200, 200]}}');
+        },
+        'art/buildings/library/sign.png needs its frame times in art/buildings/animations.json: "library/sign": {"frame_ms": 200} shows every frame for 200 ms, or give a list of 2 times, one for each frame.',
+    ],
+    'frame times for an animation that isn\'t there' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/buildings");
+            File::put("{$root}/art/buildings/animations.json", '{"library/sign": {"frame_ms": 200}}');
+        },
+        'art/buildings/animations.json times "library/sign", but there is no art/buildings/library/sign.png.',
     ],
     'a wall panel exported at 200%' => [
         function (string $root) {

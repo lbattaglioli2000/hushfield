@@ -47,6 +47,9 @@ Put your drawing on a layer above the template.
 Players walk behind buildings, and the game hides them correctly, so one
 whole picture is right: don't cut it into pieces.
 
+To make a small part move, such as a blinking light, see
+[animating parts of a building](animations.md).
+
 ## 3. Export
 
 - **PNG** with a **transparent background**, at **100%**. Don't scale it up;

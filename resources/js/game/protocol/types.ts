@@ -120,11 +120,28 @@ export type InstanceReassignedEvent = Stamped & {
     room_slug: string | null;
 };
 
+/**
+ * A part of a building that moves: a strip of `frames` frames, each
+ * `width` × `height`, drawn with its top left `x`, `y` game pixels into the
+ * building's art. Frame n shows for `frame_ms[n]`, then the strip loops.
+ */
+export type BuildingAnimation = {
+    url: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    frames: number;
+    frame_ms: number[];
+};
+
 export type AssetManifest = {
     version: string;
     images: Record<'tiles' | 'resident' | 'marker' | 'hover', string>;
     /** Art for buildings that have it, by building slug. The rest are drawn as placeholders. */
     buildings: Record<string, string>;
+    /** Animations drawn over building art, by building slug and part. */
+    animations: Record<string, Record<string, BuildingAnimation>>;
     /** Art for wall styles that have it, by style and part: `left`, `right`, `left-door`, `right-door`. */
     walls: Record<string, Record<string, string>>;
 };
