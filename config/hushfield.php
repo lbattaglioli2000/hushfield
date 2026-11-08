@@ -138,6 +138,12 @@ return [
         'whisper_tiles' => 3,
     ],
 
+    'radio' => [
+        // Limits on an MP3 staff put on WHSH's air. Livewire's own upload limit, in config/livewire.php, must allow the size.
+        'upload_max_bytes' => 50 * 1024 * 1024,
+        'max_minutes' => 180,
+    ],
+
     'maps' => [
         'path' => resource_path('maps'),
     ],

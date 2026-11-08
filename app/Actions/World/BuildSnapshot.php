@@ -5,6 +5,7 @@ namespace App\Actions\World;
 use App\Domain\Assets\AssetIndex;
 use App\Domain\Cinema\Programme;
 use App\Domain\Presence\InstanceMembers;
+use App\Domain\Radio\Airwaves;
 use App\Domain\World\Clock;
 use App\Domain\World\PlayerState;
 use App\Domain\World\PositionStore;
@@ -23,6 +24,7 @@ final readonly class BuildSnapshot
         private PositionStore $positions,
         private AssetIndex $assets,
         private Programme $programme,
+        private Airwaves $airwaves,
     ) {}
 
     public function __invoke(User $viewer, RoomInstance $instance): Snapshot
@@ -42,6 +44,6 @@ final readonly class BuildSnapshot
 
         $cinema = $this->programme->isTheater($instance->room) ? $this->programme->payload($instance->room->slug) : null;
 
-        return new Snapshot($instance, $now, $players, $this->assets->current()['version'], $cinema);
+        return new Snapshot($instance, $now, $players, $this->assets->current()['version'], $cinema, $this->airwaves->payload());
     }
 }

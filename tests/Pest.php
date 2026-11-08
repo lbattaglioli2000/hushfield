@@ -15,6 +15,7 @@ use App\Events\Moderation\WorldAccessRevoked;
 use App\Events\Presence\InstanceReassigned;
 use App\Events\Presence\SessionSuperseded;
 use App\Events\Social\FriendsUpdated;
+use App\Events\World\BroadcastChanged;
 use App\Events\World\CinemaChanged;
 use App\Events\World\FurnitureChanged;
 use App\Events\World\OutfitChanged;
@@ -68,6 +69,7 @@ const WORLD_EVENTS = [
     RareCatchLanded::class,
     CinemaChanged::class,
     OutfitChanged::class,
+    BroadcastChanged::class,
 ];
 
 function fakeWorldEvents(): void

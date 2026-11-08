@@ -36,6 +36,9 @@ part should be.
 - **Frame 1 is also the still picture.** Some players turn animations off in
   their device's settings, and they see frame 1 all the time. Make it a good
   look for the part at rest: the beacon lit, say, rather than dark.
+  WHSH's beacon is the exception: it plays only while the station is on
+  the air and holds frame 1 the rest of the time, so draw its frame 1 as
+  the beacon switched off.
 - **Solid pixels only**: no soft or half-transparent glow. Show glow as
   lighter solid pixels around the light, like the rest of the art.
 - **Make it loop**: the last frame goes straight back to the first, so they

@@ -174,6 +174,9 @@ return [
     ],
     'chat_placeholder' => 'Press TALK or Enter, and say something kind…',
     'on_air_host' => 'Augustin Moss',
+    // While staff have a broadcast on the air: who the ticker credits, and the hint on its Listen key.
+    'broadcast_station' => 'WHSH 106.1',
+    'broadcast_listen' => 'WHSH is on the air. Press Listen to hear it.',
     'on_air' => [
         'Good evening, Hushfield. The 3 A.M. hour is available again tonight. Please do not book it twice.',
         'Hearthmore Group reminds residents that the lamps on Lantern Street are lit for your benefit, and are not to be thanked.',

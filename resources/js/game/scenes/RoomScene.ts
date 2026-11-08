@@ -147,6 +147,9 @@ export class RoomScene
     private loadingMap = false;
     /** Live events that arrived after the latest snapshot but before it could be drawn. */
     private queued: Array<() => void> = [];
+    /** WHSH has a broadcast on the air, so its beacon flashes. */
+    private stationOnAir = false;
+    private readonly offStation: () => void;
 
     constructor(
         private readonly port: RoomPort,
@@ -172,6 +175,10 @@ export class RoomScene
         this.arrivals = new Arrivals({
             door: (door) => this.travel(() => this.port.useExit(door.name)),
             fixture: ({ kind }) => this.bus.emit('use-fixture', { kind }),
+        });
+        // Heard before create(), so a broadcast already on when the scene boots still lights the beacon.
+        this.offStation = bus.on('broadcast-state', ({ state }) => {
+            this.stationOnAir = state !== null;
         });
     }
 
@@ -219,6 +226,7 @@ export class RoomScene
         this.scale.on(Phaser.Scale.Events.RESIZE, fitCamera);
         this.events.once(Phaser.Scenes.Events.DESTROY, () => {
             this.keyboard?.destroy();
+            this.offStation();
             this.scale.off(Phaser.Scale.Events.RESIZE, fitCamera);
         });
 
@@ -272,7 +280,7 @@ export class RoomScene
             self && selfAt
                 ? { at: selfAt, box: self.bounds, depthY: self.target.y }
                 : null;
-        this.buildings?.update(seen, delta);
+        this.buildings?.update(seen, delta, this.stationOnAir);
         this.furniture?.update(seen, delta);
 
         this.fishingLine?.update(time, self?.target ?? null);

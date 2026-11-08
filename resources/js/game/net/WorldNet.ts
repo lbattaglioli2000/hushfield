@@ -7,6 +7,7 @@ import {
     WHISPERS,
 } from '../protocol/channels';
 import type {
+    BroadcastChangedEvent,
     ChatMessageSentEvent,
     CinemaChangedEvent,
     VoiceGrant,
@@ -436,6 +437,7 @@ export class WorldNet {
         });
         this.showFurniture(snapshot.furniture, true);
         this.bus.emit('cinema', { programme: snapshot.cinema });
+        this.bus.emit('broadcast', { broadcast: snapshot.broadcast });
     }
 
     /** After any connection drop: replace local state with a fresh snapshot, then say we're back. */
@@ -633,6 +635,12 @@ export class WorldNet {
                 ROOM_EVENTS.cinemaChanged,
                 guardProtocol((e: CinemaChangedEvent) =>
                     this.bus.emit('cinema', { programme: e.cinema }),
+                ),
+            )
+            .listen(
+                ROOM_EVENTS.broadcastChanged,
+                guardProtocol((e: BroadcastChangedEvent) =>
+                    this.bus.emit('broadcast', { broadcast: e.broadcast }),
                 ),
             )
             .listen(

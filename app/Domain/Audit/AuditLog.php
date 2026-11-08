@@ -16,6 +16,7 @@ enum AuditLog: string implements HasLabel
     case Economy = 'economy';
     case Art = 'art';
     case Cinema = 'cinema';
+    case Radio = 'radio';
 
     public function getLabel(): string
     {
@@ -27,6 +28,7 @@ enum AuditLog: string implements HasLabel
             self::Economy => 'Coins and items',
             self::Art => 'Item art',
             self::Cinema => 'Cinema',
+            self::Radio => 'WHSH broadcasts',
         };
     }
 }

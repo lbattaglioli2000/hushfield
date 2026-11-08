@@ -233,6 +233,14 @@
     }
 }
 
+/* The ON AIR lamp while WHSH has a broadcast on: lit, then dark. */
+@keyframes on-air-flash {
+    50% {
+        background-color: #6e1f19;
+        box-shadow: none;
+    }
+}
+
 @keyframes hold {
     to {
         opacity: 1;

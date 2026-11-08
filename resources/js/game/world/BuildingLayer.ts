@@ -21,10 +21,17 @@ export function animationTexture(slug: string, part: string): string {
 /** A building animation on screen: one piece per strip it overlaps, all on the same frame. */
 type DrawnAnimation = {
     pieces: Phaser.GameObjects.Image[];
+    onAirOnly: boolean;
     frameMs: number[];
     totalMs: number;
     frame: number;
 };
+
+/**
+ * Animations that play only while WHSH has a broadcast on the air, by
+ * building and part; off the air they hold their first frame.
+ */
+const ON_AIR_ANIMATIONS = new Set(['whsh/beacon']);
 
 /** Over the strip a piece is cut from, and so sorted against avatars as that strip is. */
 const ANIMATION_DEPTH_EPSILON = 0.001;
@@ -47,7 +54,8 @@ type DrawnBuilding = {
  * sort against avatars on their own (see placeBuilding). A building's
  * animations play over its art, cut along the same strips, so each piece
  * sorts like the part of the building it lies on; with reduced motion they
- * hold their first frame.
+ * hold their first frame, as WHSH's beacon does while the station is off
+ * the air.
  */
 export class BuildingLayer {
     private readonly drawn: DrawnBuilding[];
@@ -109,6 +117,9 @@ export class BuildingLayer {
                                   animationTexture(building.name, part),
                                   animation,
                                   placement,
+                                  ON_AIR_ANIMATIONS.has(
+                                      `${building.name}/${part}`,
+                                  ),
                               ),
                           )
                     : [];
@@ -183,13 +194,18 @@ export class BuildingLayer {
     update(
         self: Parameters<typeof hidesPlayer>[2] | null,
         deltaMs: number,
+        /** WHSH has a broadcast on the air. */
+        onAir: boolean,
     ): void {
         const step = Math.min(1, deltaMs / BUILDING.fadeMs);
         const now = this.scene.time.now;
 
         for (const drawn of this.drawn) {
             for (const animation of drawn.animations) {
-                const frame = this.still ? 0 : frameAt(animation, now);
+                const frame =
+                    this.still || (animation.onAirOnly && !onAir)
+                        ? 0
+                        : frameAt(animation, now);
 
                 if (frame !== animation.frame) {
                     animation.frame = frame;
@@ -233,6 +249,7 @@ export class BuildingLayer {
         texture: string,
         animation: AssetManifest['animations'][string][string],
         placement: Placement,
+        onAirOnly: boolean,
     ): DrawnAnimation {
         const { x, y, width, height } = animation;
         const pieces = placement.strips.flatMap((strip) => {
@@ -256,6 +273,7 @@ export class BuildingLayer {
 
         return {
             pieces,
+            onAirOnly,
             frameMs: animation.frame_ms,
             totalMs: animation.frame_ms.reduce((sum, ms) => sum + ms, 0),
             frame: 0,

@@ -1,4 +1,5 @@
 import type {
+    Broadcast,
     CinemaProgramme,
     FishingCatch,
     FixtureKind,
@@ -53,6 +54,13 @@ export type CinemaState = {
     /** Some of the TV is on the glass; a film plays only then. */
     inView: boolean;
 };
+
+/**
+ * What WHSH has on the air, for the set to show: null while it is off the
+ * air. `listening` is false while the browser holds the sound back until the
+ * player presses Listen.
+ */
+export type BroadcastState = { id: number; title: string; listening: boolean };
 
 /**
  * Where a room's TV is on the glass, in CSS pixels from its top-left corner:
@@ -139,18 +147,24 @@ export type GameEvents = {
     'cinema-state': { state: CinemaState | null };
     /** Every frame it moves: where the room's TV is on the glass, and whether any of it is; null in a room without one. */
     'cinema-screen-rect': { rect: ScreenBox | null; inView: boolean };
+    /** After every snapshot and whenever staff go on or off the air: what WHSH has on, as the server sent it. */
+    broadcast: { broadcast: Broadcast | null };
+    /** Whether WHSH is on the air at this moment, and whether this set is playing it. */
+    'broadcast-state': { state: BroadcastState | null };
     /** The player walked off while their line was in the water; it is abandoned. */
     'fishing-interrupted': Record<string, never>;
 
     // UI → Game
     /** TALK pressed (true) or let go (false). */
     'voice-talk': { active: boolean };
-    /** The Volume knob, 0–1: voices play at this share of their distance volume, and the VFA's film at this volume. */
+    /** The Volume knob, 0–1: voices play at this share of their distance volume, and the VFA's film and WHSH's broadcasts at this volume. */
     'voice-volume': { volume: number };
     /** The layer over the glass the VFA's film plays in, laid over the screen in the room; null once the set is gone. */
     'cinema-screen': { element: HTMLElement | null };
     /** Sound pressed: a click, so the browser lets the film play aloud. Handled before the click returns. */
     'cinema-sound': Record<string, never>;
+    /** Listen pressed: a click, so the browser lets WHSH's broadcast play aloud. Handled before the click returns. */
+    'broadcast-listen': Record<string, never>;
     'send-chat': { body: string };
     'send-report': {
         userId: number;

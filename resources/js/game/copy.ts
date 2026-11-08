@@ -44,7 +44,9 @@ export type CopyKey =
     | 'cinema_muted'
     | 'cinema_out_of_view'
     | 'cinema_unavailable'
-    | 'concessions_hint';
+    | 'concessions_hint'
+    | 'broadcast_station'
+    | 'broadcast_listen';
 
 /** `on_air` is the one list: the lines the ON AIR ticker picks from. */
 export type Copy = Record<CopyKey, string> & { on_air: string[] };

@@ -73,7 +73,7 @@ export default function Play({ game }: PlayProps) {
         return () => handle.destroy();
     }, [bus]);
 
-    // Voices and the VFA's films come through the set's speaker, so the Volume knob turns them too.
+    // Voices, the VFA's films and WHSH's broadcasts come through the set's speaker, so the Volume knob turns them too.
     useEffect(() => bus.emit('voice-volume', { volume }), [bus, volume]);
 
     return (
@@ -91,7 +91,7 @@ export default function Play({ game }: PlayProps) {
                         <div className="flex min-h-0 flex-1 gap-5">
                             {/* The bezel: the ticker, the glass, and the talk strip. */}
                             <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-2xl bg-walnut-deep p-3 shadow-[inset_0_2px_6px_rgb(0_0_0/0.6)]">
-                                <OnAirTicker copy={game.copy} />
+                                <OnAirTicker bus={bus} copy={game.copy} />
                                 <CinemaBar bus={bus} copy={game.copy} />
                                 <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-glass">
                                     <div

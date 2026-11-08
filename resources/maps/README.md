@@ -415,7 +415,9 @@ the room, as spritesheets, and only over buildings drawn from their art.
 overlaps and draws each piece just over its strip, so it sorts against
 avatars and fades with the building exactly as the art under it does. All
 of a room's animations start when it is drawn and loop on the scene clock.
-With `prefers-reduced-motion`, they hold frame 1.
+With `prefers-reduced-motion`, they hold frame 1. WHSH's beacon
+(`ON_AIR_ANIMATIONS` in `BuildingLayer`) also holds frame 1 unless staff have a
+broadcast on the air, so it flashes only while WHSH is broadcasting.
 
 ### Wall panels
 

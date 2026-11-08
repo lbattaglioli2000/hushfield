@@ -1,5 +1,6 @@
 import type { AvatarPose } from './world/AvatarView';
 import Phaser from 'phaser';
+import { connectBroadcast } from './broadcast';
 import type { EventBus } from './bus';
 import { connectCinema } from './cinema';
 import type { Copy } from './copy';
@@ -19,6 +20,7 @@ import { COLORS } from './theme';
 export { EventBus } from './bus';
 export type {
     ArmedPiece,
+    BroadcastState,
     CinemaPhase,
     CinemaState,
     ConnectionState,
@@ -206,6 +208,7 @@ export function startGame(
     const social = connectSocial(net, bus, config.copy);
     cleanups.push(() => social.dispose());
     cleanups.push(connectCinema(net, bus));
+    cleanups.push(connectBroadcast(net, bus));
 
     if (config.voice) {
         cleanups.push(

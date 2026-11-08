@@ -25,6 +25,7 @@ export const ROOM_EVENTS = {
     outfitChanged: '.OutfitChanged',
     rareCatchLanded: '.RareCatchLanded',
     cinemaChanged: '.CinemaChanged',
+    broadcastChanged: '.BroadcastChanged',
 } as const;
 
 /** Client-to-client whispers on the presence channel; the server never sees them. */

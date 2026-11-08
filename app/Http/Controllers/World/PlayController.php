@@ -67,6 +67,8 @@ final class PlayController extends Controller
         'cinema_out_of_view',
         'cinema_unavailable',
         'concessions_hint',
+        'broadcast_station',
+        'broadcast_listen',
     ];
 
     public function __invoke(Request $request, LiveKit $liveKit): Response
