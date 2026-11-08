@@ -135,7 +135,7 @@ art pixels. That suits buildings and furniture. **Avatars are the risky
 case**: a 48×72 frame leaves a face a handful of pixels wide, and every
 wearable repeats that decision for 7 slots × 2 facings × every walk frame.
 Before more of the avatar brief is written, have her draw one base front
-strip and one hat at half size, and look at them in the game over the ground.
+strip and one hat at half size, and look at them in the game over the ground. The avatar design is §14.
 
 **Guards in the build.** It rejects any file whose size breaks its kind's
 rule in art pixels at its scale. When the scale is above 1, it also rejects
@@ -188,7 +188,7 @@ resources/
       {slug}/front.png         # wearable: strip of 48×72 frames
       {slug}/back.png
     avatars/
-      base/front.png           # strip of 48×72 frames, fixed anchor
+      base/front.png           # strip of 48×72 frames; the full layout is in §14.3
       base/back.png
     ui/
       marker.png               # 32×16
@@ -542,6 +542,7 @@ allowed, one entry per handover:
 | E   | Bucket                     | **Use the public bucket already attached in Cloud.** Adobe S3Mock in the orb for testing (§7); not MinIO.                                                                                               |
 | F   | Masters                    | **A second, private bucket** (§7). You create it and its keys in Cloud.                                                                                                                                 |
 | G   | Art-less items in the shop | **Allowed for now.** Enforced when Filament uploads land.                                                                                                                                               |
+| H   | Avatars                    | **Two drawn facings, 4 walk frames, 9 frames a strip; body and feet drawn, head, face, pin, hand and hair rigid** (§14). Background slot dropped.                                                       |
 
 ## 12. Migration, in shippable steps
 
@@ -580,9 +581,8 @@ Each step is its own PR and leaves the game working.
    (`.agents/setup`, `.amp/services.yaml`). Verify on staging: an old tab keeps working across
    a deploy, cross-origin loads pass CORS, and building hover still
    hit-tests.
-6. **Avatars and wearables.** Start with the one-strip-and-one-hat test from
-   §2. Then the base avatar strips and atlas, and wearables under
-   `items/{slug}/front|back.png`, loaded per resident in the room.
+6. **Avatars and wearables.** Designed in §14, in the order of §14.8,
+   starting with the one-strip-and-one-hat test from §2.
 7. **Audio.** Room music under `resources/audio/music/{room-slug}.opus`,
    loaded lazily after a gesture.
 8. **Item art uploads.** Done: Filament uploads of furniture facings to the
@@ -644,3 +644,156 @@ change size on your own: the build rejects any file that doesn't match.
 
 **What happens next:** your files go into `resources/art/` in a PR. The build
 checks every canvas, and you get a link to see them in the game.
+
+## 14. Avatars, wearables, animation and poses
+
+Designed, not built. Reviewed twice (once for correctness against the code,
+once for blind spots); the outcomes are folded in here. Everything that
+multiplies the art for every drawn wearable (facings, frames, which poses
+exist) is fixed in §14.2 before the first wearable is drawn, because
+changing any of it later means redrawing every body and feet item. The
+artist's brief is [`docs/art/avatars.md`](art/avatars.md).
+
+### 14.1 The rig
+
+One file, `resources/art/avatars/rig.json`, describes the avatar the base
+body and every wearable are drawn on. The build checks every strip against
+it, as it checks furniture canvases against their footprints.
+
+- **Frame:** 48 × 72 art pixels (96 × 144 in game, §2), the feet's anchor in
+  the same place in every frame.
+- **Animations, frames per facing:** idle 2, walk 4, sit 1, wave 2: **9**.
+  A strip is those 9 frames side by side, in that order, 432 × 72.
+- **Anchors per frame:** head, chest, hand, hip, feet. Set once, on the base
+  body, by the artist: she marks each with one pixel of a fixed colour on an
+  anchors layer, exported as `avatars/base/{facing}-anchors.png`. An anchor
+  is a pixel, so mirroring maps x to 47 − x.
+- **Layer order per facing**, and per walk frame where an arm swings past
+  the body. Facing front: background part of a wearable, base, feet, body,
+  pin, face, hair, head, hand, arm. Facing back, face items are hidden and
+  the hand item goes behind the body.
+- **Walk stride**, in screen pixels per cycle, so feet don't slide (§14.4).
+
+### 14.2 What's decided
+
+| Question         | Decision                                                                                                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Facings          | **Two drawn** (front-diagonal, facing the lower left; back-diagonal, facing the upper right) and **two mirrored**. Straight up, down or across shows the nearest diagonal, keeping the side it faced.  |
+| Walk             | **4 frames**, confirmed only after the test strip walks in game at 4 tiles a second, straight and diagonally.                                                                                          |
+| Drawn layers     | The base body, and the **body** and **feet** slots: every frame, 18 per wearable.                                                                                                                      |
+| Rigid layers     | **Head, face, pin, hand**, and **hair**: one image per facing (2 per item), moved each frame to its anchor. A rigid item may add its own frames for one pose.                                          |
+| Hair             | **Its own part of the base**, picked by the resident. A hat says whether it hides hair (`hides: hair`), as in Habbo.                                                                                   |
+| Background slot  | **Dropped.** Needs a migration first: refund or convert granted copies of `lighthouse-backdrop`, delete it, then remove the `ItemSlot` case and the `'background'` type.                               |
+| Light            | **Flat or from the front** on avatars, unlike everything else, because mirroring would swap a top-left light to the top right.                                                                         |
+| Lopsided items   | Drawn symmetric, and **no text**. An item that can't be may add its own drawing for a mirrored facing.                                                                                                 |
+| Sitting          | **One sit frame**, used on chairs and on the floor.                                                                                                                                                    |
+| Lying            | **No lying frames.** A bed has a blanket front image over the body; only hair and head layers show. Only in your own home, one resident per bed.                                                       |
+| Skin             | **A fixed set of tones**, each a ramp of 3–4 shades: real skin tones plus a few fantasy ones. The base is painted in reserved key colours and swapped. Existing `body_color`s map to the nearest tone. |
+| Clothes colours  | **Recoloured, not redrawn.** Recolourable parts are painted in a second reserved ramp, so a red and a moss beanie are one drawing, like furniture variants but without new art.                        |
+| Shop icons       | **Rendered by the build** from the front idle frame on the base body. She draws nothing extra; the same renderer gives try-on previews and friends-list portraits.                                     |
+| Capes, big items | A wearable may have a **back part** drawn behind the base. Nothing may leave the 48 × 72 frame.                                                                                                        |
+
+### 14.3 Assets and the build
+
+```
+resources/art/
+  avatars/
+    rig.json
+    palette.png                # the skin and recolour key ramps she paints in
+    base/front.png             # 9 frames, 432 × 72; back.png likewise
+    base/front-anchors.png     # the same strip, one pixel per anchor
+    hair/{slug}/front.png      # one 48 × 72 frame; back.png
+  items/
+    {slug}/front.png           # body, feet: 9 frames; head, face, pin, hand: 1 frame
+    {slug}/back.png
+    {slug}/front-behind.png    # optional back part, e.g. a cape
+```
+
+The build checks each strip's size and frame count against the rig and the
+item's slot (it can't read the catalog, so a slot mismatch shows in the item
+list, as furniture widths do), refuses half-transparent pixels and doubled
+exports, reads the anchors, packs one atlas per slug, and renders each
+wearable's icon. Templates (each frame with the base body and anchors
+underneath) and a preview command that plays a wearable on the rig come
+with the build, before the full brief.
+
+### 14.4 Animation on the client
+
+- **Facing** comes from the last path segment that moved, and is kept when
+  the path ends. Today the flip resets (`AvatarView.update`), because a
+  finished path has from = to. Spawns and poses carry a facing too.
+- **Walk frame** comes from distance along the path, in screen pixels: an
+  axis step moves about 36 px, a diagonal 32 (straight down) or 64 (straight
+  across). Every client agrees, with no new messages.
+- **Idle** plays when the path has ended.
+- **Snapping:** one container holds every layer and is snapped to even
+  pixels, not each layer. `bounds` and building and furniture fading use the
+  whole frame.
+- **Reduced motion:** idle, wave and emotes hold their first frame, as
+  building animations do.
+
+### 14.5 Poses
+
+Pose is server state in `PlayerState`, beside the path:
+`{ kind: 'stand' } | { kind: 'sit' | 'lie', furniture_id | null, seat, facing }`.
+
+- **Seats** are declared on furniture items (tile, facing, seat height in
+  whole art pixels) and turn with the item, as `footprintAt` does.
+- **Sitting:** tap a seat, walk beside it, and the server checks reach as
+  `FixtureReach` does and claims the seat atomically in Redis, one sitter
+  each. A new path clears the pose; so do moving, turning or putting away
+  the furniture, and resetting the home. A floor sit has no furniture.
+- **Drawing order:** a seated avatar sorts at its seat strip's depth plus ε,
+  and the item's optional **front image** (backrest, armrests, blanket) at
+  plus 2ε. The seat's own piece is left out of `hides`, so it doesn't fade
+  under its sitter. Without this the whole chair draws over the sitter.
+- **Emotes** (wave) are one-off room events, like chat, and not stored.
+
+### 14.6 Data, network and safety
+
+- `avatar_wearables` (avatar, slot, inventory item), unique per slot. The
+  wear action checks ownership.
+- The payload's `sprite_key` becomes `worn: [{ slot, slug, url }]` plus
+  `skin` and `hair`, with art URLs from the start as furniture has, so
+  wearable uploads don't need a second protocol bump. A new upload model for
+  wearables; `item_art` is sized for furniture facings.
+- An outfit-changed room event. `BuildSnapshot` loads wearables with avatars.
+- `throttle:wear` and `throttle:emote`.
+- Reports save the reported resident's outfit and pose; staff can reset an
+  outfit.
+- A wearable can't go on sale until its art is complete (decision G ends
+  for wearables). What happens to members-only items when membership lapses
+  is decided with membership.
+
+### 14.7 Memory in a full room
+
+A 9 × 2-frame atlas at game size is about 1 MB of texture memory; 40
+residents in different outfits could pass 80 MB on a phone. Budget per room;
+trim atlases to their drawn pixels; free a wearable's texture only when
+nobody in the room wears it; above a set number of distinct outfits, fall
+back to base bodies with tints. Load atlases per resident in the room, once
+per slug (§9).
+
+### 14.8 Order
+
+1. **The test** (§2): her base front strip (idle and walk) and one hat, at
+   half size, shown walking straight and diagonally at 4 tiles a second.
+   This settles the frame size, 4 walk frames and mirroring.
+2. The rig, palette, templates, preview command; atlas packing and icon
+   rendering in the build; a layered `AvatarView` with walk frames and kept
+   facing. The Background migration.
+3. Wearing items: the table, payload, wear action, wardrobe overlay, outfit
+   event, throttles.
+4. Floor sit, then seats and furniture front images.
+5. Emotes, then beds.
+
+**Built so far, on stand-ins** (`docs/art/templates/make-avatar-standins.php`,
+replaced file by file by her art): the build's checks and anchors (`index.avatar`,
+the manifest's `avatar`), the layered `AvatarView` with kept facing, walk frames
+by distance and idle, `avatar_wearables` with the wear and take-off routes,
+`OutfitChanged` and Wear buttons in Belongings (protocol 4), and the avatar templates in `make-templates.php`. `avatars.sprite_key`
+became `hair`. Sit and wave can be tried with `/sit`, `/wave` and `/stand` in chat,
+on your own screen only, until poses are server state. Still to do from steps 2
+and 3: the skin and recolour swaps (the palette is in `rig.json` and the templates; the game still tints), the preview command (Aseprite plays the templates for now), atlas packing and icons, the
+Background migration, wearable uploads, the hat's `hides: hair`, freeing textures
+(§14.7) and staff outfit resets.

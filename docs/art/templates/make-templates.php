@@ -5,14 +5,20 @@
  * a half slab, in tiles/; for docs/art/furniture.md, one per size and facing,
  * in furniture/; for docs/art/buildings.md, one per building on the maps, in
  * buildings/; for docs/art/walls.md, the panels each wall style on the maps
- * needs, at its height, in walls/{style}/. Each is at 100% in art pixels, with
- * an 8× preview for the guides under previews/. Run from the repository root:
+ * needs, at its height, in walls/{style}/; for docs/art/avatars.md, the
+ * body, clothes and accessory templates for each facing and the palette, in
+ * avatars/. Each is at 100% in art pixels, with a preview for the guides
+ * under previews/. Run from the repository root:
  *
  *     php docs/art/templates/make-templates.php
  *
  * To add a furniture size, add it to PIECES. Buildings and wall styles are
  * read from the maps, so a new one gets its templates on the next run. Uses
  * the game's own Footprint, so shapes turn exactly as they do in the game.
+ * Avatar templates are read from resources/art/avatars: the frame size,
+ * animations, anchor colours and palette from rig.json, and the figure shown
+ * faded from the base body there (the stand-in until hers replaces it), so
+ * run this again whenever her base body changes.
  */
 
 use App\Domain\Assets\Image;
@@ -74,10 +80,22 @@ foreach (wallStyles() as $style => [$parts, $face]) {
     }
 }
 
+$rig = json_decode((string) file_get_contents(__DIR__.'/../../../resources/art/avatars/rig.json'), true, flags: JSON_THROW_ON_ERROR);
+
+foreach (['front', 'back'] as $facing) {
+    $base = Png::decode((string) file_get_contents(__DIR__."/../../../resources/art/avatars/base/{$facing}.png"));
+    $anchors = Png::decode((string) file_get_contents(__DIR__."/../../../resources/art/avatars/base/{$facing}-anchors.png"));
+    save("avatars/body-{$facing}", figure($rig, $base, $anchors, true), 4);
+    save("avatars/clothes-{$facing}", figure($rig, $base, $anchors, false), 4);
+    save("avatars/accessory-{$facing}", accessory($rig, $base, $anchors));
+}
+
+save('avatars/palette', palette($rig));
+
 /** Writes a template at 100%, and its preview for the guides. */
-function save(string $name, Image $template): void
+function save(string $name, Image $template, int $scale = PREVIEW_SCALE): void
 {
-    foreach (["{$name}.png" => $template, "previews/{$name}.png" => onChecks($template)->scale(PREVIEW_SCALE)] as $path => $image) {
+    foreach (["{$name}.png" => $template, "previews/{$name}.png" => onChecks($template)->scale($scale)] as $path => $image) {
         @mkdir(dirname(__DIR__."/{$path}"), recursive: true);
         file_put_contents(__DIR__."/{$path}", Png::encode($image));
     }
@@ -332,6 +350,119 @@ function panel(bool $left, bool $door, int $face): Image
     }
 
     return new Image($width, $height, $pixels);
+}
+
+/**
+ * An avatar strip, one frame per frame of the rig, each frame tinted for its
+ * animation (idle blue, walk green, sit yellow, wave pink, a frame lighter or
+ * darker than the next), its left edge and the ground under the feet marked,
+ * with the base body faded over it. The body template adds each frame's
+ * anchors at full colour, from the base's anchors strip.
+ *
+ * @param  array<string, mixed>  $rig
+ */
+function figure(array $rig, Image $base, Image $anchors, bool $withAnchors): Image
+{
+    [$w, $h] = $rig['frame'];
+    $tints = ['idle' => [120, 160, 220], 'walk' => [120, 200, 130], 'sit' => [220, 200, 100], 'wave' => [220, 130, 170]];
+    $of = [];
+
+    foreach ($rig['animations'] as $name => $animation) {
+        foreach ($animation['frames'] as $frame) {
+            $of[$frame] = $tints[$name] ?? [180, 180, 180];
+        }
+    }
+
+    $ground = groundRow($anchors, $rig, $w, $h);
+    $pixels = '';
+
+    for ($y = 0; $y < $h; $y++) {
+        for ($x = 0; $x < $base->width; $x++) {
+            $frame = intdiv($x, $w);
+            $pixels .= match (true) {
+                $withAnchors && $anchors->alphaAt($x, $y) === 255 => substr($anchors->pixels, ($y * $anchors->width + $x) * 4, 4),
+                $base->alphaAt($x, $y) === 255 => substr($base->pixels, ($y * $base->width + $x) * 4, 3).chr(140),
+                $y === $ground || $x % $w === 0 => pack('C4', ...EDGE),
+                default => pack('C4', ...[...$of[$frame] ?? [180, 180, 180], $frame % 2 === 0 ? 56 : 88]),
+            };
+        }
+    }
+
+    return new Image($base->width, $h, $pixels);
+}
+
+/**
+ * One frame for hair, hats, glasses, pins and held things: the base body's
+ * first frame faded, the ground marked, and the head, chest and hand anchors
+ * those are placed on at full colour.
+ *
+ * @param  array<string, mixed>  $rig
+ */
+function accessory(array $rig, Image $base, Image $anchors): Image
+{
+    [$w, $h] = $rig['frame'];
+    $marked = array_map(fn (string $hex): string => (string) hex2bin($hex), array_intersect_key($rig['anchors'], array_flip(['head', 'chest', 'hand'])));
+    $ground = groundRow($anchors, $rig, $w, $h);
+    $pixels = '';
+
+    for ($y = 0; $y < $h; $y++) {
+        for ($x = 0; $x < $w; $x++) {
+            $at = ($y * $base->width + $x) * 4;
+            $anchor = $anchors->alphaAt($x, $y) === 255 ? substr($anchors->pixels, $at, 3) : null;
+            $pixels .= match (true) {
+                $anchor !== null && in_array($anchor, $marked, true) => $anchor.chr(255),
+                $base->alphaAt($x, $y) === 255 => substr($base->pixels, $at, 3).chr(140),
+                $y === $ground => pack('C4', ...EDGE),
+                default => "\0\0\0\0",
+            };
+        }
+    }
+
+    return new Image($w, $h, $pixels);
+}
+
+/**
+ * The row under the feet in the base's first frame, the feet anchor's row
+ * plus one, or the bottom row if the feet are on it.
+ *
+ * @param  array<string, mixed>  $rig
+ */
+function groundRow(Image $anchors, array $rig, int $w, int $h): int
+{
+    $feet = (string) hex2bin($rig['anchors']['feet']);
+
+    for ($y = 0; $y < $h; $y++) {
+        for ($x = 0; $x < $w; $x++) {
+            if ($anchors->alphaAt($x, $y) === 255 && substr($anchors->pixels, ($y * $anchors->width + $x) * 4, 3) === $feet) {
+                return min($h - 1, $y + 1);
+            }
+        }
+    }
+
+    return $h - 1;
+}
+
+/**
+ * The colours to paint with, 8 × 8 each: the skin ramp on the first row, the
+ * recolour ramp on the second, light to dark, and the anchor colours on the
+ * third, in rig.json's order (head, chest, hand, hip, feet).
+ *
+ * @param  array<string, mixed>  $rig
+ */
+function palette(array $rig): Image
+{
+    $rows = [$rig['palette']['skin'], $rig['palette']['recolour'], array_values($rig['anchors'])];
+    $width = 8 * max(array_map('count', $rows));
+    $pixels = '';
+
+    for ($y = 0; $y < 8 * count($rows); $y++) {
+        for ($x = 0; $x < $width; $x++) {
+            $hex = $rows[intdiv($y, 8)][intdiv($x, 8)] ?? null;
+            $pixels .= $hex === null ? "\0\0\0\0" : hex2bin($hex).chr(255);
+        }
+    }
+
+    return new Image($width, 8 * count($rows), $pixels);
 }
 
 /** The template over a light checkerboard, so its transparency shows in the guide. */

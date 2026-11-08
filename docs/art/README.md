@@ -11,9 +11,11 @@ template, drawing, exporting and handing it over.
 | Buildings (the outside)                       | [buildings.md](buildings.md)   | [`templates/buildings/`](templates/buildings/)               | send to Luigi      |
 | Moving parts of a building (a blinking light) | [animations.md](animations.md) | the building's own canvas                                    | send to Luigi      |
 | Walls and wallpaper (indoors)                 | [walls.md](walls.md)           | [`templates/walls/`](templates/walls/), one folder per style | send to Luigi      |
+| Avatars, hair and clothes (test first)        | [avatars.md](avatars.md)       | [`templates/avatars/`](templates/avatars/)                   | send to Luigi      |
 
-Not ready to draw yet: **avatars and clothes**, and the **markers** under
-players' feet. Their sizes aren't settled; Luigi will send a brief first.
+Avatars start with **the test** in [avatars.md](avatars.md); draw the rest
+only once Luigi has approved it. Not ready to draw yet: the **markers**
+under players' feet.
 
 ## Rules for everything
 
