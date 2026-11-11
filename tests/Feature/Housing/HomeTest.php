@@ -164,6 +164,26 @@ test('owners place, move and put away their furniture, and everyone inside sees 
     Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$this->home->room_instance_id}");
 });
 
+test('a change only tells the room to fetch the arrangement, which anyone inside may and no one outside may', function () {
+    $this->home->update(['visitors' => HomeVisitors::Everyone]);
+    $guest = resident();
+    visitHome($guest, $this->home->room_instance_id)->assertOk();
+
+    placeFurniture(ownedPiece(attributes: ['slug' => 'chair']), 1, 1)->assertOk();
+
+    // The whole arrangement outgrows a websocket message (10 KB) at around ten pieces.
+    Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => array_keys($event->broadcastWith()) === ['protocol', 'at_ms']);
+
+    asResident($guest, $guest->worldSession->session_token)->getJson(route('world.instances.furniture', $this->home->room_instance_id))
+        ->assertOk()
+        ->assertJsonPath('furniture.0.item.slug', 'chair');
+
+    $outsider = resident();
+    asResident($outsider, startSession($outsider))->getJson(route('world.instances.furniture', $this->home->room_instance_id))
+        ->assertStatus(409)
+        ->assertJsonPath('reason', 'not_in_room');
+});
+
 test('two pieces of one item are placed, turned and put away each on its own', function () {
     $chair = Item::factory()->furniture()->create(['slug' => 'chair']);
     $first = own($this->owner, $chair);
@@ -446,7 +466,7 @@ test('furniture placed in the yard stays in the yard', function () {
     // Carried out of the house, the chair leaves it.
     placeFurniture($chair, 2, 0)->assertOk()->assertJsonCount(2, 'furniture');
     expect($this->home->instance->furniture()->count())->toBe(0);
-    Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$this->home->room_instance_id}" && $event->furniture === []);
+    Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$this->home->room_instance_id}");
 });
 
 /** A 1 × 1 piece the owner owns whose published art plays an animation while it's on. */

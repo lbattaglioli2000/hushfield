@@ -89,12 +89,11 @@ final readonly class PlaceFurniture
             return $current?->room_instance_id;
         });
 
-        WorldBroadcast::send(new FurnitureChanged($instance->id, $instance->furniturePayload()));
+        WorldBroadcast::send(new FurnitureChanged($instance->id));
 
         // Carried between house and yard: the room it left changes too.
         if ($from !== null && $from !== $instance->id) {
-            $left = RoomInstance::query()->findOrFail($from);
-            WorldBroadcast::send(new FurnitureChanged($left->id, $left->furniturePayload()));
+            WorldBroadcast::send(new FurnitureChanged($from));
         }
 
         return $instance;

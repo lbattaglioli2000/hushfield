@@ -82,6 +82,8 @@ export class WorldNet {
     private heartbeat: ReturnType<typeof setInterval> | null = null;
     private destroyed = false;
     private resyncing: Promise<void> | null = null;
+    /** Counts arrangement fetches, so a slow one can't draw over a newer one. */
+    private furnitureFetches = 0;
     /** The manifest version this tab loaded its art from; null until the manifest is in. */
     assetsVersion: string | null = null;
 
@@ -637,9 +639,10 @@ export class WorldNet {
             )
             .listen(
                 ROOM_EVENTS.furnitureChanged,
-                guardProtocol((e: FurnitureChangedEvent) =>
-                    this.showFurniture(e.furniture),
-                ),
+                guardProtocol((_e: FurnitureChangedEvent) => {
+                    // A failed fetch leaves the old arrangement until the next change or resync.
+                    this.fetchFurniture().catch(() => {});
+                }),
             )
             .listen(
                 ROOM_EVENTS.cinemaChanged,
@@ -674,6 +677,29 @@ export class WorldNet {
         if (!fromSnapshot) this.listener.furnitureChanged(placed);
 
         this.bus.emit('furniture', { placed });
+    }
+
+    /**
+     * A home's arrangement is too big for a socket message, so FurnitureChanged
+     * only says to fetch it. Only the latest fetch is drawn: it started after the latest change.
+     */
+    private async fetchFurniture(): Promise<void> {
+        const instanceId = this.instance?.id;
+        const ticket = ++this.furnitureFetches;
+        const body = await this.request<{ furniture: PlacedFurniture[] }>(
+            'GET',
+            this.instancePath('furniture'),
+        );
+
+        if (
+            this.destroyed ||
+            ticket !== this.furnitureFetches ||
+            this.instance?.id !== instanceId
+        ) {
+            return;
+        }
+
+        this.showFurniture(body.furniture);
     }
 
     private fail(kind: FatalKind, message: string): void {

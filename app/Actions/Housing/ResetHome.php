@@ -24,7 +24,7 @@ final readonly class ResetHome
         $shownOut = $this->setHomeVisitors->showOutUnwelcome($home);
 
         foreach ($home->instances()->pluck('id') as $instanceId) {
-            WorldBroadcast::send(new FurnitureChanged($instanceId, []));
+            WorldBroadcast::send(new FurnitureChanged($instanceId));
         }
 
         activity(AuditLog::Moderation)

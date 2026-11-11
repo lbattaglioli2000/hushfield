@@ -42,7 +42,7 @@ final readonly class SwitchFurniture
 
         if ($placed->switched_on !== $on) {
             $placed->forceFill(['switched_on' => $on])->save();
-            WorldBroadcast::send(new FurnitureChanged($instance->id, $instance->furniturePayload()));
+            WorldBroadcast::send(new FurnitureChanged($instance->id));
         }
 
         return $instance;

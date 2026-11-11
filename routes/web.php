@@ -6,6 +6,7 @@ use App\Http\Controllers\Economy\PurchaseItemController;
 use App\Http\Controllers\Economy\ShopController;
 use App\Http\Controllers\Economy\WalletController;
 use App\Http\Controllers\Fishing\FishingController;
+use App\Http\Controllers\Housing\FurnitureController;
 use App\Http\Controllers\Housing\HomesController;
 use App\Http\Controllers\Housing\HomeVisitorsController;
 use App\Http\Controllers\Housing\PlaceFurnitureController;
@@ -53,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('heartbeat', HeartbeatController::class)->name('heartbeat');
             Route::post('rooms/{room}/join', JoinRoomController::class)->middleware('throttle:join-room')->name('rooms.join');
             Route::get('instances/{instance}/snapshot', SnapshotController::class)->name('instances.snapshot');
+            Route::get('instances/{instance}/furniture', FurnitureController::class)->name('instances.furniture');
             Route::post('instances/{instance}/move', MoveController::class)->middleware('throttle:move')->name('instances.move');
             Route::post('instances/{instance}/exits/{exit}', UseExitController::class)->middleware('throttle:join-room')->name('instances.exit');
             Route::post('instances/{instance}/chat', ChatController::class)->middleware('throttle:chat')->name('instances.chat');

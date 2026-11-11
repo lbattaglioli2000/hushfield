@@ -46,7 +46,7 @@ test('a moderator resets a home: furniture is put away in house and yard, the do
         ->and(Activity::query()->where('event', 'home.reset')->sole()->properties['furniture_removed'])->toBe(2);
 
     foreach ([$home->room_instance_id, $yard->id] as $instanceId) {
-        Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$instanceId}" && $event->furniture === []);
+        Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$instanceId}");
     }
 });
 

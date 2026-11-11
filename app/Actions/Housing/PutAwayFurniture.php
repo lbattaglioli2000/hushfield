@@ -26,8 +26,7 @@ final readonly class PutAwayFurniture
 
         if ($placed !== null) {
             $placed->delete();
-            $instance = RoomInstance::query()->findOrFail($placed->room_instance_id);
-            WorldBroadcast::send(new FurnitureChanged($instance->id, $instance->furniturePayload()));
+            WorldBroadcast::send(new FurnitureChanged($placed->room_instance_id));
         }
 
         return $home->partWith($owner);

@@ -1,5 +1,5 @@
 /** Must match config('hushfield.protocol'). A server payload with a higher value means this build is outdated. */
-export const PROTOCOL = 6;
+export const PROTOCOL = 7;
 
 export type Tile = [number, number];
 
@@ -164,9 +164,8 @@ export type OutfitChangedEvent = Stamped & {
     avatar: AvatarLook;
 };
 
-export type FurnitureChangedEvent = Stamped & {
-    furniture: PlacedFurniture[];
-};
+/** Fetch the arrangement: it outgrows a socket message. */
+export type FurnitureChangedEvent = Stamped;
 
 export type CinemaChangedEvent = Stamped & { cinema: CinemaProgramme };
 
