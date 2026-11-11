@@ -262,6 +262,12 @@ To let a room hold pieces, add an empty object layer named `props` to its
 map (in Tiled, or by hand) and run `php artisan hushfield:build-assets`.
 The artist's guide is [`docs/art/room-pieces.md`](../../docs/art/room-pieces.md).
 
+The pictures Tiled shows (`ground.png`, `props/`) are build output, so a
+clone has none. `php artisan hushfield:pack-maps` zips every map with them
+onto the `private` disk and prints a download link for the designer
+(locally, after `hushfield:build-assets`); the round trip, in plain words,
+is [`docs/art/maps-in-tiled.md`](../../docs/art/maps-in-tiled.md).
+
 ## Art
 
 The artist's source files live in `resources/art/`, one image per file,

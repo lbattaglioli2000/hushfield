@@ -71,8 +71,9 @@ Tiled.
 
 ## 5. Arrange the room in Tiled
 
-1. Open the room's map (`resources/maps/laundromat.json` for the Coin
-   Laundry) in Tiled.
+1. Open the room's map (`laundromat.json` for the Coin Laundry) in Tiled,
+   from the zip of maps Luigi sends you. New to Tiled? Start with
+   [maps-in-tiled.md](maps-in-tiled.md).
 2. In the **Layers** panel, click the **`props`** layer.
 3. Turn on **View → Snapping → Snap to Grid**, so pieces line up with the
    tiles.
