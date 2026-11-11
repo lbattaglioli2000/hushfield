@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use stdClass;
 
 /**
  * Builds what ships from the artist's sources in resources/art (see
@@ -1232,6 +1233,8 @@ final class AssetBuilder
             $firstGid = $moved;
         }
 
+        $this->sizePieces($layers, $firstGid, array_column($tiles, null, 'id'));
+
         $block = [
             'columns' => 0,
             'firstgid' => $firstGid,
@@ -1252,6 +1255,35 @@ final class AssetBuilder
         }
 
         return $tilesets;
+    }
+
+    /**
+     * Sizes every placed piece to its picture. Tiled stretches a tile object
+     * to its own width and height, so once a piece's art changes size, the
+     * pieces already placed would show squashed in Tiled (the game only
+     * reads where they stand).
+     *
+     * @param  array<mixed>  $layers
+     * @param  array<int, array{id: int, image: string, imagewidth: int, imageheight: int, properties: list<array<string, mixed>>}>  $tiles  by tile id
+     */
+    private function sizePieces(array $layers, int $firstGid, array $tiles): void
+    {
+        foreach ($layers as $layer) {
+            if (! is_object($layer)) {
+                continue;
+            }
+
+            $this->sizePieces(is_array($layer->layers ?? null) ? $layer->layers : [], $firstGid, $tiles);
+
+            foreach (is_array($layer->objects ?? null) ? $layer->objects : [] as $object) {
+                $tile = $object instanceof stdClass && is_int($object->gid ?? null) ? ($tiles[($object->gid & 0x0FFFFFFF) - $firstGid] ?? null) : null;
+
+                if ($tile !== null) {
+                    $object->width = (float) $tile['imagewidth'];
+                    $object->height = (float) $tile['imageheight'];
+                }
+            }
+        }
     }
 
     /**

@@ -708,7 +708,7 @@ it('refuses a room piece animation that can\'t play', function (string $props, a
     ],
 ]);
 
-it('moves the props tileset past the ground tiles once they grow into it, and the pieces placed with it', function () {
+it('moves the props tileset past the ground tiles once they grow into it, and the pieces placed with it, sized to their pictures', function () {
     $root = scratchArt();
     claimAll($root);
     File::ensureDirectoryExists("{$root}/art/props/washer");
@@ -720,7 +720,8 @@ it('moves the props tileset past the ground tiles once they grow into it, and th
     $library = json_decode((string) File::get("{$root}/maps/library.json"), true);
     $library['tilesets'][] = ['firstgid' => 2, 'name' => 'props', 'columns' => 0, 'tilecount' => 0, 'tiles' => []];
     $library['layers'][] = ['id' => 99, 'name' => 'props', 'type' => 'objectgroup', 'objects' => [
-        ['id' => 1, 'gid' => 2, 'x' => 64.0, 'y' => 64.0],
+        // Placed when the washer's art was another size: Tiled would stretch it to this.
+        ['id' => 1, 'gid' => 2, 'x' => 64.0, 'y' => 64.0, 'width' => 64.0, 'height' => 84.0],
         // The bench at facing 0, flipped: the flip bit stays for the importer to refuse.
         ['id' => 2, 'gid' => 0x80000000 | (2 + 16), 'x' => 128.0, 'y' => 64.0],
     ]];
@@ -729,10 +730,14 @@ it('moves the props tileset past the ground tiles once they grow into it, and th
 
     $map = json_decode((string) File::get("{$root}/maps/library.json"), true);
     $props = array_column($map['tilesets'], null, 'name')['props'];
-    $placed = array_column(array_column($map['layers'], null, 'name')['props']['objects'], 'gid');
+    $objects = array_column($map['layers'], null, 'name')['props']['objects'];
+    $pictures = array_column($props['tiles'], null, 'id');
 
     expect($props['firstgid'])->toBe(1001)
-        ->and($placed)->toBe([1001, 0x80000000 | 1017]);
+        ->and(array_column($objects, 'gid'))->toBe([1001, 0x80000000 | 1017])
+        // The washer's picture, 32 wide doubled and 20 + 16 tall doubled, padded to centre its front corner.
+        ->and([$objects[0]['width'], $objects[0]['height']])->toBe([64.0, 72.0])
+        ->and([$objects[1]['width'], $objects[1]['height']])->toBe([(float) $pictures[16]['imagewidth'], (float) $pictures[16]['imageheight']]);
 });
 
 it('reports how much of an item\'s art is built, counting facings the game mirrors or borrows', function () {

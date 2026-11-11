@@ -178,11 +178,31 @@
     "art/props/washer/0.png": {
         "by": "our artist",
         "received": "2026-11-11",
-        "notes": "coin washer, off; moved 4 px left onto its footprint"
+        "notes": "coin washer, off, redrawn taller"
     },
     "art/props/washer/0-on.png": {
         "by": "our artist",
         "received": "2026-11-11",
-        "notes": "clothes tumbling, 5 frames; moved 4 px left with 0.png"
+        "notes": "clothes tumbling, 5 frames; exported 62 tall, moved 2 px down onto the 60-tall picture's porthole"
+    },
+    "art/props/washer/3.png": {
+        "by": "our artist",
+        "received": "2026-11-11",
+        "notes": "coin washer facing the lower right, off"
+    },
+    "art/props/washer/3-on.png": {
+        "by": "our artist",
+        "received": "2026-11-11",
+        "notes": "clothes tumbling, 5 frames; exported 60 tall, top 12 empty rows trimmed to the 48-tall picture"
+    },
+    "art/props/washer/1.png": {
+        "by": "our artist",
+        "received": "2026-11-11",
+        "notes": "coin washer facing the upper left: its back, with the kG plate and hose ports"
+    },
+    "art/props/washer/2.png": {
+        "by": "our artist",
+        "received": "2026-11-11",
+        "notes": "coin washer facing the upper right: its back, with the kG plate and hose ports"
     }
 }
