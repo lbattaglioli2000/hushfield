@@ -174,5 +174,15 @@
         "by": "Hushfield team",
         "received": "2026-11-08",
         "notes": "generated stand-in from docs/art/templates/make-avatar-standins.php; replace with the artist's drawing"
+    },
+    "art/props/washer/0.png": {
+        "by": "our artist",
+        "received": "2026-11-11",
+        "notes": "coin washer, off; moved 4 px left onto its footprint"
+    },
+    "art/props/washer/0-on.png": {
+        "by": "our artist",
+        "received": "2026-11-11",
+        "notes": "clothes tumbling, 5 frames; moved 4 px left with 0.png"
     }
 }
