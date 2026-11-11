@@ -27,6 +27,75 @@ const HAT_ROOM_PX = 14;
 
 type Facing = 'front' | 'back';
 
+type Box = { left: number; right: number; top: number; bottom: number };
+
+/** Each frame's drawn pixels within it, read once: a doll's frames are mostly empty margin. */
+const drawnBoxes = new WeakMap<Phaser.Textures.Frame, Box | null>();
+
+/** The box around boxes, or null when there are none. */
+function around(boxes: Box[]): Box | null {
+    if (boxes.length === 0) return null;
+
+    return {
+        left: Math.min(...boxes.map((b) => b.left)),
+        right: Math.max(...boxes.map((b) => b.right)),
+        top: Math.min(...boxes.map((b) => b.top)),
+        bottom: Math.max(...boxes.map((b) => b.bottom)),
+    };
+}
+
+function drawnBox(frame: Phaser.Textures.Frame): Box | null {
+    if (drawnBoxes.has(frame)) return drawnBoxes.get(frame) ?? null;
+
+    const { cutX, cutY, cutWidth: w, cutHeight: h } = frame;
+    let box: Box | null;
+
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (!context) throw new Error('No 2D canvas.');
+
+        context.drawImage(
+            frame.source.image as CanvasImageSource,
+            cutX,
+            cutY,
+            w,
+            h,
+            0,
+            0,
+            w,
+            h,
+        );
+        const alpha = context.getImageData(0, 0, w, h).data;
+        const pixels: Box[] = [];
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                if (alpha[(y * w + x) * 4 + 3] !== 0) {
+                    pixels.push({
+                        left: x,
+                        right: x + 1,
+                        top: y,
+                        bottom: y + 1,
+                    });
+                }
+            }
+        }
+
+        box = around(pixels);
+    } catch {
+        // Pixels that can't be read: the whole frame, as before.
+        box = { left: 0, right: w, top: 0, bottom: h };
+    }
+
+    drawnBoxes.set(frame, box);
+
+    return box;
+}
+
 /** A pose shown instead of walking or standing. Local only until poses are server state (docs/assets-plan.md §14.5). */
 export type AvatarPose = 'stand' | 'sit' | 'wave';
 
@@ -178,9 +247,38 @@ export class AvatarView {
         );
     }
 
-    /** The doll's box in world pixels, without the name above it. */
-    get bounds(): Phaser.Geom.Rectangle {
-        return this.body.getBounds();
+    /**
+     * The doll's box in world pixels, without the name above it: around the
+     * pixels its layers draw, not their frames, whose empty margins reach a
+     * tile to either side and would fade a piece standing beside it.
+     */
+    get box(): Box {
+        const boxes = [this.body, ...this.layers.map((l) => l.image)].flatMap(
+            (image) => {
+                const drawn = drawnBox(image.frame);
+
+                if (!drawn) return [];
+
+                const frame = image.getBounds();
+                const scale = frame.height / image.frame.cutHeight;
+                // Mirrored, the drawn pixels sit as far in from the right as they were from the left.
+                const from = this.mirrored
+                    ? image.frame.cutWidth - drawn.right
+                    : drawn.left;
+                const left = frame.left + from * scale;
+
+                return [
+                    {
+                        left,
+                        right: left + (drawn.right - drawn.left) * scale,
+                        top: frame.top + drawn.top * scale,
+                        bottom: frame.top + drawn.bottom * scale,
+                    },
+                ];
+            },
+        );
+
+        return around(boxes) ?? this.body.getBounds();
     }
 
     /** What the camera follows. */

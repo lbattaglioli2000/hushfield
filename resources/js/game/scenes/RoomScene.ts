@@ -282,7 +282,7 @@ export class RoomScene
         const self = this.avatars.get(this.selfId);
         const seen =
             self && selfAt
-                ? { at: selfAt, box: self.bounds, depthY: self.target.y }
+                ? { at: selfAt, box: self.box, depthY: self.target.y }
                 : null;
         this.buildings?.update(seen, delta, this.stationOnAir);
         this.furniture?.update(seen, delta);
