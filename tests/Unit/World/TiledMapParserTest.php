@@ -356,3 +356,55 @@ it('rejects walls it cannot draw', function (string $map, string $message) {
     'an edge that is not one' => [fn () => walledHome('plaster', sides: 'front'), 'The map property "wall_sides" must be "both", "left" or "right".'],
     'sides without walls' => [fn () => walledHome(null, sides: 'left'), 'The map property "wall_sides" needs a "walls" style'],
 ]);
+
+/**
+ * test-home with room pieces on a "props" layer, as Tiled saves them: tiles of
+ * the props tileset (first GID 1001), each pinned by its footprint's front
+ * corner. tests/fixtures/art/props/props.json has a 1 × 1 washer that
+ * switches on (tiles 0–3, and 4–7 on) and a 2 × 1 bench that doesn't
+ * (tiles 8–11), one tile per facing.
+ *
+ * @param  list<array{int, int, int}>  $pieces  [tile, front corner x, front corner y]
+ */
+function furnishedHome(array $pieces): string
+{
+    config(['hushfield.assets.sources' => dirname(__DIR__, 2).'/fixtures/art']);
+    $map = json_decode(fixtureMap('test-home'), true);
+    $map['tilesets'][] = ['firstgid' => 1001, 'name' => 'props', 'columns' => 0, 'tilecount' => 12, 'tiles' => []];
+    $map['layers'][] = ['id' => 6, 'name' => 'props', 'type' => 'objectgroup', 'objects' => array_map(
+        fn (array $piece): array => ['gid' => 1001 + $piece[0], 'x' => $piece[1] * 32.0, 'y' => $piece[2] * 32.0, 'width' => 64, 'height' => 64, 'rotation' => 0],
+        $pieces,
+    )];
+
+    return (string) json_encode($map);
+}
+
+it('walls off the room pieces placed in Tiled, each on the tiles its facing covers', function () {
+    $map = (new TiledMapParser)->parse(furnishedHome([
+        // A washer facing 0, its front corner at (4, 1): it stands on (3, 0).
+        [0, 4, 1],
+        // The bench at facing 1 is turned, 1 wide and 2 deep: front corner (2, 2), so it stands on (1, 0) and (1, 1).
+        [9, 2, 2],
+        // A washer switched on, facing 1: it stands on (4, 2) all the same.
+        [5, 5, 3],
+    ]));
+    $walkable = fn (int $x, int $y): bool => $map->grid->isWalkable($x, $y);
+
+    expect([$walkable(3, 0), $walkable(1, 0), $walkable(1, 1), $walkable(4, 2)])->each->toBeFalse()
+        ->and([$walkable(0, 1), $walkable(2, 1), $walkable(4, 0), $walkable(2, 0), $walkable(4, 1), $walkable(3, 2)])->each->toBeTrue();
+});
+
+it('rejects room pieces that stand where players need to, or that it cannot read', function (array $pieces, string $message) {
+    expect(fn () => (new TiledMapParser)->parse(furnishedHome($pieces)))
+        ->toThrow(InvalidMapException::class, $message);
+})->with([
+    'on a door' => [[[0, 3, 5]], 'The washer at tile (2, 4) stands on a door, at tile (2, 4).'],
+    'on an arrival point' => [[[0, 3, 4]], 'The washer at tile (2, 3) stands on arrival "door", at tile (2, 3).'],
+    'on a spawn' => [[[0, 3, 3]], 'The washer at tile (2, 2) stands on a spawn, at tile (2, 2).'],
+    'off the floor' => [[[0, 6, 1]], 'The washer at tile (5, 0) stands off the floor, at tile (5, 0).'],
+    'on another piece' => [[[8, 2, 1], [0, 2, 1]], 'The washer at tile (1, 0) overlaps the bench at tile (0, 0).'],
+    'walling a corner off' => [[[0, 2, 1], [0, 1, 2]], 'The room pieces wall part of the floor off from the door.'],
+    'flipped' => [[[0x80000000, 1, 1]], 'The washer at tile (0, 0) is flipped or rotated.'],
+    'not in props.json' => [[[16, 1, 1]], "The room piece at tile corner (1, 1) isn't in props/props.json"],
+    'switched on with nothing to play' => [[[12, 2, 1]], 'The bench at tile (0, 0) is placed switched on, but it has nothing to play'],
+]);

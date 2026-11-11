@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { AssetManifest } from '../protocol/types';
+import type { ArtAnimation, AssetManifest } from '../protocol/types';
 import type { Placement } from '../shared/buildings';
 import { hidesPlayer, placeBuilding } from '../shared/buildings';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
@@ -18,14 +18,15 @@ export function animationTexture(slug: string, part: string): string {
     return `building-animation:${slug}/${part}`;
 }
 
-/** A building animation on screen: one piece per strip it overlaps, all on the same frame. */
-type DrawnAnimation = {
+/** An animation on screen over a building or a room piece: one piece per strip it overlaps, all on the same frame. */
+export type PlayingAnimation = {
     pieces: Phaser.GameObjects.Image[];
-    onAirOnly: boolean;
     frameMs: number[];
     totalMs: number;
     frame: number;
 };
+
+type DrawnAnimation = PlayingAnimation & { onAirOnly: boolean };
 
 /**
  * Animations that play only while WHSH has a broadcast on the air, by
@@ -112,16 +113,17 @@ export class BuildingLayer {
                                   animationTexture(building.name, part),
                               ),
                           )
-                          .map(([part, animation]) =>
-                              this.animate(
+                          .map(([part, animation]) => ({
+                              ...animateOver(
+                                  scene,
                                   animationTexture(building.name, part),
                                   animation,
                                   placement,
-                                  ON_AIR_ANIMATIONS.has(
-                                      `${building.name}/${part}`,
-                                  ),
                               ),
-                          )
+                              onAirOnly: ON_AIR_ANIMATIONS.has(
+                                  `${building.name}/${part}`,
+                              ),
+                          }))
                     : [];
             // Named over its door, where door labels go, so it stays on screen however tall the building is.
             const door = map.toWorld(...building.door.tile);
@@ -202,15 +204,12 @@ export class BuildingLayer {
 
         for (const drawn of this.drawn) {
             for (const animation of drawn.animations) {
-                const frame =
+                showFrame(
+                    animation,
                     this.still || (animation.onAirOnly && !onAir)
                         ? 0
-                        : frameAt(animation, now);
-
-                if (frame !== animation.frame) {
-                    animation.frame = frame;
-                    animation.pieces.forEach((piece) => piece.setFrame(frame));
-                }
+                        : frameAt(animation, now),
+                );
             }
 
             drawn.faded =
@@ -239,45 +238,6 @@ export class BuildingLayer {
             );
             label?.destroy();
         }
-    }
-
-    /**
-     * An animation over a building, cropped into one piece for each strip of
-     * the building it overlaps, each drawn just over its strip.
-     */
-    private animate(
-        texture: string,
-        animation: AssetManifest['animations'][string][string],
-        placement: Placement,
-        onAirOnly: boolean,
-    ): DrawnAnimation {
-        const { x, y, width, height } = animation;
-        const pieces = placement.strips.flatMap((strip) => {
-            const left = Math.max(strip.offsetX, x);
-            const right = Math.min(strip.offsetX + strip.width, x + width);
-            const top = Math.max(strip.offsetY, y);
-            const bottom = Math.min(strip.offsetY + strip.height, y + height);
-
-            if (left >= right || top >= bottom) return [];
-
-            return [
-                this.scene.add
-                    .image(placement.left + x, placement.top + y, texture, 0)
-                    .setOrigin(0, 0)
-                    .setCrop(left - x, top - y, right - left, bottom - top)
-                    .setDepth(
-                        DEPTH.avatars + strip.depthY + ANIMATION_DEPTH_EPSILON,
-                    ),
-            ];
-        });
-
-        return {
-            pieces,
-            onAirOnly,
-            frameMs: animation.frame_ms,
-            totalMs: animation.frame_ms.reduce((sum, ms) => sum + ms, 0),
-            frame: 0,
-        };
     }
 
     /**
@@ -406,8 +366,60 @@ export class BuildingLayer {
     }
 }
 
+/**
+ * An animation over a picture placed like a building, cropped into one piece
+ * for each strip of the picture it overlaps, each drawn just over its strip.
+ * `flipped` draws it mirrored, over a picture drawn mirrored.
+ */
+export function animateOver(
+    scene: Phaser.Scene,
+    texture: string,
+    animation: ArtAnimation,
+    placement: Placement,
+    flipped = false,
+): PlayingAnimation {
+    const { y, width, height } = animation;
+    // Mirrored, the box sits as far in from the right as it was from the left.
+    const x = flipped ? placement.width - animation.x - width : animation.x;
+    const pieces = placement.strips.flatMap((strip) => {
+        const left = Math.max(strip.offsetX, x);
+        const right = Math.min(strip.offsetX + strip.width, x + width);
+        const top = Math.max(strip.offsetY, y);
+        const bottom = Math.min(strip.offsetY + strip.height, y + height);
+
+        if (left >= right || top >= bottom) return [];
+
+        return [
+            scene.add
+                .image(placement.left + x, placement.top + y, texture, 0)
+                .setOrigin(0, 0)
+                // Flipped first: a crop is measured on the image as it is drawn.
+                .setFlipX(flipped)
+                .setCrop(left - x, top - y, right - left, bottom - top)
+                .setDepth(
+                    DEPTH.avatars + strip.depthY + ANIMATION_DEPTH_EPSILON,
+                ),
+        ];
+    });
+
+    return {
+        pieces,
+        frameMs: animation.frame_ms,
+        totalMs: animation.frame_ms.reduce((sum, ms) => sum + ms, 0),
+        frame: 0,
+    };
+}
+
+/** Shows frame `frame` of an animation, if it isn't showing already. */
+export function showFrame(animation: PlayingAnimation, frame: number): void {
+    if (frame !== animation.frame) {
+        animation.frame = frame;
+        animation.pieces.forEach((piece) => piece.setFrame(frame));
+    }
+}
+
 /** The frame showing `nowMs` into an animation that started at 0 and loops. */
-function frameAt(animation: DrawnAnimation, nowMs: number): number {
+export function frameAt(animation: PlayingAnimation, nowMs: number): number {
     let t = nowMs % animation.totalMs;
 
     for (let n = 0; n < animation.frameMs.length; n++) {

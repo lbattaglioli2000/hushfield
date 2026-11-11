@@ -17,7 +17,8 @@ use Illuminate\Http\Request;
  * resources/maps/README.md, "Art"); furniture art comes with each item
  * (Item::toPayload), as it may be uploaded. Anything without art is drawn
  * as a placeholder. The avatar rig comes with the base body and hair
- * (docs/assets-plan.md §14).
+ * (docs/assets-plan.md §14). Room pieces come in slot order, with their
+ * sizes, for the props maps place (resources/maps/README.md, "Room pieces").
  */
 final class AssetManifestController extends Controller
 {
@@ -48,6 +49,20 @@ final class AssetManifestController extends Controller
             };
         }
 
+        // Room pieces in slot order, as the props tileset numbers them in maps, with the facings drawn
+        // and, for a piece that switches on, the animation drawn over each.
+        $props = array_map(fn (?array $prop): ?array => $prop === null ? null : [
+            ...$prop,
+            'art' => (object) array_filter(array_map(
+                fn (int $facing): ?string => isset($index['files']["props/{$prop['slug']}/{$facing}"]) ? "{$base}/{$index['files']["props/{$prop['slug']}/{$facing}"]}" : null,
+                range(0, 3),
+            )),
+            ...(isset($prop['animations']) ? ['animations' => (object) array_combine(array_keys($prop['animations']), array_map(
+                fn (array $animation, int $facing): array => [...$animation, 'url' => "{$base}/{$index['files']["props/{$prop['slug']}/{$facing}-on"]}"],
+                $prop['animations'], array_keys($prop['animations']),
+            ))] : []),
+        ], $index['props'] ?? []);
+
         $response = response()->json([
             'version' => $index['version'],
             'images' => array_map(fn (string $name): string => "{$base}/{$index['files'][$name]}", $images),
@@ -56,6 +71,7 @@ final class AssetManifestController extends Controller
             'walls' => (object) array_map(fn (array $parts): object => (object) $parts, $walls),
             // The rig, and the base body and hair styles by facing; wearables' art comes with each resident.
             'avatar' => isset($index['avatar']) ? [...$index['avatar'], 'base' => (object) $avatar['base'], 'hair' => (object) $avatar['hair']] : null,
+            'props' => $props,
         ])->header('Cache-Control', 'no-cache');
 
         $response->setEtag(hash('xxh128', (string) $response->getContent()));

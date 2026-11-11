@@ -178,11 +178,12 @@ export type InstanceReassignedEvent = Stamped & {
 };
 
 /**
- * A part of a building that moves: a strip of `frames` frames, each
- * `width` × `height`, drawn with its top left `x`, `y` game pixels into the
- * building's art. Frame n shows for `frame_ms[n]`, then the strip loops.
+ * A part of a picture that moves, a building's or a room piece's at one
+ * facing: a strip of `frames` frames, each `width` × `height`, drawn with its
+ * top left `x`, `y` game pixels into the picture. Frame n shows for
+ * `frame_ms[n]`, then the strip loops.
  */
-export type BuildingAnimation = {
+export type ArtAnimation = {
     url: string;
     x: number;
     y: number;
@@ -198,11 +199,27 @@ export type AssetManifest = {
     /** Art for buildings that have it, by building slug. The rest are drawn as placeholders. */
     buildings: Record<string, string>;
     /** Animations drawn over building art, by building slug and part. */
-    animations: Record<string, Record<string, BuildingAnimation>>;
+    animations: Record<string, Record<string, ArtAnimation>>;
     /** Art for wall styles that have it, by style and part: `left`, `right`, `left-door`, `right-door`. */
     walls: Record<string, Record<string, string>>;
     /** Null until the build has avatar art: residents are then one tinted sprite. */
     avatar: AvatarRig | null;
+    /**
+     * Room pieces in slot order, as maps number them in their props tileset
+     * (null for a retired piece): the tiles each covers before any turn, and
+     * its art by facing for the facings drawn.
+     */
+    props?: Array<RoomPiece | null>;
+};
+
+/** A piece of a room's own furniture, placed in its map in Tiled, such as the Coin Laundry's washers. */
+export type RoomPiece = {
+    slug: string;
+    wide: number;
+    deep: number;
+    art: Record<string, string>;
+    /** What plays over each facing's art, by facing, while the piece is placed switched on. */
+    animations?: Record<string, ArtAnimation>;
 };
 
 /** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */

@@ -4,14 +4,16 @@ Everything you need to draw for Hushfield and get it into the game. Start
 with the guide for what you're drawing; each one walks through picking a
 template, drawing, exporting and handing it over.
 
-| Drawing…                                      | Guide                          | Templates                                                    | How it gets in     |
-| --------------------------------------------- | ------------------------------ | ------------------------------------------------------------ | ------------------ |
-| Ground tiles (grass, stone, floors)           | [tiles.md](tiles.md)           | [`templates/tiles/`](templates/tiles/)                       | send to Luigi      |
-| Furniture                                     | [furniture.md](furniture.md)   | [`templates/furniture/`](templates/furniture/)               | upload it yourself |
-| Buildings (the outside)                       | [buildings.md](buildings.md)   | [`templates/buildings/`](templates/buildings/)               | send to Luigi      |
-| Moving parts of a building (a blinking light) | [animations.md](animations.md) | the building's own canvas                                    | send to Luigi      |
-| Walls and wallpaper (indoors)                 | [walls.md](walls.md)           | [`templates/walls/`](templates/walls/), one folder per style | send to Luigi      |
-| Avatars, hair and clothes (test first)        | [avatars.md](avatars.md)       | [`templates/avatars/`](templates/avatars/)                   | send to Luigi      |
+| Drawing…                                       | Guide                                                              | Templates                                                    | How it gets in                |
+| ---------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------ | ----------------------------- |
+| Ground tiles (grass, stone, floors)            | [tiles.md](tiles.md)                                               | [`templates/tiles/`](templates/tiles/)                       | send to Luigi                 |
+| Furniture                                      | [furniture.md](furniture.md)                                       | [`templates/furniture/`](templates/furniture/)               | upload it yourself            |
+| Room pieces (the Coin Laundry's washers)       | [room-pieces.md](room-pieces.md)                                   | [`templates/furniture/`](templates/furniture/)               | send to Luigi, place in Tiled |
+| Buildings (the outside)                        | [buildings.md](buildings.md)                                       | [`templates/buildings/`](templates/buildings/)               | send to Luigi                 |
+| Moving parts of a building (a blinking light)  | [animations.md](animations.md)                                     | the building's own canvas                                    | send to Luigi                 |
+| Moving parts of a room piece (a washer's drum) | [room-pieces.md](room-pieces.md#2b-moving-parts-a-washer-thats-on) | the piece's own canvas                                       | send to Luigi, place in Tiled |
+| Walls and wallpaper (indoors)                  | [walls.md](walls.md)                                               | [`templates/walls/`](templates/walls/), one folder per style | send to Luigi                 |
+| Avatars, hair and clothes (test first)         | [avatars.md](avatars.md)                                           | [`templates/avatars/`](templates/avatars/)                   | send to Luigi                 |
 
 Avatars start with **the test** in [avatars.md](avatars.md); draw the rest
 only once Luigi has approved it. Not ready to draw yet: the **markers**
@@ -31,7 +33,9 @@ under players' feet.
 - **Export PNG at 100%** with a transparent background and no smoothing. In
   Aseprite: _File → Export As…_, PNG, scale 100%.
 - **Names** are lowercase, words joined with hyphens: `love-seat`, not
-  `Love Seat.png`. Name a file like its template.
+  `Love Seat.png`. Name a file the way its guide says: tiles, walls and
+  buildings like their template; furniture and room pieces by facing, in a
+  folder named after the piece (`washer/0.png`).
 - **Changing something?** Send it again under the same name. Never add `-v2`
   or `-final`; the game keeps the history.
 - **Send the `.aseprite`** beside the PNG if you like, as long as it's under

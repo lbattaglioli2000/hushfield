@@ -3,7 +3,9 @@
 namespace App\Domain\World;
 
 use App\Domain\Assets\AssetBuilder;
+use App\Domain\Assets\PropRegistry;
 use App\Domain\Assets\TileRegistry;
+use App\Domain\Housing\HomeFloor;
 use JsonException;
 
 /**
@@ -12,7 +14,7 @@ use JsonException;
  * Requirements: an uncompressed tile layer named "walkable" (any non-zero
  * tile is walkable) and an object layer named "spawns" with at least one
  * object on a walkable tile. Optional: object layers "exits", "arrivals",
- * "fixtures" and "buildings", and the map properties "name", "kind",
+ * "fixtures", "buildings" and "props", and the map properties "name", "kind",
  * "capacity", "frequency", "home_frequency", "town_x", "town_y", "walls" and
  * "wall_sides".
  * resources/maps/README.md describes each one.
@@ -27,7 +29,10 @@ final class TiledMapParser
 
     private const float BAND_HIGH = 108.5;
 
-    public function __construct(private readonly TileRegistry $tiles = new TileRegistry) {}
+    public function __construct(
+        private readonly TileRegistry $tiles = new TileRegistry,
+        private readonly PropRegistry $props = new PropRegistry,
+    ) {}
 
     public function parse(string $contents): ImportedMap
     {
@@ -80,6 +85,19 @@ final class TiledMapParser
                     $cells[$y * $width + $x] = '0';
                 }
             }
+        }
+
+        // Players walk around room pieces, which may not wall any of the floor off from the door.
+        $props = $this->props($this->optionalLayer($layers, AssetBuilder::PROPS), $map, $tileHeight, new WalkabilityGrid($width, $height, $cells, $spawns, $exits, $arrivals, $fixtures));
+
+        foreach ($props as $prop) {
+            foreach ($prop->tiles() as [$x, $y]) {
+                $cells[$y * $width + $x] = '0';
+            }
+        }
+
+        if ($props !== [] && ! HomeFloor::allReachableFromDoor(new WalkabilityGrid($width, $height, $cells, $spawns, $exits))) {
+            throw new InvalidMapException('The room pieces wall part of the floor off from the door. Leave a way through.');
         }
 
         $properties = $this->properties($map);
@@ -342,6 +360,99 @@ final class TiledMapParser
         }
 
         return $buildings;
+    }
+
+    /**
+     * Room pieces on the "props" layer: tiles from the props tileset, placed
+     * with Insert Tile. Tiled pins each by the middle of its bottom edge, which
+     * the build lines up with the footprint's front corner, so the object's
+     * position, rounded to the nearest tile corner, is that corner. Each piece
+     * stands on open floor, clear of doors, arrival points, spawns, fixtures
+     * and other pieces. A piece placed switched on (the tileset's second four
+     * tiles for it) must be one that switches on, with frame times.
+     *
+     * @param  array<mixed>  $layer
+     * @param  array<mixed>  $map
+     * @return list<Footprint>
+     */
+    private function props(array $layer, array $map, int $tileHeight, WalkabilityGrid $grid): array
+    {
+        $objects = is_array($layer['objects'] ?? null) ? $layer['objects'] : [];
+
+        if ($objects === []) {
+            return [];
+        }
+
+        $firstGid = null;
+
+        foreach (is_array($map['tilesets'] ?? null) ? $map['tilesets'] : [] as $tileset) {
+            if (is_array($tileset) && ($tileset['name'] ?? null) === AssetBuilder::PROPS && is_int($tileset['firstgid'] ?? null)) {
+                $firstGid = $tileset['firstgid'];
+            }
+        }
+
+        $slots = $this->props->slots();
+        $taken = [
+            ...array_map(fn (array $tile): array => ['a spawn', ...$tile], $grid->spawns),
+            ...array_map(fn (string $name, array $tile): array => ["arrival \"{$name}\"", ...$tile], array_keys($grid->arrivals), $grid->arrivals),
+            ...array_map(fn (MapFixture $fixture): array => ["fixture \"{$fixture->name}\"", $fixture->x, $fixture->y], $grid->fixtures),
+        ];
+        /** @var list<array{string, Footprint}> $placed */
+        $placed = [];
+
+        foreach ($objects as $object) {
+            $gid = is_array($object) ? ($object['gid'] ?? null) : null;
+
+            if (! is_array($object) || ! is_int($gid) || $firstGid === null || ! is_numeric($object['x'] ?? null) || ! is_numeric($object['y'] ?? null)) {
+                throw new InvalidMapException('Everything on the "props" layer must be a room piece from the props tileset, placed with Insert Tile.');
+            }
+
+            $corner = [(int) round($object['x'] / $tileHeight), (int) round($object['y'] / $tileHeight)];
+            $tile = ($gid & self::GID_MASK) - $firstGid;
+            $prop = $tile >= 0 ? ($slots[intdiv($tile, PropRegistry::TILES)] ?? null) : null;
+
+            if ($prop === null) {
+                throw new InvalidMapException("The room piece at tile corner ({$corner[0]}, {$corner[1]}) isn't in props/props.json, or has been retired.");
+            }
+
+            [$wide, $deep] = PropRegistry::lies($prop, $tile % 4);
+            $piece = new Footprint($corner[0] - $wide, $corner[1] - $deep, $wide, $deep);
+            $what = "The {$prop['slug']} at tile ({$piece->x}, {$piece->y})";
+
+            if ($tile % PropRegistry::TILES >= 4 && ! isset($prop['frame_ms'])) {
+                throw new InvalidMapException("{$what} is placed switched on, but it has nothing to play: props/props.json gives it no frame times.");
+            }
+
+            if (($gid & ~self::GID_MASK) !== 0 || (float) ($object['rotation'] ?? 0) !== 0.0) {
+                throw new InvalidMapException("{$what} is flipped or rotated. Turn it by placing another facing from the props tileset instead.");
+            }
+
+            foreach ($piece->tiles() as [$x, $y]) {
+                if (! $grid->isWalkable($x, $y)) {
+                    throw new InvalidMapException("{$what} stands off the floor, at tile ({$x}, {$y}).");
+                }
+
+                if ($grid->isExit($x, $y)) {
+                    throw new InvalidMapException("{$what} stands on a door, at tile ({$x}, {$y}).");
+                }
+            }
+
+            foreach ($taken as [$where, $x, $y]) {
+                if ($piece->covers($x, $y)) {
+                    throw new InvalidMapException("{$what} stands on {$where}, at tile ({$x}, {$y}).");
+                }
+            }
+
+            foreach ($placed as [$other, $footprint]) {
+                if ($piece->overlaps($footprint)) {
+                    throw new InvalidMapException("{$what} overlaps the {$other} at tile ({$footprint->x}, {$footprint->y}).");
+                }
+            }
+
+            $placed[] = [$prop['slug'], $piece];
+        }
+
+        return array_column($placed, 1);
     }
 
     /**

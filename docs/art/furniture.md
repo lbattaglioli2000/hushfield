@@ -1,7 +1,11 @@
 # Drawing furniture for Hushfield
 
 How to draw a piece of furniture and get it into the game, in five steps.
-Drawing something else? See [all the art guides](README.md).
+This is furniture residents buy for their homes. A room's own machines and
+tables, such as the Coin Laundry's washers, are
+[room pieces](room-pieces.md): drawn the same way, but sent to Luigi and
+placed in Tiled, and they can animate. Drawing something else? See
+[all the art guides](README.md).
 If an upload is refused, the [last table](#if-the-upload-says-no) says why
 and how to fix it.
 

@@ -16,7 +16,7 @@ function scratchArt(): string
 {
     $root = sys_get_temp_dir().'/hushfield-art-'.uniqid();
     File::copyDirectory(resource_path('art'), "{$root}/art");
-    foreach (['buildings', 'walls', 'items', 'avatars'] as $kind) {
+    foreach (['buildings', 'walls', 'items', 'avatars', 'props'] as $kind) {
         File::deleteDirectory("{$root}/art/{$kind}");
     }
     File::ensureDirectoryExists("{$root}/maps");
@@ -318,6 +318,7 @@ function claimAll(string $root): void
         'art/buildings/*/*.png' => ['by' => 'our artist'],
         'art/walls/*/*.png' => ['by' => 'our artist'],
         'art/items/*/*.png' => ['by' => 'our artist'],
+        'art/props/*/*.png' => ['by' => 'our artist'],
     ]));
 }
 
@@ -546,7 +547,193 @@ it('refuses building, wall and furniture art that breaks its canvas rule', funct
         },
         "art/items/stool-0.png isn't a file the build knows.",
     ],
+    'a room piece props.json does not list' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/props/stool");
+            File::put("{$root}/art/props/stool/0.png", standing(32, 16, 10));
+        },
+        "art/props/stool/0.png is for a room piece props/props.json doesn't list.",
+    ],
+    'a room piece drawn turned, at an unturned facing' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/props/bench");
+            File::put("{$root}/art/props/props.json", '[{"slug": "bench", "wide": 2, "deep": 1}]');
+            File::put("{$root}/art/props/bench/0.png", standing(48, 16, 12));
+        },
+        'It stands on a 2 × 1 footprint at facing 0.',
+    ],
+    'a room piece with no art' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/props");
+            File::put("{$root}/art/props/props.json", '[{"slug": "washer", "wide": 1, "deep": 1}]');
+        },
+        'props/props.json lists washer, but it has no art.',
+    ],
 ]);
+
+it('builds room pieces against their size in props.json, and writes the props tileset into maps with a props layer', function () {
+    $root = scratchArt();
+    claimAll($root);
+    File::ensureDirectoryExists("{$root}/art/props/washer");
+    File::ensureDirectoryExists("{$root}/art/props/bench");
+    File::put("{$root}/art/props/props.json", (string) json_encode([['slug' => 'washer', 'wide' => 1, 'deep' => 1], null, ['slug' => 'bench', 'wide' => 2, 'deep' => 1]]));
+    File::put("{$root}/art/props/washer/0.png", standing(32, 16, 20));
+    // The 2 × 1 bench drawn only turned, at facing 1: 1 wide and 2 deep, its bottom corner 16 in.
+    File::put("{$root}/art/props/bench/1.png", standing(48, 16, 12));
+    $library = json_decode((string) File::get("{$root}/maps/library.json"), true);
+    $library['layers'][] = ['id' => 99, 'name' => 'props', 'type' => 'objectgroup', 'objects' => []];
+    File::put("{$root}/maps/library.json", (string) json_encode($library));
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $index = builtIndex();
+    $tilesets = fn (string $map): array => array_column(json_decode((string) File::get("{$root}/maps/{$map}.json"), true)['tilesets'], null, 'name');
+    $props = $tilesets('library')['props'];
+
+    expect($index['sizes'])->toMatchArray(['props/washer/0' => [64, 72], 'props/bench/1' => [96, 72]])
+        ->and($index['props'])->toBe([['slug' => 'washer', 'wide' => 1, 'deep' => 1], null, ['slug' => 'bench', 'wide' => 2, 'deep' => 1]])
+        // Eight tiles a slot, four facings off and four on, numbered by slot: the retired slot keeps its numbers.
+        // Neither piece switches on, so neither has tiles 4 to 7.
+        ->and([$props['firstgid'], $props['objectalignment']])->toBe([1001, 'bottom'])
+        ->and(array_column($props['tiles'], 'id'))->toBe([0, 1, 2, 3, 16, 17, 18, 19])
+        ->and($tilesets('lantern-street'))->not->toHaveKey('props');
+
+    // Tiled pins a tile by the middle of its bottom edge, so each picture is padded to put the footprint's front corner there.
+    $bench = builtImage('props/bench/1');
+    $preview = fn (int $facing): Image => Png::decode((string) File::get("{$root}/maps/props/bench-{$facing}.png"));
+
+    expect([$preview(1)->width, $preview(0)->width])->toBe([128, 128])
+        // Turned, the corner is 32 in: 32 of padding on the left.
+        ->and($preview(1)->crop(32, 0, 96, 72)->equals($bench))->toBeTrue()
+        ->and($preview(1)->crop(0, 0, 32, 72)->equals(Image::blank(32, 72)))->toBeTrue()
+        // Facing 0 isn't drawn: facing 1 mirrored stands in, as in the game, its corner 64 in already.
+        ->and($preview(0)->crop(0, 0, 96, 72)->equals($bench->mirrored()))->toBeTrue();
+
+    $base = asset('assets');
+
+    expect($this->getJson(route('assets.manifest'))->assertOk()->json('props'))->toBe([
+        ['slug' => 'washer', 'wide' => 1, 'deep' => 1, 'art' => ['0' => "{$base}/{$index['files']['props/washer/0']}"]],
+        null,
+        ['slug' => 'bench', 'wide' => 2, 'deep' => 1, 'art' => ['1' => "{$base}/{$index['files']['props/bench/1']}"]],
+    ]);
+});
+
+/** A 1 × 1 room piece's animation, two frames of 32 × 36: a red 2 × 2 square at (10, 12), then at (12, 14). */
+function washerStrip(): string
+{
+    $red = new Image(2, 2, str_repeat("\xFF\0\0\xFF", 4));
+
+    return Png::encode(Image::blank(64, 36)->paste($red, 10, 12)->paste($red, 32 + 12, 14));
+}
+
+it('trims a room piece\'s animation to what moves, and gives the props tileset a switched-on tile for every facing', function () {
+    $root = scratchArt();
+    claimAll($root);
+    File::ensureDirectoryExists("{$root}/art/props/washer");
+    File::put("{$root}/art/props/props.json", '[{"slug": "washer", "wide": 1, "deep": 1, "frame_ms": 100}]');
+    File::put("{$root}/art/props/washer/0.png", standing(32, 16, 20));
+    File::put("{$root}/art/props/washer/0-on.png", washerStrip());
+    // Its back at facing 2, with the same animation drawn over it, a frame time each.
+    File::put("{$root}/art/props/props.json", '[{"slug": "washer", "wide": 1, "deep": 1, "frame_ms": [100, 300]}]');
+    File::put("{$root}/art/props/washer/2.png", standing(32, 16, 20));
+    File::put("{$root}/art/props/washer/2-on.png", washerStrip());
+    $library = json_decode((string) File::get("{$root}/maps/library.json"), true);
+    $library['layers'][] = ['id' => 99, 'name' => 'props', 'type' => 'objectgroup', 'objects' => []];
+    File::put("{$root}/maps/library.json", (string) json_encode($library));
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $index = builtIndex();
+    // The box both squares fall in, 4 × 4 art pixels from (10, 12), doubled.
+    $animation = ['x' => 20, 'y' => 24, 'width' => 8, 'height' => 8, 'frames' => 2, 'frame_ms' => [100, 300]];
+
+    expect($index['props'][0]['animations'])->toBe([0 => $animation, 2 => $animation])
+        ->and($index['sizes']['props/washer/0-on'])->toBe([16, 8]);
+
+    $tiles = array_column(array_column(json_decode((string) File::get("{$root}/maps/library.json"), true)['tilesets'], null, 'name')['props']['tiles'], null, 'id');
+    $preview = fn (int $tile): Image => Png::decode((string) File::get("{$root}/maps/{$tiles[$tile]['image']}"));
+    $square = Image::blank(4, 4)->paste(new Image(4, 4, str_repeat("\xFF\0\0\xFF", 16)), 0, 0);
+
+    expect(array_keys($tiles))->toBe([0, 1, 2, 3, 4, 5, 6, 7])
+        ->and(array_column($tiles[4]['properties'], 'value', 'name'))->toBe(['piece' => 'washer', 'facing' => 0, 'on' => true])
+        // Switched on, the first frame is drawn over the picture, which shows through around it.
+        ->and($preview(4)->crop(20, 24, 4, 4)->equals($square))->toBeTrue()
+        ->and($preview(4)->paste($preview(0)->crop(20, 24, 4, 4), 20, 24)->equals($preview(0)))->toBeTrue()
+        // Facing 3 mirrors facing 0, animation and all.
+        ->and($preview(7)->crop(64 - 24, 24, 4, 4)->equals($square))->toBeTrue();
+
+    $base = asset('assets');
+
+    expect($this->getJson(route('assets.manifest'))->assertOk()->json('props.0.animations'))
+        ->toBe([
+            '0' => [...$animation, 'url' => "{$base}/{$index['files']['props/washer/0-on']}"],
+            '2' => [...$animation, 'url' => "{$base}/{$index['files']['props/washer/2-on']}"],
+        ]);
+});
+
+it('refuses a room piece animation that can\'t play', function (string $props, array $art, string $message) {
+    $root = scratchArt();
+    claimAll($root);
+    File::ensureDirectoryExists("{$root}/art/props/washer");
+    File::put("{$root}/art/props/props.json", $props);
+
+    foreach ($art as $file => $bytes) {
+        File::put("{$root}/art/props/washer/{$file}", $bytes);
+    }
+
+    $this->artisan('hushfield:build-assets')->expectsOutputToContain($message)->assertFailed();
+})->with([
+    'no frame times' => [
+        '[{"slug": "washer", "wide": 1, "deep": 1}]',
+        ['0.png' => standing(32, 16, 20), '0-on.png' => washerStrip()],
+        'art/props/washer/0-on.png needs its frame times in props/props.json: add "frame_ms": 200 to washer',
+    ],
+    'a time for each of the wrong number of frames' => [
+        '[{"slug": "washer", "wide": 1, "deep": 1, "frame_ms": [100, 100, 100]}]',
+        ['0.png' => standing(32, 16, 20), '0-on.png' => washerStrip()],
+        'or give a list of 2 times, one for each frame.',
+    ],
+    'frame times with nothing to play' => [
+        '[{"slug": "washer", "wide": 1, "deep": 1, "frame_ms": 100}]',
+        ['0.png' => standing(32, 16, 20)],
+        'props/props.json gives washer frame times, but it has no animation.',
+    ],
+    'an animation over a facing not drawn' => [
+        '[{"slug": "washer", "wide": 1, "deep": 1, "frame_ms": 100}]',
+        ['0.png' => standing(32, 16, 20), '1-on.png' => washerStrip()],
+        "art/props/washer/1-on.png is drawn over art/props/washer/1.png, which isn't there.",
+    ],
+    'frames another size than the picture' => [
+        '[{"slug": "washer", "wide": 1, "deep": 1, "frame_ms": 100}]',
+        ['0.png' => standing(32, 16, 24), '0-on.png' => washerStrip()],
+        'its frames must be 32 × 40, like art/props/washer/0.png, side by side.',
+    ],
+]);
+
+it('moves the props tileset past the ground tiles once they grow into it, and the pieces placed with it', function () {
+    $root = scratchArt();
+    claimAll($root);
+    File::ensureDirectoryExists("{$root}/art/props/washer");
+    File::put("{$root}/art/props/props.json", (string) json_encode([['slug' => 'washer', 'wide' => 1, 'deep' => 1], null, ['slug' => 'bench', 'wide' => 2, 'deep' => 1]]));
+    File::put("{$root}/art/props/washer/0.png", standing(32, 16, 20));
+    File::ensureDirectoryExists("{$root}/art/props/bench");
+    File::put("{$root}/art/props/bench/1.png", standing(48, 16, 12));
+    // Tiled numbers the props tileset straight after the ground tiles on save: here, as if there had been only one.
+    $library = json_decode((string) File::get("{$root}/maps/library.json"), true);
+    $library['tilesets'][] = ['firstgid' => 2, 'name' => 'props', 'columns' => 0, 'tilecount' => 0, 'tiles' => []];
+    $library['layers'][] = ['id' => 99, 'name' => 'props', 'type' => 'objectgroup', 'objects' => [
+        ['id' => 1, 'gid' => 2, 'x' => 64.0, 'y' => 64.0],
+        // The bench at facing 0, flipped: the flip bit stays for the importer to refuse.
+        ['id' => 2, 'gid' => 0x80000000 | (2 + 16), 'x' => 128.0, 'y' => 64.0],
+    ]];
+    File::put("{$root}/maps/library.json", (string) json_encode($library));
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $map = json_decode((string) File::get("{$root}/maps/library.json"), true);
+    $props = array_column($map['tilesets'], null, 'name')['props'];
+    $placed = array_column(array_column($map['layers'], null, 'name')['props']['objects'], 'gid');
+
+    expect($props['firstgid'])->toBe(1001)
+        ->and($placed)->toBe([1001, 0x80000000 | 1017]);
+});
 
 it('reports how much of an item\'s art is built, counting facings the game mirrors or borrows', function () {
     $root = scratchArt();

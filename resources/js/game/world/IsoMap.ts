@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
-import type { FixtureKind, Tile } from '../protocol/types';
+import type { FixtureKind, RoomPiece, Tile } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
 import type { Footprint } from '../shared/footprint';
 import { centreOf, covers, tilesOf } from '../shared/footprint';
+import type { FurniturePiece } from '../shared/furniture';
+import { placedFootprint, roomPieces } from '../shared/furniture';
 import {
     screenToTile,
     TILE_FACE_TOP,
@@ -24,6 +26,7 @@ export const MAP_LAYERS = {
     exits: 'exits',
     fixtures: 'fixtures',
     buildings: 'buildings',
+    props: 'props',
     screen: 'screen',
 } as const;
 
@@ -82,6 +85,8 @@ export class IsoMap {
     readonly doors: MapDoor[];
     readonly fixtures: MapFixture[];
     readonly buildings: MapBuilding[];
+    /** The room's own furniture, placed in Tiled on its "props" layer, such as the Coin Laundry's washers. */
+    readonly props: FurniturePiece[];
     /**
      * Where the room's TV hangs, if it has one: on the right back wall, as
      * wide as the stretch of wall it spans, a little above the floor.
@@ -103,7 +108,11 @@ export class IsoMap {
         text: Phaser.GameObjects.Text;
     }> = [];
 
-    constructor(scene: Phaser.Scene, key: string) {
+    constructor(
+        scene: Phaser.Scene,
+        key: string,
+        pieces: Array<RoomPiece | null> = [],
+    ) {
         const map = scene.make.tilemap({ key });
         const tileset = map.addTilesetImage(
             MAP_LAYERS.tileset,
@@ -191,6 +200,21 @@ export class IsoMap {
                 if (!covers(building.door, [x, y])) {
                     cells[y * map.width + x] = 0;
                 }
+            }
+        }
+
+        // So do the room's own pieces: players walk around them.
+        this.props = roomPieces(
+            objects(MAP_LAYERS.props),
+            map.imageCollections.find(
+                (collection) => collection.name === MAP_LAYERS.props,
+            )?.firstgid ?? null,
+            pieces,
+        );
+
+        for (const piece of this.props) {
+            for (const [x, y] of tilesOf(placedFootprint(piece))) {
+                cells[y * map.width + x] = 0;
             }
         }
 

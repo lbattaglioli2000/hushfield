@@ -65,6 +65,36 @@ final readonly class Image
         return new self($this->width, $this->height, $pixels);
     }
 
+    /** A copy with `image` drawn over it at (x, y): its clear pixels leave what was there. For solid art. */
+    public function over(self $image, int $x, int $y): self
+    {
+        $pixels = $this->pixels;
+
+        for ($row = 0; $row < $image->height; $row++) {
+            for ($col = 0; $col < $image->width; $col++) {
+                $pixel = substr($image->pixels, ($row * $image->width + $col) * 4, 4);
+
+                if ($pixel[3] !== "\0") {
+                    $pixels = substr_replace($pixels, $pixel, (($y + $row) * $this->width + $x + $col) * 4, 4);
+                }
+            }
+        }
+
+        return new self($this->width, $this->height, $pixels);
+    }
+
+    /** Flipped left to right. */
+    public function mirrored(): self
+    {
+        $pixels = '';
+
+        for ($y = 0; $y < $this->height; $y++) {
+            $pixels .= implode('', array_reverse(str_split(substr($this->pixels, $y * $this->width * 4, $this->width * 4), 4)));
+        }
+
+        return new self($this->width, $this->height, $pixels);
+    }
+
     public function crop(int $x, int $y, int $width, int $height): self
     {
         $pixels = '';

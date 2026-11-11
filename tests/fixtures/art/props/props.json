@@ -1,0 +1,4 @@
+[
+    {"slug": "washer", "wide": 1, "deep": 1, "frame_ms": 120},
+    {"slug": "bench", "wide": 2, "deep": 1}
+]

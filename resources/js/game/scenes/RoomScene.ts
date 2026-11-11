@@ -18,6 +18,7 @@ import type {
 import { pathState } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
+import type { FurniturePiece } from '../shared/furniture';
 import { withFurniture } from '../shared/furniture';
 import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { positionOf } from '../shared/pathClock';
@@ -43,6 +44,7 @@ import {
     FurnitureLayer,
     itemTexture,
     mirroredTexture,
+    propAnimationTexture,
 } from '../world/FurnitureLayer';
 import { HouseLights } from '../world/HouseLights';
 import { ScreenLayer } from '../world/ScreenLayer';
@@ -416,7 +418,7 @@ export class RoomScene
             this.screen = null;
             this.map?.destroy();
             this.fishingLine?.reset();
-            this.map = new IsoMap(this, key);
+            this.map = new IsoMap(this, key, this.assets.manifest.props);
         }
 
         // The room's own art loads with it, before its layers are drawn.
@@ -614,7 +616,7 @@ export class RoomScene
     private setFurniture(placed: PlacedFurniture[]): void {
         this.placed = placed;
         this.decorate.arrange(placed);
-        this.furniture?.set(placed);
+        this.furniture?.set([...(this.map?.props ?? []), ...placed]);
         this.walkGrid = this.map ? withFurniture(this.map.grid, placed) : null;
 
         const files = this.itemFiles(placed);
@@ -660,22 +662,38 @@ export class RoomScene
                 ),
             ),
             ...walls,
-            ...this.itemFiles(placed),
+            ...this.itemFiles([...map.props, ...placed]),
         ];
     }
 
-    /** Each placed item's art, which comes with the item, not the manifest. */
-    private itemFiles(placed: PlacedFurniture[]): AssetFile[] {
+    /** Each piece's art, which comes with its item or the room's pieces, not the manifest's files. */
+    private itemFiles(placed: FurniturePiece[]): AssetFile[] {
         const urls = new Set(
             placed.flatMap((piece) =>
                 Object.values(piece.item.furniture?.art ?? {}),
             ),
         );
 
-        return [...urls].map((url) => ({
-            key: itemTexture(url),
-            url: () => url,
-        }));
+        // A room piece placed switched on also needs the strip that plays over it.
+        const animations = new Map(
+            placed.flatMap((piece) =>
+                Object.values(piece.animations ?? {}).map(
+                    (animation) => [animation.url, animation] as const,
+                ),
+            ),
+        );
+
+        return [
+            ...[...urls].map((url) => ({
+                key: itemTexture(url),
+                url: () => url,
+            })),
+            ...[...animations.values()].map(({ url, width, height }) => ({
+                key: propAnimationTexture(url),
+                url: () => url,
+                spritesheet: { frameWidth: width, frameHeight: height },
+            })),
+        ];
     }
 
     /** Waits for a room's art like a map: the newest snapshot is drawn when it is in. */

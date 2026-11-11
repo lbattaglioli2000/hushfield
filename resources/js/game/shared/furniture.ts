@@ -1,7 +1,13 @@
-import type { PlacedFurniture } from '../protocol/types';
+import type {
+    ArtAnimation,
+    Item,
+    PlacedFurniture,
+    RoomPiece,
+} from '../protocol/types';
 import type { Grid } from './astar';
 import type { Footprint } from './footprint';
 import { covers, mirrored, sameShape, tilesOf, turned } from './footprint';
+import { TILE_HEIGHT } from './iso';
 
 /* How furniture is sized, turned and drawn, and its art: resources/maps/README.md. */
 
@@ -11,6 +17,20 @@ import { covers, mirrored, sameShape, tilesOf, turned } from './footprint';
  * upper right (−y), 3 the lower right (+x).
  */
 export const FACINGS = 4;
+
+/** Tiles each room piece takes in a map's props tileset: its four facings, then the same switched on. */
+export const PROP_TILES = 8;
+
+/**
+ * Anything drawn as furniture, its back corner on tile (x, y), turned
+ * `rotation` quarter turns: a piece placed in a home, or one of a room's own
+ * pieces, placed in its map (see roomPieces).
+ */
+export type FurniturePiece = Pick<PlacedFurniture, 'x' | 'y' | 'rotation'> & {
+    item: Pick<Item, 'slug' | 'swatch' | 'furniture'>;
+    /** For a room piece placed switched on, what plays over its art, by the facing drawn over. */
+    animations?: Record<string, ArtAnimation>;
+};
 
 /** How big a furniture item is, and its shape (a Footprint mask) if it is not a plain block, before any turn. */
 export type FurnitureSize = {
@@ -37,7 +57,7 @@ export function footprintOf(
 }
 
 /** A placed piece's footprint. Items from before footprints existed stand on one tile. */
-export function placedFootprint(piece: PlacedFurniture): Footprint {
+export function placedFootprint(piece: FurniturePiece): Footprint {
     return footprintOf(
         piece.item.furniture ?? { wide: 1, deep: 1 },
         piece.x,
@@ -47,7 +67,7 @@ export function placedFootprint(piece: PlacedFurniture): Footprint {
 }
 
 /** Rugs and other floor pieces are walked over; everything else is walked around. */
-export function blocksWalking(piece: PlacedFurniture): boolean {
+export function blocksWalking(piece: FurniturePiece): boolean {
     return !piece.item.furniture?.floor;
 }
 
@@ -55,7 +75,7 @@ export function blocksWalking(piece: PlacedFurniture): boolean {
  * Where players may walk in a home: the map's grid minus the tiles under
  * blocking furniture, as the server checks it. The map's grid is left as is.
  */
-export function withFurniture(grid: Grid, placed: PlacedFurniture[]): Grid {
+export function withFurniture(grid: Grid, placed: FurniturePiece[]): Grid {
     const walkable = grid.walkable.slice();
 
     for (const piece of placed) {
@@ -69,6 +89,59 @@ export function withFurniture(grid: Grid, placed: PlacedFurniture[]): Grid {
     }
 
     return { ...grid, walkable };
+}
+
+/**
+ * A room's own pieces, from the objects on its map's "props" layer: tiles of
+ * the props tileset (first GID `firstGid`), each pinned by the footprint's
+ * front corner, its facing the tile's place among its piece's first four;
+ * the next four are the same switched on, playing its animations.
+ * Mirrors TiledMapParser::props, which checked them when the map was imported.
+ */
+export function roomPieces(
+    objects: Array<{ gid?: number; x?: number; y?: number }>,
+    firstGid: number | null,
+    registry: Array<RoomPiece | null>,
+): FurniturePiece[] {
+    if (firstGid === null) return [];
+
+    return objects.flatMap((object) => {
+        const tile = (object.gid ?? 0) - firstGid;
+        const piece =
+            tile >= 0 ? registry[Math.floor(tile / PROP_TILES)] : null;
+
+        if (!piece) return [];
+
+        const rotation = tile % FACINGS;
+        const on = tile % PROP_TILES >= FACINGS;
+        const [wide, deep] =
+            rotation % 2 === 0
+                ? [piece.wide, piece.deep]
+                : [piece.deep, piece.wide];
+
+        return [
+            {
+                x: Math.round((object.x ?? 0) / TILE_HEIGHT) - wide,
+                y: Math.round((object.y ?? 0) / TILE_HEIGHT) - deep,
+                rotation,
+                ...(on && piece.animations
+                    ? { animations: piece.animations }
+                    : {}),
+                item: {
+                    slug: piece.slug,
+                    swatch: null,
+                    furniture: {
+                        wide: piece.wide,
+                        deep: piece.deep,
+                        height: TILE_HEIGHT,
+                        floor: false,
+                        shape: null,
+                        art: piece.art,
+                    },
+                },
+            },
+        ];
+    });
 }
 
 /**

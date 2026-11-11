@@ -2,6 +2,7 @@
 
 namespace App\Domain\Assets;
 
+use Closure;
 use FilesystemIterator;
 use Illuminate\Support\Facades\File;
 use RecursiveDirectoryIterator;
@@ -38,6 +39,15 @@ final class AssetBuilder
     /** The tileset every map draws its ground from. */
     public const string TILESET = 'placeholder';
 
+    /** The tileset of room pieces, written into each map with a "props" layer, and that layer's name. */
+    public const string PROPS = 'props';
+
+    /** The props tileset's first GID in a map that doesn't have it yet: well past the ground's. */
+    private const int PROPS_FIRSTGID = 1001;
+
+    /** Every room piece and the tiles it covers: see PropRegistry. */
+    private const string PROP_REGISTRY = 'props/props.json';
+
     /** UI images the game uses, and their size in game pixels (null: any size). */
     private const array UI = [
         'marker' => [64, 32],
@@ -63,7 +73,10 @@ final class AssetBuilder
     /** @var list<string> What the last build let through but wants fixed. */
     private array $warnings = [];
 
-    public function __construct(private readonly TileRegistry $tiles) {}
+    public function __construct(
+        private readonly TileRegistry $tiles,
+        private readonly PropRegistry $props,
+    ) {}
 
     /** @return list<string> */
     public function warnings(): array
@@ -71,7 +84,7 @@ final class AssetBuilder
         return $this->warnings;
     }
 
-    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>} */
+    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>, props?: list<array{slug: string, wide: int, deep: int, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>} */
     public function build(bool $maps = true): array
     {
         $this->warnings = [];
@@ -85,6 +98,8 @@ final class AssetBuilder
         $buildings = null;
         $animated = [];
         $dressing = [];
+        $props = $this->props->slots();
+        [$pieces, $running] = $this->props($sources, $files, $props, $outputs);
 
         foreach ($files as $file) {
             $name = substr($file, 0, -4);
@@ -115,10 +130,15 @@ final class AssetBuilder
             [$outputs[$name], $animations[$name]] = $this->animation($sources, "{$name}.png", $slug, $files, $buildings[$slug] ?? null, $timings[substr($name, strlen('buildings/'))] ?? null);
         }
 
-        $index = $this->write($outputs, $animations, $avatar);
+        // The index keeps each piece's size, and the animations that play when it's on, by facing drawn over.
+        $index = $this->write($outputs, $animations, $avatar, array_map(
+            fn (?array $prop, int $n): ?array => $prop === null ? null
+                : ['slug' => $prop['slug'], 'wide' => $prop['wide'], 'deep' => $prop['deep'], ...(isset($running[$n]) ? ['animations' => $running[$n]] : [])],
+            $props, array_keys($props),
+        ));
 
         if ($maps) {
-            $this->writeMaps(Png::encode($sheet), $sheet, $slots);
+            $this->writeMaps(Png::encode($sheet), $sheet, $slots, $props, $pieces);
         }
 
         return $index;
@@ -148,12 +168,13 @@ final class AssetBuilder
             }
 
             $png = preg_replace('/\.(aseprite|ase)$/', '.png', $file);
-            $known = in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG], true)
+            $known = in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG, self::PROP_REGISTRY], true)
                 || preg_match('#^tiles/'.TileRegistry::NAME.'\.png$#', (string) $png)
                 || preg_match('#^(ui|buildings)/'.self::SLUG.'\.png$#', (string) $png)
                 || preg_match('#^buildings/'.self::SLUG.'/'.self::SLUG.'\.png$#', (string) $png)
                 || preg_match('#^walls/'.self::SLUG.'/'.self::WALL_PART.'\.png$#', (string) $png)
                 || preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', (string) $png)
+                || preg_match('#^props/'.self::SLUG.'/[0-3](-on)?\.png$#', (string) $png)
                 || preg_match('#^avatars/base/'.self::AVATAR_PART.'\.png$#', (string) $png)
                 || preg_match('#^(avatars/hair|items)/'.self::SLUG.'/(front|back)(-behind)?\.png$#', (string) $png);
 
@@ -186,7 +207,7 @@ final class AssetBuilder
 
         $unclaimed = array_filter(
             $files,
-            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG], true)
+            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG, self::PROP_REGISTRY], true)
                 && ! array_any(array_keys($entries), fn (int|string $pattern): bool => fnmatch((string) $pattern, "art/{$file}", FNM_PATHNAME)),
         );
 
@@ -302,9 +323,7 @@ final class AssetBuilder
 
     /**
      * A building animation: a strip of frames, each the building's whole
-     * canvas, drawn over it. Checked frame by frame as the building is, then
-     * trimmed to the box around every pixel any frame draws, so the game
-     * loads only what moves, and where that box lies on the building.
+     * canvas, drawn over it (see overlay).
      *
      * @param  list<string>  $files
      * @param  array{int, int}|null  $footprint  the building's wide and deep, from the maps
@@ -318,28 +337,50 @@ final class AssetBuilder
 
         $scale = $this->scale('buildings');
         $building = Png::decode((string) file_get_contents("{$sources}/buildings/{$slug}.png"), "art/buildings/{$slug}.png");
+
+        return $this->overlay(
+            $sources, $file, $building, "buildings/{$slug}.png", $scale,
+            $footprint[0] * intdiv(32, $scale), "a {$footprint[0]} × {$footprint[1]} footprint", $timing,
+            fn (int $count): string => 'art/'.self::ANIMATIONS.': "'.substr($file, strlen('buildings/'), -4)."\": {\"frame_ms\": 200} shows every frame for 200 ms, or give a list of {$count} times, one for each frame.",
+        );
+    }
+
+    /**
+     * Frames drawn over a picture, `base`: a strip of frames, each the
+     * picture's whole canvas, side by side. Checked frame by frame as the
+     * picture is (nothing below the footprint diamond whose bottom corner is
+     * `corner` in), then trimmed to the box around every pixel any frame
+     * draws, so the game loads only what moves, and where that box lies on
+     * the picture. `timing` holds `frame_ms`, one time for every frame or a
+     * list; `timesGo` says where they go, for a strip of so many frames.
+     *
+     * @param  Closure(int): string  $timesGo
+     * @return array{Image, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}}
+     */
+    private function overlay(string $sources, string $file, Image $base, string $baseFile, int $scale, int $corner, string $what, mixed $timing, Closure $timesGo): array
+    {
         $strip = Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}");
-        [$w, $h] = [$building->width, $building->height];
+        [$w, $h] = [$base->width, $base->height];
 
         if ($scale > 1 && $strip->height === $h * $scale && $strip->width % ($w * $scale) === 0 && $strip->isScaledUp($scale)) {
             throw new InvalidAssetException("art/{$file} is already scaled up to {$strip->width}×{$strip->height}. Export it at 100%: ".intdiv($strip->width, $scale)."×{$h}.");
         }
 
         if ($strip->height !== $h || $strip->width % $w !== 0) {
-            throw new InvalidAssetException("art/{$file} is {$strip->width}×{$strip->height}; its frames must be {$w} × {$h}, like art/buildings/{$slug}.png, side by side.");
+            throw new InvalidAssetException("art/{$file} is {$strip->width}×{$strip->height}; its frames must be {$w} × {$h}, like art/{$baseFile}, side by side.");
         }
 
         $count = intdiv($strip->width, $w);
 
         if ($count < 2) {
-            throw new InvalidAssetException("art/{$file} has one frame. An animation needs two or more; a part that doesn't move belongs in art/buildings/{$slug}.png.");
+            throw new InvalidAssetException("art/{$file} has one frame. An animation needs two or more; a part that doesn't move belongs in art/{$baseFile}.");
         }
 
         $times = match (true) {
             is_array($timing) && is_int($timing['frame_ms'] ?? null) && $timing['frame_ms'] > 0 => array_fill(0, $count, $timing['frame_ms']),
             is_array($timing) && is_array($timing['frame_ms'] ?? null) && array_is_list($timing['frame_ms']) && count($timing['frame_ms']) === $count
                 && array_all($timing['frame_ms'], fn (mixed $ms): bool => is_int($ms) && $ms > 0) => $timing['frame_ms'],
-            default => throw new InvalidAssetException("art/{$file} needs its frame times in art/".self::ANIMATIONS.': "'.substr($file, strlen('buildings/'), -4)."\": {\"frame_ms\": 200} shows every frame for 200 ms, or give a list of {$count} times, one for each frame."),
+            default => throw new InvalidAssetException("art/{$file} needs its frame times in {$timesGo($count)}"),
         };
 
         [$minX, $minY, $maxX, $maxY] = [$w, $h, -1, -1];
@@ -347,7 +388,7 @@ final class AssetBuilder
 
         for ($n = 0; $n < $count; $n++) {
             $frame = $strip->crop($n * $w, 0, $w, $h);
-            $this->checkFootprint('Frame '.($n + 1)." of art/{$file}", $frame, $footprint[0] * intdiv(32, $scale), "a {$footprint[0]} × {$footprint[1]} footprint");
+            $this->checkFootprint('Frame '.($n + 1)." of art/{$file}", $frame, $corner, $what);
 
             for ($y = 0; $y < $h; $y++) {
                 for ($x = 0; $x < $w; $x++) {
@@ -548,6 +589,112 @@ final class AssetBuilder
         }
 
         throw new InvalidAssetException($first ?? "art/{$file} hangs below its footprint.");
+    }
+
+    /**
+     * Room pieces: each facing drawn in art/props/{slug}/, checked against
+     * the piece's size in props.json as uploaded furniture is, and doubled
+     * into `outputs`, with the animation drawn over each facing for a piece
+     * that switches on ({facing}-on.png, see overlay). Returns each piece's
+     * pictures for the props tileset, at every facing and, for a piece that
+     * switches on, switched on (index 4 + facing) with its first frame drawn
+     * in: the facings not drawn standing in as the game draws them
+     * (facingArt in resources/js/game/shared/furniture.ts), padded so the
+     * footprint's bottom corner is the middle of the bottom edge, where Tiled
+     * pins a tile placed on an isometric map. And each animation, by slot
+     * and the facing it is drawn over.
+     *
+     * @param  list<string>  $files
+     * @param  list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>}|null>  $props
+     * @param  array<string, Image>  $outputs
+     * @return array{array<int, array<int, Image>>, array<int, array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>>} slot => tile => picture, in game pixels; slot => facing => animation
+     */
+    private function props(string $sources, array $files, array $props, array &$outputs): array
+    {
+        $listed = array_column(array_filter($props), 'slug');
+
+        foreach ($files as $file) {
+            if (preg_match('#^props/('.self::SLUG.')/[0-3](-on)?\.png$#', $file, $m) && ! in_array($m[1], $listed, true)) {
+                throw new InvalidAssetException("art/{$file} is for a room piece props/props.json doesn't list. Add {\"slug\": \"{$m[1]}\", \"wide\": 1, \"deep\": 1} to the end of it, with the tiles it covers.");
+            }
+        }
+
+        $scale = $this->scale('props');
+        $pieces = [];
+        $animations = [];
+
+        foreach ($props as $n => $prop) {
+            if ($prop === null) {
+                continue;
+            }
+
+            $drawn = [];
+            $art = [];
+            $running = [];
+
+            foreach (range(0, 3) as $facing) {
+                $file = "props/{$prop['slug']}/{$facing}.png";
+                $on = "props/{$prop['slug']}/{$facing}-on.png";
+                [$wide, $deep] = PropRegistry::lies($prop, $facing);
+
+                if (in_array($file, $files, true)) {
+                    $art[$facing] = $this->source($sources, $file, 'props', ($wide + $deep) * 32, null);
+                    $this->checkFootprint("art/{$file}", $art[$facing], $wide * intdiv(32, $scale), "a {$wide} × {$deep} footprint at facing {$facing}");
+                    $drawn[$facing] = $outputs["props/{$prop['slug']}/{$facing}"] = $art[$facing]->scale($scale);
+                }
+
+                if (in_array($on, $files, true)) {
+                    if (! isset($art[$facing], $drawn[$facing])) {
+                        throw new InvalidAssetException("art/{$on} is drawn over art/{$file}, which isn't there. Draw the piece switched off at that facing first.");
+                    }
+
+                    [$outputs["props/{$prop['slug']}/{$facing}-on"], $animations[$n][$facing]] = $this->overlay(
+                        $sources, $on, $art[$facing], $file, $scale, $wide * intdiv(32, $scale), "a {$wide} × {$deep} footprint at facing {$facing}", $prop,
+                        fn (int $count): string => "props/props.json: add \"frame_ms\": 200 to {$prop['slug']} to show every frame for 200 ms, or give a list of {$count} times, one for each frame.",
+                    );
+                    $strip = $outputs["props/{$prop['slug']}/{$facing}-on"];
+                    $at = $animations[$n][$facing];
+                    $running[$facing] = $drawn[$facing]->over($strip->crop(0, 0, $at['width'], $at['height']), $at['x'], $at['y']);
+                }
+            }
+
+            if ($drawn === []) {
+                throw new InvalidAssetException("props/props.json lists {$prop['slug']}, but it has no art. Draw art/props/{$prop['slug']}/0.png, its front.");
+            }
+
+            if (isset($prop['frame_ms']) && $running === []) {
+                throw new InvalidAssetException("props/props.json gives {$prop['slug']} frame times, but it has no animation. Draw art/props/{$prop['slug']}/0-on.png, the frames that play over its front when it's on.");
+            }
+
+            foreach (range(0, 3) as $facing) {
+                // A plain block fits its mirror image (facing 3 − f) or the opposite facing,
+                // so any one drawn facing does for all four; a facing of the other parity is mirrored.
+                $opposite = ($facing + 2) % 4;
+
+                foreach ([$facing, 3 - $facing, $opposite, 3 - $opposite] as $from) {
+                    if (! isset($drawn[$from])) {
+                        continue;
+                    }
+
+                    $corner = PropRegistry::lies($prop, $facing)[0] * 32;
+                    // Switched on, it shows the animation drawn over the same picture, or stays still if there is none.
+                    $states = $running === [] ? [0 => $drawn[$from]] : [0 => $drawn[$from], 4 => $running[$from] ?? $drawn[$from]];
+
+                    foreach ($states as $state => $shown) {
+                        $picture = ($from + $facing) % 2 === 1 ? $shown->mirrored() : $shown;
+                        $half = max($corner, $picture->width - $corner);
+                        $pieces[$n][$state + $facing] = Image::blank(2 * $half, $picture->height)->paste($picture, $half - $corner, 0);
+                    }
+
+                    break;
+                }
+            }
+
+            // In Tiled's tileset panel, the four facings off, then on.
+            ksort($pieces[$n]);
+        }
+
+        return [$pieces, $animations];
     }
 
     /**
@@ -835,9 +982,10 @@ final class AssetBuilder
      * @param  array<string, Image>  $outputs
      * @param  array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>  $animations
      * @param  array<string, mixed>|null  $avatar
-     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>}
+     * @param  list<array{slug: string, wide: int, deep: int, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>  $props
+     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>, props?: list<array{slug: string, wide: int, deep: int, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>}
      */
-    private function write(array $outputs, array $animations = [], ?array $avatar = null): array
+    private function write(array $outputs, array $animations = [], ?array $avatar = null, array $props = []): array
     {
         $dir = (string) config('hushfield.assets.output');
         $files = [];
@@ -859,8 +1007,8 @@ final class AssetBuilder
         ksort($sizes);
         ksort($animations);
         // Frame times aren't in any file's hash, so they count towards the version too.
-        // So does the avatar's rig.
-        $versioned = $animations === [] && $avatar === null ? $files : [$files, $animations, $avatar];
+        // So do the avatar's rig and the room pieces' sizes.
+        $versioned = $animations === [] && $avatar === null && $props === [] ? $files : [$files, $animations, $avatar, ...($props === [] ? [] : [$props])];
         $index = ['version' => substr(hash('sha256', (string) json_encode($versioned)), 0, 16), 'files' => $files, 'sizes' => $sizes];
 
         if ($animations !== []) {
@@ -869,6 +1017,10 @@ final class AssetBuilder
 
         if ($avatar !== null) {
             $index['avatar'] = $avatar;
+        }
+
+        if ($props !== []) {
+            $index['props'] = $props;
         }
 
         $path = (string) config('hushfield.assets.index');
@@ -887,16 +1039,55 @@ final class AssetBuilder
     /**
      * The ground.png preview for Tiled, and the tileset block in every map:
      * the sheet's layout and a slug on each tile, so a map always matches the
-     * sheet the game draws.
+     * sheet the game draws. Maps with a "props" layer also get the props
+     * tileset, a picture of every room piece at every facing, and switched
+     * on for a piece that switches on, from previews in props/ beside them.
      *
      * @param  list<string|null>  $slots
+     * @param  list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>}|null>  $props
+     * @param  array<int, array<int, Image>>  $pieces  slot => tile (4 × on + facing) => picture
      */
-    private function writeMaps(string $png, Image $sheet, array $slots): void
+    private function writeMaps(string $png, Image $sheet, array $slots, array $props, array $pieces): void
     {
         $maps = (string) config('hushfield.maps.path');
 
         if (! is_file("{$maps}/ground.png") || file_get_contents("{$maps}/ground.png") !== $png) {
             $this->put("{$maps}/ground.png", $png);
+        }
+
+        $previews = [];
+        $propTiles = [];
+
+        foreach ($pieces as $n => $tiles) {
+            foreach ($tiles as $tile => $picture) {
+                [$facing, $on] = [$tile % 4, $tile >= 4];
+                $image = "props/{$props[$n]['slug']}-{$facing}".($on ? '-on' : '').'.png';
+                $previews[$image] = Png::encode($picture);
+                $propTiles[] = [
+                    'id' => $n * PropRegistry::TILES + $tile,
+                    'image' => $image,
+                    'imagewidth' => $picture->width,
+                    'imageheight' => $picture->height,
+                    'properties' => [
+                        ['name' => 'piece', 'type' => 'string', 'value' => $props[$n]['slug']],
+                        ['name' => 'facing', 'type' => 'int', 'value' => $facing],
+                        ['name' => 'on', 'type' => 'bool', 'value' => $on],
+                    ],
+                ];
+            }
+        }
+
+        foreach ($previews as $image => $bytes) {
+            if (! is_file("{$maps}/{$image}") || file_get_contents("{$maps}/{$image}") !== $bytes) {
+                File::ensureDirectoryExists("{$maps}/props");
+                $this->put("{$maps}/{$image}", $bytes);
+            }
+        }
+
+        foreach (is_dir("{$maps}/props") ? File::files("{$maps}/props") : [] as $info) {
+            if (! isset($previews['props/'.$info->getFilename()])) {
+                File::delete($info->getPathname());
+            }
         }
 
         $tiles = [];
@@ -935,11 +1126,107 @@ final class AssetBuilder
                 }
             }
 
+            $layers = is_array($map->layers ?? null) ? $map->layers : [];
+
+            if ($propTiles !== [] && $this->hasLayer($layers, self::PROPS)) {
+                $map->tilesets = $this->withPropTileset($map->tilesets, $layers, $propTiles, count($slots));
+            }
+
             // Tiled's compact export, byte for byte, so only the tileset shows in a diff.
             $written = (string) json_encode($map, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
 
             if ($written !== rtrim($contents, "\n")) {
                 $this->put($path, $written);
+            }
+        }
+    }
+
+    /**
+     * Whether a map has a layer of this name, inside a group or not.
+     *
+     * @param  array<mixed>  $layers
+     */
+    private function hasLayer(array $layers, string $name): bool
+    {
+        return array_any($layers, fn (mixed $layer): bool => is_object($layer)
+            && (($layer->name ?? null) === $name || $this->hasLayer(is_array($layer->layers ?? null) ? $layer->layers : [], $name)));
+    }
+
+    /**
+     * A map's tilesets with the props tileset written in: an image
+     * collection, each tile a room piece at one facing, pinned by the middle
+     * of its bottom edge. It
+     * keeps its first GID once a map has it (Tiled renumbers it to follow
+     * the ground tiles on save), unless the ground tiles have grown into it;
+     * then it moves up and the pieces already placed move with it, so each
+     * stays what it is.
+     *
+     * @param  array<mixed>  $tilesets
+     * @param  array<mixed>  $layers  Pieces in these move with the tileset.
+     * @param  list<array{id: int, image: string, imagewidth: int, imageheight: int, properties: list<array<string, mixed>>}>  $tiles
+     * @return array<mixed>
+     */
+    private function withPropTileset(array $tilesets, array $layers, array $tiles, int $groundTiles): array
+    {
+        $at = null;
+        $firstGid = self::PROPS_FIRSTGID;
+        $groundFirst = 1;
+
+        foreach ($tilesets as $i => $tileset) {
+            if (is_object($tileset) && ($tileset->name ?? null) === self::PROPS && is_int($tileset->firstgid ?? null)) {
+                [$at, $firstGid] = [$i, $tileset->firstgid];
+            } elseif (is_object($tileset) && ($tileset->name ?? null) === self::TILESET && is_int($tileset->firstgid ?? null)) {
+                $groundFirst = $tileset->firstgid;
+            }
+        }
+
+        if ($groundFirst + $groundTiles > $firstGid) {
+            $moved = max(self::PROPS_FIRSTGID, $groundFirst + $groundTiles);
+            $this->shiftPropGids($layers, $firstGid, $moved);
+            $firstGid = $moved;
+        }
+
+        $block = [
+            'columns' => 0,
+            'firstgid' => $firstGid,
+            'margin' => 0,
+            'name' => self::PROPS,
+            'objectalignment' => 'bottom',
+            'spacing' => 0,
+            'tilecount' => count($tiles),
+            'tileheight' => max(0, ...array_column($tiles, 'imageheight')),
+            'tiles' => $tiles,
+            'tilewidth' => max(0, ...array_column($tiles, 'imagewidth')),
+        ];
+
+        if ($at === null) {
+            $tilesets[] = $block;
+        } else {
+            $tilesets[$at] = $block;
+        }
+
+        return $tilesets;
+    }
+
+    /**
+     * Renumbers every tile object at or past the props tileset's old first
+     * GID to the new one, keeping Tiled's flip bits.
+     *
+     * @param  array<mixed>  $layers
+     */
+    private function shiftPropGids(array $layers, int $from, int $to): void
+    {
+        foreach ($layers as $layer) {
+            if (! is_object($layer)) {
+                continue;
+            }
+
+            $this->shiftPropGids(is_array($layer->layers ?? null) ? $layer->layers : [], $from, $to);
+
+            foreach (is_array($layer->objects ?? null) ? $layer->objects : [] as $object) {
+                if (is_object($object) && is_int($object->gid ?? null) && ($object->gid & 0x0FFFFFFF) >= $from) {
+                    $object->gid += $to - $from;
+                }
             }
         }
     }

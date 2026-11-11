@@ -191,6 +191,65 @@ sides of its block; blocks go up to 8 × 8. The shape turns with the piece: a
 quarter turn clockwise seen from above takes `##` over `#.` to `##` over `.#`.
 `Footprint` holds the shape as its `mask`, on both sides.
 
+## Room pieces
+
+A room's own furniture, such as the Coin Laundry's washers, is part of its
+map: placed in Tiled, shipped with the code and imported with the map, so
+joining a room reads nothing from the database. Nobody owns, moves or buys
+these pieces; furniture for homes is catalog items (above).
+
+- **The registry**: `resources/art/props/props.json` lists every piece in
+  slot order, each a slug and the tiles it covers before any turn:
+  `[{"slug": "washer", "wide": 1, "deep": 1}]`. Like `tiles.json`, it only
+  grows at the end; retire a piece with `null`. Pieces are plain blocks (no
+  shapes), up to 8 × 8. A piece that switches on also has `frame_ms`: one
+  time for every frame of its animation, or a list, one per frame.
+- **Art**: `resources/art/props/{slug}/0.png` to `3.png`, one per facing,
+  drawn as furniture is, at half size on a (wide + deep) × 16 canvas,
+  standing on the footprint diamond as the piece lies at that facing. Every
+  piece needs at least facing 0; a missing facing mirrors or borrows another,
+  as furniture does (`facingArt`). The build refuses a piece without art,
+  art for a piece the registry doesn't list, and art that doesn't fit its
+  facing.
+- **Switched on**: `resources/art/props/{slug}/{facing}-on.png` is what
+  plays over that facing's picture while the piece is on, such as a
+  washer's tumbling drum: a strip of frames, each the facing's whole canvas,
+  only the moving part drawn, checked and trimmed as building animations are
+  (`AssetBuilder::overlay`). A facing without its own animation shows the one
+  of the facing its picture comes from, mirrored with it.
+- **In Tiled**: a map holds pieces on an object layer named **`props`**. For
+  every map with that layer, `hushfield:build-assets` writes the **`props`
+  tileset**: an image collection with eight tiles per slot, tile 8n + f for
+  slot n at facing f and 8n + 4 + f the same switched on (only for a piece
+  that switches on, its preview showing the first frame), each a picture of
+  the piece padded so its footprint's
+  front corner is the middle of its bottom edge, where Tiled pins a tile
+  object on an isometric map (`objectalignment: bottom`). The pictures go in
+  `resources/maps/props/`, which is ignored like `ground.png`. The build adds
+  the tileset at `firstgid` 1001; Tiled renumbers it to follow the ground
+  tiles when it saves, and the build keeps whatever it finds until the
+  ground tiles grow into it, then moves it and the placed pieces up together.
+  Place a piece
+  with **Insert Tile** (T) on the `props` layer, picking the facing from the
+  tileset; snapping to the grid lines it up, and the import rounds to the
+  nearest tile corner anyway. Flipping or rotating a piece is refused: place
+  another facing instead.
+- **The import** (`TiledMapParser::props`) reads each piece's footprint back
+  from its front corner and blocks its tiles in the walkability grid. A piece
+  must stand on walkable floor, clear of doors, arrival points, spawns,
+  fixtures and other pieces, and the pieces together may not wall any floor
+  off from the first door. A piece placed switched on must have `frame_ms`.
+- **The client** reads the pieces from the map JSON it already loads
+  (`roomPieces` in `resources/js/game/shared/furniture.ts`), with sizes and
+  art URLs from the manifest's `props`, blocks their tiles as the server
+  does, and draws them in `FurnitureLayer` with any home furniture, playing
+  the animation of each one placed switched on (held on frame 1 with reduced
+  motion). Every switched-on piece runs on the same clock, in step.
+
+To let a room hold pieces, add an empty object layer named `props` to its
+map (in Tiled, or by hand) and run `php artisan hushfield:build-assets`.
+The artist's guide is [`docs/art/room-pieces.md`](../../docs/art/room-pieces.md).
+
 ## Art
 
 The artist's source files live in `resources/art/`, one image per file,
@@ -268,8 +327,18 @@ resources/art/tiles/
 slot order, and slot n is GID n + 1 in every map:
 
 ```json
-["grass/full", "sand/full", "stone/full", "water/full", "hedge/full", "wood/full",
- "asphalt/full", "asphalt-lines/full", "bricks/full", "stone/half"]
+[
+    "grass/full",
+    "sand/full",
+    "stone/full",
+    "water/full",
+    "hedge/full",
+    "wood/full",
+    "asphalt/full",
+    "asphalt-lines/full",
+    "bricks/full",
+    "stone/half"
+]
 ```
 
 - **Add a tile or a height**: put it on the end of the list, such as
@@ -303,6 +372,9 @@ resources/art/
   buildings/{slug}/{part}.png       an animation over that building (see below)
   buildings/animations.json         each animation's frame times
   items/{slug}/0.png … 3.png        a furniture item's facings, by item slug
+  props/{slug}/0.png … 3.png        a room piece's facings (see "Room pieces")
+  props/{slug}/0-on.png …           what plays over a facing while it's on
+  props/props.json                  every room piece, its size and frame times
   walls/{style}/left.png            a wall style's panels: left.png, right.png,
   walls/{style}/right.png           and optionally left-door.png, right-door.png
 ```

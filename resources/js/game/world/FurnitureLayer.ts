@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
-import type { PlacedFurniture } from '../protocol/types';
 import type { Placement } from '../shared/buildings';
 import type { Footprint } from '../shared/footprint';
 import { hides, placeBuilding } from '../shared/buildings';
 import { covers } from '../shared/footprint';
+import type { FurniturePiece } from '../shared/furniture';
+import type { PlayingAnimation } from './BuildingLayer';
+import { animateOver, frameAt, showFrame } from './BuildingLayer';
 import { blocksWalking, facingArt, placedFootprint } from '../shared/furniture';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { DEPTH, FURNITURE } from '../theme';
@@ -14,35 +16,47 @@ export function itemTexture(url: string): string {
     return `item:${url}`;
 }
 
+/** The texture key a room piece's animation is loaded under, as a spritesheet, by its URL. */
+export function propAnimationTexture(url: string): string {
+    return `prop-animation:${url}`;
+}
+
 /** The key of a texture's left-to-right flipped copy (see FurnitureLayer.mirrored). */
 export function mirroredTexture(key: string): string {
     return `${key}:mirrored`;
 }
 
 type DrawnPiece = {
-    placed: PlacedFurniture;
+    placed: FurniturePiece;
     placement: Placement;
     strips: Phaser.GameObjects.Image[];
+    /** What plays over it while it's switched on, once its art and the strip are loaded. */
+    animation: PlayingAnimation | null;
     alpha: number;
 };
 
 /**
- * The furniture standing in a home, replaced wholesale on every change. Each
+ * The furniture standing in a room: the room's own pieces and, in a home,
+ * the resident's, replaced wholesale on every change. Each
  * piece is drawn like a building (see BuildingLayer): from its art for the
  * way it faces, or as a placeholder block the shape of its footprint, cut
  * into strips half a tile wide that sort against avatars on their own (and
  * cut across where a shaped piece leaves a gap; see placeBuilding). Rugs lie
- * under everything.
+ * under everything. A room piece placed switched on plays its animation over
+ * its art, as a building's do; with reduced motion it holds the first frame.
  */
 export class FurnitureLayer {
     private pieces: DrawnPiece[] = [];
+    private readonly still = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)',
+    ).matches;
 
     constructor(
         private readonly scene: Phaser.Scene,
         private readonly map: IsoMap,
     ) {}
 
-    set(placed: PlacedFurniture[]): void {
+    set(placed: FurniturePiece[]): void {
         this.clear();
         this.pieces = placed.map((piece) => this.draw(piece));
     }
@@ -56,8 +70,16 @@ export class FurnitureLayer {
         deltaMs: number,
     ): void {
         const step = Math.min(1, deltaMs / FURNITURE.fadeMs);
+        const now = this.scene.time.now;
 
         for (const piece of this.pieces) {
+            if (piece.animation) {
+                showFrame(
+                    piece.animation,
+                    this.still ? 0 : frameAt(piece.animation, now),
+                );
+            }
+
             const hiding =
                 self !== null &&
                 blocksWalking(piece.placed) &&
@@ -71,6 +93,9 @@ export class FurnitureLayer {
             if (Math.abs(piece.alpha - target) < 0.01) piece.alpha = target;
 
             piece.strips.forEach((strip) => strip.setAlpha(piece.alpha));
+            piece.animation?.pieces.forEach((image) =>
+                image.setAlpha(piece.alpha),
+            );
         }
     }
 
@@ -79,13 +104,15 @@ export class FurnitureLayer {
     }
 
     private clear(): void {
-        this.pieces.forEach(({ strips }) =>
-            strips.forEach((strip) => strip.destroy()),
+        this.pieces.forEach(({ strips, animation }) =>
+            [...strips, ...(animation?.pieces ?? [])].forEach((image) =>
+                image.destroy(),
+            ),
         );
         this.pieces = [];
     }
 
-    private draw(placed: PlacedFurniture): DrawnPiece {
+    private draw(placed: FurniturePiece): DrawnPiece {
         const footprint = placedFootprint(placed);
         // Art drawn for another size would hang off the piece's tiles: the build
         // can't check it against the catalog, so a placeholder is drawn instead.
@@ -144,7 +171,21 @@ export class FurnitureLayer {
                 .setDepth(flat ? DEPTH.rugs : DEPTH.avatars + strip.depthY);
         });
 
-        return { placed, placement, strips, alpha: 1 };
+        // Switched on, the strip drawn over the facing the art came from, mirrored with it.
+        const playing = art ? placed.animations?.[art.facing] : undefined;
+        const animation =
+            playing &&
+            this.scene.textures.exists(propAnimationTexture(playing.url))
+                ? animateOver(
+                      this.scene,
+                      propAnimationTexture(playing.url),
+                      playing,
+                      placement,
+                      art?.mirrored,
+                  )
+                : null;
+
+        return { placed, placement, strips, animation, alpha: 1 };
     }
 
     /** Art flipped left to right, for a facing that has none of its own (see facingArt). */
@@ -178,7 +219,7 @@ export class FurnitureLayer {
      * pixels tall, tinted by the item, with a pale edge along the side it
      * faces so turning it shows.
      */
-    private placeholder(placed: PlacedFurniture, footprint: Footprint): string {
+    private placeholder(placed: FurniturePiece, footprint: Footprint): string {
         const { slug, swatch, furniture } = placed.item;
         const { wide, deep } = footprint;
         const height = furniture?.height ?? FURNITURE.heightPx;

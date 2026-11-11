@@ -4,6 +4,11 @@ How to make a small part of a building move, such as WHSH's orange beacon
 blinking or its rings turning. It builds on [drawing buildings](buildings.md),
 so everything there still applies.
 
+Animating a room piece instead, such as the Coin Laundry's washers tumbling
+when they're on? That works the same way, over the piece's own picture: see
+[room pieces](room-pieces.md#2b-moving-parts-a-washer-thats-on). Home
+furniture and walls can't move yet.
+
 The building stays **one still picture**. Each moving part is a **second
 file**: a short strip of frames that the game plays over the building in a
 loop. You never redraw the whole building for an animation.

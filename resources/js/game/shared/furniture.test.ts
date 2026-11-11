@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vite-plus/test';
-import type { Item, PlacedFurniture } from '../protocol/types';
+import type { Item, PlacedFurniture, RoomPiece } from '../protocol/types';
 import { findPath } from './astar';
 import { covers, distanceTo, tilesOf } from './footprint';
-import { facingArt, footprintOf, pieceAt, withFurniture } from './furniture';
+import {
+    facingArt,
+    footprintOf,
+    pieceAt,
+    placedFootprint,
+    roomPieces,
+    withFurniture,
+} from './furniture';
 
 function piece(
     x: number,
@@ -227,5 +234,67 @@ describe('facingArt', () => {
 
     it('has nothing to draw without art', () => {
         expect(facingArt(1, art())).toBeNull();
+    });
+});
+
+describe('roomPieces', () => {
+    // A 1 × 1 washer (tiles 0–3, and 4–7 switched on), a retired piece (8–15) and a 2 × 1 bench (16–19).
+    const spin = {
+        url: 'washer-0-on.png',
+        x: 8,
+        y: 12,
+        width: 16,
+        height: 16,
+        frames: 2,
+        frame_ms: [120, 120],
+    };
+    const registry: Array<RoomPiece | null> = [
+        {
+            slug: 'washer',
+            wide: 1,
+            deep: 1,
+            art: { 0: 'washer-0.png' },
+            animations: { 0: spin },
+        },
+        null,
+        { slug: 'bench', wide: 2, deep: 1, art: {} },
+    ];
+    // Tiled pins each by its footprint's front corner, in 32-pixel units on both axes.
+    const at = (tile: number, x: number, y: number) => ({
+        gid: 1001 + tile,
+        x: x * 32,
+        y: y * 32,
+    });
+
+    it('stands each piece on the tiles its facing covers, back from the corner Tiled pins it by', () => {
+        const [washer, bench] = roomPieces(
+            [at(0, 4, 1), at(17, 2, 2)],
+            1001,
+            registry,
+        );
+
+        expect(tilesOf(placedFootprint(washer))).toEqual([[3, 0]]);
+        expect(washer.item.furniture?.art).toEqual({ 0: 'washer-0.png' });
+        // Turned (facing 1) the bench is 1 wide and 2 deep: front corner (2, 2), back corner (1, 0).
+        expect(tilesOf(placedFootprint(bench))).toEqual([
+            [1, 0],
+            [1, 1],
+        ]);
+        expect(bench.rotation).toBe(1);
+        expect(washer.animations).toBeUndefined();
+    });
+
+    it('plays a piece placed switched on, standing where it would off', () => {
+        const [on] = roomPieces([at(7, 4, 1)], 1001, registry);
+
+        // Tile 7 is facing 3, on: turned like tile 3, its animations by the facing they're drawn over.
+        expect(on.rotation).toBe(3);
+        expect(tilesOf(placedFootprint(on))).toEqual([[3, 0]]);
+        expect(on.animations).toEqual({ 0: spin });
+    });
+
+    it('skips what it cannot place: no props tileset, or a retired piece', () => {
+        expect(roomPieces([at(0, 4, 1)], null, registry)).toEqual([]);
+        expect(roomPieces([at(9, 4, 1)], 1001, registry)).toEqual([]);
     });
 });
