@@ -263,9 +263,11 @@ map (in Tiled, or by hand) and run `php artisan hushfield:build-assets`.
 The artist's guide is [`docs/art/room-pieces.md`](../../docs/art/room-pieces.md).
 
 The pictures Tiled shows (`ground.png`, `props/`) are build output, so a
-clone has none. `php artisan hushfield:pack-maps` zips every map with them
-onto the `private` disk and prints a download link for the designer
-(locally, after `hushfield:build-assets`); the round trip, in plain words,
+clone has none. **Pack maps for Tiled** in the admin (Live rooms) zips
+every map with them onto the `private` disk on the `map-exports` queue and
+sends a download link for the designer as an admin notification;
+`php artisan hushfield:pack-maps` does it at once (locally, after
+`hushfield:build-assets`). The round trip, in plain words,
 is [`docs/art/maps-in-tiled.md`](../../docs/art/maps-in-tiled.md).
 
 ## Art

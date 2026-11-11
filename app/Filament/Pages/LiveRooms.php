@@ -4,9 +4,11 @@ namespace App\Filament\Pages;
 
 use App\Actions\World\CloseInstance;
 use App\Actions\World\GatherIntoFirstInstance;
+use App\Actions\World\PackMaps;
 use App\Domain\Presence\InstanceMembers;
 use App\Domain\World\RoomKind;
 use App\Filament\Support\Staff;
+use App\Jobs\PackMapsForTiled;
 use App\Models\Room;
 use App\Models\RoomInstance;
 use BackedEnum;
@@ -58,6 +60,26 @@ class LiveRooms extends Page
             'totals' => $rooms->mapWithKeys(fn (Room $room): array => [
                 $room->id => $room->instances->sum(fn (RoomInstance $instance): int => $counts[$instance->id] ?? 0),
             ])->all(),
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('packMaps')
+                ->label('Pack maps for Tiled')
+                ->icon(Heroicon::OutlinedArrowDownTray)
+                ->color('gray')
+                ->visible(fn (): bool => Staff::current()->isAdmin())
+                ->requiresConfirmation()
+                ->modalHeading('Pack maps for Tiled')
+                ->modalDescription('Zips every map with the pictures Tiled shows, for the designer (docs/art/maps-in-tiled.md). It runs in the background; a notification brings the download link, which works for '.PackMaps::LINK_HOURS.' hours.')
+                ->modalSubmitActionLabel('Pack')
+                ->action(function (): void {
+                    PackMapsForTiled::dispatch(Staff::current());
+
+                    Notification::make()->success()->title('Packing the maps. The link comes in your notifications.')->send();
+                }),
         ];
     }
 

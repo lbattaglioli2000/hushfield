@@ -39,7 +39,8 @@ keep it together.
 
 ## 1. Get the maps
 
-Ask Luigi for the maps. He runs one command, gets a download link, and
+Ask Luigi for the maps. He presses **Pack maps for Tiled** in the admin
+panel (World → Live rooms), gets a download link a moment later, and
 sends it to you. The link works for a day.
 
 Unzip it. You get a folder called `hushfield-maps` with every room's
@@ -127,15 +128,18 @@ your file.
 
 ---
 
-_For developers: `php artisan hushfield:pack-maps` zips `resources/maps`
-(every map, `ground.png` and `props/`, the pictures the build writes and
-git ignores) into `tiled/hushfield-maps-{time}.zip` on the `private` disk
-and prints a link that works for 24 hours (Laravel Cloud's private bucket;
-locally it prints the file's path). On Cloud, run it from the Commands tab:
-the deploy's `npm run build` has already written the pictures. Locally, run
-`php artisan hushfield:build-assets` first. Zips are never deleted; clear
-out `tiled/` now and then. When a map comes back: copy it into
-`resources/maps/`, run `php artisan hushfield:build-assets` and
+_For developers: **Pack maps for Tiled** on the admin's Live rooms page
+(admins only) queues `PackMapsForTiled` on the `map-exports` queue, a
+Laravel Cloud managed queue with 1 GB, off the app's instances. It zips
+`resources/maps` (every map, `ground.png` and `props/`, the pictures the
+build writes and git ignores) into `tiled/hushfield-maps-{time}.zip` on the
+`private` disk and sends whoever pressed it an admin notification with a
+link that works for 24 hours. `php artisan hushfield:pack-maps` does the
+same at once and prints the link (locally, a local folder disk has no
+links, so it prints the file's path; run `php artisan
+hushfield:build-assets` first). Zips are never deleted; clear out `tiled/`
+now and then. When a map comes back: copy it into `resources/maps/`, run
+`php artisan hushfield:build-assets` and
 `php artisan hushfield:import-map {slug}`, check the room, then commit the
 map. A deploy must run `hushfield:import-map` after migrating: otherwise the
 server walks players by the old layout while their browsers draw the new

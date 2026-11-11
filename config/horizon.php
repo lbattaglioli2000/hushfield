@@ -199,7 +199,8 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            // map-exports: PackMapsForTiled, its own managed queue on Laravel Cloud.
+            'queue' => ['default', 'map-exports'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,
