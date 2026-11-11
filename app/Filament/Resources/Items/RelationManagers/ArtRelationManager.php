@@ -15,6 +15,7 @@ use App\Models\Item;
 use App\Models\ItemArtUpload;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -22,6 +23,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -172,33 +174,82 @@ class ArtRelationManager extends RelationManager
                     ->successNotificationTitle('Art uploaded'),
             ])
             ->recordActions([
-                Action::make('copyAnimation')
-                    ->label('Copy animation to colours…')
-                    ->icon(Heroicon::OutlinedDocumentDuplicate)
-                    ->modalHeading('Copy this animation to other colours')
-                    ->modalDescription(fn (ItemArtUpload $record): string => "Each colour you pick gets a new upload for facing {$record->facing}: its own published picture, with this upload's animation and frame times.")
-                    ->visible(fn (ItemArtUpload $record): bool => $record->animation !== null && CopyItemAnimation::colours($item)->isNotEmpty())
-                    ->schema([
-                        CheckboxList::make('colours')
-                            ->options(fn (): array => CopyItemAnimation::colours($item)->mapWithKeys(fn (Item $colour): array => [$colour->id => $colour->label()])->all())
-                            ->default(fn (): array => CopyItemAnimation::colours($item)->pluck('id')->all())
-                            ->required(),
-                        Toggle::make('publish')
-                            ->label('Publish them now')
-                            ->default(true)
-                            ->visible(fn (): bool => Gate::allows('publishArt', $item)),
-                    ])
-                    ->action(function (ItemArtUpload $record, array $data, CopyItemAnimation $copy): void {
-                        $result = $copy($record, array_values(array_map(intval(...), $data['colours'])), Staff::current(), ($data['publish'] ?? false) === true);
-                        $skipped = implode(' ', array_map(fn (string $colour, string $why): string => "{$colour}: skipped, {$why}.", array_keys($result['skipped']), $result['skipped']));
+                // Both work on the animation, in one menu so a row's actions fit the table.
+                ActionGroup::make([
+                    Action::make('animate')
+                        ->label(fn (ItemArtUpload $record): string => $record->animation === null ? 'Add animation…' : 'Change animation…')
+                        ->icon(Heroicon::OutlinedPlay)
+                        ->modalHeading(fn (ItemArtUpload $record): string => "Switched on, facing {$record->facing}")
+                        ->modalDescription('Makes a new upload with this picture and the strip, so you needn\'t upload the picture again. It publishes and rolls back like any upload.')
+                        // Drawn just over the piece, an animation on a rug would cover anyone standing on it.
+                        ->visible(fn (ItemArtUpload $record): bool => ! $item->floor && $record->stale_at === null)
+                        ->schema([
+                            FileUpload::make('strip')
+                                ->label('Switched on')
+                                ->helperText(fn (ItemArtUpload $record): string => 'Two or more frames side by side, each '.intdiv($record->width, 2).' × '.intdiv($record->height, 2).' like this picture, with only what moves drawn (docs/art/furniture.md).')
+                                ->acceptedFileTypes(['image/png'])
+                                ->maxSize(intdiv((int) config('hushfield.assets.upload_max_bytes'), 1024))
+                                ->storeFiles(false)
+                                ->required(),
+                            TextInput::make('frame_ms')
+                                ->label('Frame times (ms)')
+                                ->helperText('One time for every frame, such as 140, or one for each, such as 600, 80, 80, 80. At least 60 each.')
+                                ->regex('/^\s*\d+(\s*,\s*\d+)*\s*$/')
+                                ->default(fn (ItemArtUpload $record): ?string => $record->animation === null ? null : implode(', ', array_unique($record->animation['frame_ms'])))
+                                ->required(),
+                            Toggle::make('publish')
+                                ->label('Publish it now')
+                                ->default(true)
+                                ->visible(fn (): bool => Gate::allows('publishArt', $item)),
+                        ])
+                        ->action(function (ItemArtUpload $record, array $data, Action $action, UploadItemArt $upload, PublishItemArt $publish): void {
+                            $strip = $data['strip'];
 
-                        $notification = Notification::make()
-                            ->title($result['copied'] === [] ? 'Nothing copied' : 'Animation copied to '.implode(', ', $result['copied']))
-                            ->body($skipped === '' ? null : $skipped);
-                        $notification = $result['copied'] === [] ? $notification->warning() : $notification->success();
-                        // What was skipped stays up to be read.
-                        ($skipped === '' ? $notification : $notification->persistent())->send();
-                    }),
+                            if (! $strip instanceof TemporaryUploadedFile) {
+                                return;
+                            }
+
+                            $this->runOrNotify($action, 'Not animated', function () use ($record, $data, $strip, $upload, $publish): void {
+                                $art = $upload->animate($record, (string) $strip->get(), Staff::current(), array_map(intval(...), explode(',', (string) $data['frame_ms'])));
+
+                                if (($data['publish'] ?? false) === true) {
+                                    $publish($art, Staff::current());
+                                }
+                            });
+                        })
+                        ->successNotificationTitle('Animation added'),
+                    Action::make('copyAnimation')
+                        ->label('Copy animation to colours…')
+                        ->icon(Heroicon::OutlinedDocumentDuplicate)
+                        ->modalHeading('Copy this animation to other colours')
+                        ->modalDescription(fn (ItemArtUpload $record): string => "Each colour you pick gets a new upload for facing {$record->facing}: its own published picture, with this upload's animation and frame times.")
+                        ->visible(fn (ItemArtUpload $record): bool => $record->animation !== null && CopyItemAnimation::colours($item)->isNotEmpty())
+                        ->schema([
+                            CheckboxList::make('colours')
+                                ->options(fn (): array => CopyItemAnimation::colours($item)->mapWithKeys(fn (Item $colour): array => [$colour->id => $colour->label()])->all())
+                                ->default(fn (): array => CopyItemAnimation::colours($item)->pluck('id')->all())
+                                ->required(),
+                            Toggle::make('publish')
+                                ->label('Publish them now')
+                                ->default(true)
+                                ->visible(fn (): bool => Gate::allows('publishArt', $item)),
+                        ])
+                        ->action(function (ItemArtUpload $record, array $data, CopyItemAnimation $copy): void {
+                            $result = $copy($record, array_values(array_map(intval(...), $data['colours'])), Staff::current(), ($data['publish'] ?? false) === true);
+                            $skipped = implode(' ', array_map(fn (string $colour, string $why): string => "{$colour}: skipped, {$why}.", array_keys($result['skipped']), $result['skipped']));
+
+                            $notification = Notification::make()
+                                ->title($result['copied'] === [] ? 'Nothing copied' : 'Animation copied to '.implode(', ', $result['copied']))
+                                ->body($skipped === '' ? null : $skipped);
+                            $notification = $result['copied'] === [] ? $notification->warning() : $notification->success();
+                            // What was skipped stays up to be read.
+                            ($skipped === '' ? $notification : $notification->persistent())->send();
+                        }),
+                ])
+                    ->label('Animation')
+                    ->icon(Heroicon::OutlinedPlay)
+                    ->dropdownWidth(Width::ExtraSmall)
+                    ->link(),
                 Action::make('publish')
                     ->label('Publish')
                     ->icon(Heroicon::OutlinedEye)

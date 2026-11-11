@@ -121,13 +121,15 @@ off. Rugs and other floor pieces can't switch on yet.
 1. **Draw the moving part** over the picture, exactly as for a room piece:
    only what moves, two or more frames each the size of the picture, frame 1 good
    on its own. See [room pieces, step 2b](room-pieces.md#2b-moving-parts-a-washer-thats-on).
-2. **Upload it with its picture.** In **Upload art**, add the strip under
-   **Switched on** and fill in **Frame times (ms)**: one time for every frame
-   (`140`), or one for each (`600, 80, 80, 80`). Each frame shows for at
-   least 60 ms.
+2. **Upload it.** In **Upload art**, add the strip under **Switched on**
+   with the picture and fill in **Frame times (ms)**: one time for every
+   frame (`140`), or one for each (`600, 80, 80, 80`). Each frame shows for
+   at least 60 ms. Picture already uploaded? On its row, press **Add
+   animation…** (or **Change animation…** if it has one) and upload just
+   the strip.
 3. The picture and its animation are one row, published and rolled back
-   together. To change the animation, upload the picture again with the new
-   strip.
+   together. Adding or changing an animation makes a new row with the same
+   picture, so publishing an older row takes the old animation back.
 4. **Other colours** (Variants) need the animation too. Draw it once: on the
    row with the animation, press **Copy animation to colours…** and pick the
    colours. Each gets its own picture with your animation, as a new row. A

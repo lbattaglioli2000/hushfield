@@ -3,6 +3,7 @@
 namespace App\Actions\Items;
 
 use App\Domain\Assets\AssetBuilder;
+use App\Domain\Assets\Image;
 use App\Domain\Assets\InvalidAssetException;
 use App\Domain\Assets\Png;
 use App\Domain\Audit\AuditLog;
@@ -53,25 +54,7 @@ final readonly class UploadItemArt
             throw new InvalidAssetException("{$name} is {$size[1]} tall; a piece may be up to {$maxHeight} tall.");
         }
 
-        $animation = null;
-
-        if ($strip !== null) {
-            $stripName = "{$name}, switched on";
-
-            // Drawn just over the piece, an animation on a rug would cover anyone standing on it.
-            if ($item->floor) {
-                throw new InvalidAssetException("{$stripName}: rugs and other floor pieces can't play an animation yet.");
-            }
-
-            $stripSize = $this->size($strip, $stripName);
-
-            // Read from the header before anything is unpacked; the trimmed strip has its own limit.
-            if ($stripSize[0] > 4096 || $stripSize[1] > 2 * $maxHeight) {
-                throw new InvalidAssetException("{$stripName} is {$stripSize[0]}×{$stripSize[1]}; a strip may be up to 4096 wide. Export it at 100%, with fewer frames.");
-            }
-
-            $animation = $this->builder->furnitureAnimation($strip, $stripName, $image, $lies->wide, $lies->deep, $frameMs);
-        }
+        $animation = $strip === null ? null : $this->animation($item, $facing, $name, $image, $strip, $frameMs);
 
         $png = Png::encode($image);
         $sha = hash('sha256', $png);
@@ -99,6 +82,71 @@ final readonly class UploadItemArt
             ->log("Uploaded {$item->name} art, facing {$facing}");
 
         return $upload;
+    }
+
+    /**
+     * Gives an upload's picture a new animation, or another one: a new row
+     * with the same picture and the strip, so staff needn't upload the
+     * picture again, and it publishes and rolls back like any upload.
+     *
+     * @param  list<int>  $frameMs  The strip's frame times: one for every frame, or one for each.
+     */
+    public function animate(ItemArtUpload $upload, string $strip, User $staff, array $frameMs): ItemArtUpload
+    {
+        $item = $upload->item;
+        $name = "{$item->slug} facing {$upload->facing}";
+
+        if ($upload->stale_at !== null) {
+            throw new InvalidAssetException("{$name} was drawn for {$item->name} before its size or shape changed. Upload a new picture with the animation.");
+        }
+
+        $picture = Storage::disk((string) config('hushfield.assets.disk'))->get($upload->path)
+            ?? throw new RuntimeException("{$upload->path} is not on the public disk.");
+        [$frames, $animation] = $this->animation($item, $upload->facing, $name, Png::decode($picture, $name), $strip, $frameMs);
+        $animationPath = $this->store("items/{$item->slug}/{$upload->facing}-on", Png::encode($frames));
+
+        $animated = ItemArtUpload::query()->create([
+            ...$upload->only(['item_id', 'facing', 'path', 'sha256', 'bytes', 'width', 'height']),
+            'animation_path' => $animationPath,
+            'animation' => $animation,
+            'uploaded_by' => $staff->id,
+        ]);
+
+        activity(AuditLog::Art)
+            ->performedOn($item)
+            ->causedBy($staff)
+            ->withProperties(['item_art_id' => $animated->id, 'from_item_art_id' => $upload->id, 'item' => $item->slug, 'facing' => $upload->facing, 'animation_path' => $animationPath])
+            ->event('item_art.animated')
+            ->log("Animated {$item->name} art, facing {$upload->facing}");
+
+        return $animated;
+    }
+
+    /**
+     * A strip checked against the picture it plays over (in game pixels), trimmed to what moves.
+     *
+     * @param  list<int>  $frameMs
+     * @return array{Image, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}}
+     */
+    private function animation(Item $item, int $facing, string $name, Image $picture, string $strip, array $frameMs): array
+    {
+        $stripName = "{$name}, switched on";
+
+        // Drawn just over the piece, an animation on a rug would cover anyone standing on it.
+        if ($item->floor) {
+            throw new InvalidAssetException("{$stripName}: rugs and other floor pieces can't play an animation yet.");
+        }
+
+        $stripSize = $this->size($strip, $stripName);
+
+        // Read from the header before anything is unpacked; the trimmed strip has its own limit.
+        if ($stripSize[0] > 4096 || $stripSize[1] > 2 * (int) config('hushfield.assets.upload_max_height')) {
+            throw new InvalidAssetException("{$stripName} is {$stripSize[0]}×{$stripSize[1]}; a strip may be up to 4096 wide. Export it at 100%, with fewer frames.");
+        }
+
+        $lies = $item->footprintAt(0, 0, $facing);
+
+        return $this->builder->furnitureAnimation($strip, $stripName, $picture, $lies->wide, $lies->deep, $frameMs);
     }
 
     /**

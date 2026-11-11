@@ -299,3 +299,33 @@ test('an animation is copied to other colours with their own pictures; a colour 
 
     expect(json_decode((string) json_encode($moss->fresh()?->toPayload()), true)['furniture']['animations'])->toBe([]);
 });
+
+test('an uploaded picture gets an animation without uploading it again, as a new upload that publishes like any other', function () {
+    $still = uploadFacing($this->seat, 0, drawnFacing(48, 32), $this->admin);
+    app(PublishItemArt::class)($still, $this->admin);
+
+    Livewire::test(ArtRelationManager::class, ['ownerRecord' => $this->seat, 'pageClass' => EditItem::class])
+        ->assertActionHasLabel(TestAction::make('animate')->table($still), 'Add animation…')
+        ->callAction(TestAction::make('animate')->table($still), data: [
+            'strip' => UploadedFile::fake()->createWithContent('love-seat-0-on.png', seatStrip()),
+            'frame_ms' => '600, 80',
+            'publish' => true,
+        ])
+        ->assertHasNoActionErrors()
+        ->assertNotified('Animation added');
+
+    $animated = $this->seat->publishedArt()->sole();
+
+    // The same picture, the box both squares fall in as in the upload above, and the still upload left as it was to roll back to.
+    expect($animated->id)->not->toBe($still->id)
+        ->and([$animated->path, $animated->sha256, $animated->width, $animated->height])->toBe([$still->path, $still->sha256, $still->width, $still->height])
+        ->and($animated->animation)->toBe(['x' => 20, 'y' => 40, 'width' => 8, 'height' => 8, 'frames' => 2, 'frame_ms' => [600, 80]])
+        ->and($still->fresh()?->animation_path)->toBeNull()
+        ->and(Activity::query()->where('event', 'item_art.animated')->sole()->properties['from_item_art_id'])->toBe($still->id);
+
+    // A stale picture no longer fits the piece, so it can't be animated.
+    $this->seat->update(['shape' => ['#.']]);
+
+    expect(fn () => app(UploadItemArt::class)->animate($still->fresh(), seatStrip(), $this->admin, [100]))
+        ->toThrow(InvalidAssetException::class, 'before its size or shape changed');
+});
