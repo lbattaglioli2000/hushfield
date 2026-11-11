@@ -320,6 +320,16 @@ export class WorldNet {
         this.showFurniture(body.furniture);
     }
 
+    /** Switches a placed piece on or off, in anyone's home the player is in. */
+    async switchFurniture(piece: number, on: boolean): Promise<void> {
+        const body = await this.request<{ furniture: PlacedFurniture[] }>(
+            'POST',
+            `/world/home/furniture/${piece}/switch`,
+            { on },
+        );
+        this.showFurniture(body.furniture);
+    }
+
     async putAwayFurniture(piece: number): Promise<void> {
         const body = await this.request<{ furniture: PlacedFurniture[] }>(
             'DELETE',

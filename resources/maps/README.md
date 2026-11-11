@@ -191,6 +191,18 @@ sides of its block; blocks go up to 8 × 8. The shape turns with the piece: a
 quarter turn clockwise seen from above takes `##` over `#.` to `##` over `.#`.
 `Footprint` holds the shape as its `mask`, on both sides.
 
+A piece **switches on** if its art has an animation for a facing it draws:
+an upload may carry a strip that plays over its picture, checked and
+trimmed as a room piece's is (`AssetBuilder::furnitureAnimation`, at most 4096 game pixels wide once
+trimmed, frames of at least 60 ms; none on floor pieces), on the same `item_art` row,
+so they publish and roll back together; `CopyItemAnimation` gives other
+colours of the piece a facing's animation over their own pictures. Items send it as
+`furniture.animations` by facing. Each placed piece stores `switched_on`
+(`on` in its payload), off when placed and kept when moved; anyone in the
+room switches it (`SwitchFurniture`, which takes the state wanted, so two
+taps at once agree), by tapping it in play. `FurnitureLayer` plays it as it
+plays a room piece that's on.
+
 ## Room pieces
 
 A room's own furniture, such as the Coin Laundry's washers, is part of its

@@ -16,8 +16,8 @@ export function itemTexture(url: string): string {
     return `item:${url}`;
 }
 
-/** The texture key a room piece's animation is loaded under, as a spritesheet, by its URL. */
-export function propAnimationTexture(url: string): string {
+/** The texture key a piece's animation is loaded under, as a spritesheet, by its URL. */
+export function pieceAnimationTexture(url: string): string {
     return `prop-animation:${url}`;
 }
 
@@ -59,6 +59,37 @@ export class FurnitureLayer {
     set(placed: FurniturePiece[]): void {
         this.clear();
         this.pieces = placed.map((piece) => this.draw(piece));
+    }
+
+    /**
+     * The piece drawn at a world point, if any: the front-most one, ignoring
+     * its transparent pixels, as BuildingLayer.at finds buildings.
+     */
+    at(worldX: number, worldY: number): FurniturePiece | null {
+        let found: { placed: FurniturePiece; depth: number } | null = null;
+
+        for (const { placed, strips } of this.pieces) {
+            for (const strip of strips) {
+                const x = Math.floor(worldX - strip.x);
+                const y = Math.floor(worldY - strip.y);
+
+                if (x < 0 || y < 0 || x >= strip.width || y >= strip.height)
+                    continue;
+
+                const alpha = this.scene.textures.getPixelAlpha(
+                    x,
+                    y,
+                    strip.texture.key,
+                    strip.frame.name,
+                );
+
+                if (alpha > 0 && (!found || strip.depth > found.depth)) {
+                    found = { placed, depth: strip.depth };
+                }
+            }
+        }
+
+        return found?.placed ?? null;
     }
 
     /** Fades any piece tall enough to hide the player's own avatar, as buildings do. */
@@ -175,10 +206,10 @@ export class FurnitureLayer {
         const playing = art ? placed.animations?.[art.facing] : undefined;
         const animation =
             playing &&
-            this.scene.textures.exists(propAnimationTexture(playing.url))
+            this.scene.textures.exists(pieceAnimationTexture(playing.url))
                 ? animateOver(
                       this.scene,
-                      propAnimationTexture(playing.url),
+                      pieceAnimationTexture(playing.url),
                       playing,
                       placement,
                       art?.mirrored,

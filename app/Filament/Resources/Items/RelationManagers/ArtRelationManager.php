@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Items\RelationManagers;
 
+use App\Actions\Items\CopyItemAnimation;
 use App\Actions\Items\PublishItemArt;
 use App\Actions\Items\UnpublishItemArt;
 use App\Actions\Items\UploadItemArt;
@@ -14,8 +15,10 @@ use App\Models\Item;
 use App\Models\ItemArtUpload;
 use Closure;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -91,6 +94,10 @@ class ArtRelationManager extends RelationManager
                         'Stale' => 'danger',
                         default => 'gray',
                     }),
+                TextColumn::make('animation')
+                    ->label('Switched on')
+                    ->state(fn (ItemArtUpload $record): ?string => $record->animation === null ? null : $record->animation['frames'].' frames, '.array_sum($record->animation['frame_ms']).' ms')
+                    ->placeholder('—'),
                 TextColumn::make('size')
                     ->label('Art pixels')
                     ->state(fn (ItemArtUpload $record): string => intdiv($record->width, 2).' × '.intdiv($record->height, 2)),
@@ -121,6 +128,21 @@ class ArtRelationManager extends RelationManager
                             ->maxSize(intdiv((int) config('hushfield.assets.upload_max_bytes'), 1024))
                             ->storeFiles(false)
                             ->required(),
+                        FileUpload::make('strip')
+                            ->label('Switched on (optional)')
+                            ->helperText('What plays over the picture while a placed piece is on, such as clothes tumbling: two or more frames, each the size of the picture with only what moves drawn, side by side (docs/art/furniture.md).')
+                            ->acceptedFileTypes(['image/png'])
+                            ->maxSize(intdiv((int) config('hushfield.assets.upload_max_bytes'), 1024))
+                            ->storeFiles(false)
+                            ->live()
+                            // Drawn just over the piece, an animation on a rug would cover anyone standing on it.
+                            ->visible(! $item->floor),
+                        TextInput::make('frame_ms')
+                            ->label('Frame times (ms)')
+                            ->helperText('One time for every frame, such as 140, or one for each, such as 600, 80, 80, 80. At least 60 each.')
+                            ->regex('/^\s*\d+(\s*,\s*\d+)*\s*$/')
+                            ->requiredWith('strip')
+                            ->visible(fn (callable $get): bool => ! $item->floor && filled($get('strip'))),
                         Toggle::make('publish')
                             ->label('Publish it now')
                             ->helperText('Players see it on their next visit to a room it stands in.')
@@ -135,7 +157,12 @@ class ArtRelationManager extends RelationManager
                         }
 
                         $this->runOrNotify($action, 'Not uploaded', function () use ($item, $data, $file, $upload, $publish): void {
-                            $art = $upload($item, (int) $data['facing'], (string) $file->get(), Staff::current());
+                            $strip = $data['strip'] ?? null;
+                            $art = $upload(
+                                $item, (int) $data['facing'], (string) $file->get(), Staff::current(),
+                                $strip instanceof TemporaryUploadedFile ? (string) $strip->get() : null,
+                                array_map(intval(...), explode(',', (string) ($data['frame_ms'] ?? ''))),
+                            );
 
                             if (($data['publish'] ?? false) === true) {
                                 $publish($art, Staff::current());
@@ -145,6 +172,33 @@ class ArtRelationManager extends RelationManager
                     ->successNotificationTitle('Art uploaded'),
             ])
             ->recordActions([
+                Action::make('copyAnimation')
+                    ->label('Copy animation to colours…')
+                    ->icon(Heroicon::OutlinedDocumentDuplicate)
+                    ->modalHeading('Copy this animation to other colours')
+                    ->modalDescription(fn (ItemArtUpload $record): string => "Each colour you pick gets a new upload for facing {$record->facing}: its own published picture, with this upload's animation and frame times.")
+                    ->visible(fn (ItemArtUpload $record): bool => $record->animation !== null && CopyItemAnimation::colours($item)->isNotEmpty())
+                    ->schema([
+                        CheckboxList::make('colours')
+                            ->options(fn (): array => CopyItemAnimation::colours($item)->mapWithKeys(fn (Item $colour): array => [$colour->id => $colour->label()])->all())
+                            ->default(fn (): array => CopyItemAnimation::colours($item)->pluck('id')->all())
+                            ->required(),
+                        Toggle::make('publish')
+                            ->label('Publish them now')
+                            ->default(true)
+                            ->visible(fn (): bool => Gate::allows('publishArt', $item)),
+                    ])
+                    ->action(function (ItemArtUpload $record, array $data, CopyItemAnimation $copy): void {
+                        $result = $copy($record, array_values(array_map(intval(...), $data['colours'])), Staff::current(), ($data['publish'] ?? false) === true);
+                        $skipped = implode(' ', array_map(fn (string $colour, string $why): string => "{$colour}: skipped, {$why}.", array_keys($result['skipped']), $result['skipped']));
+
+                        $notification = Notification::make()
+                            ->title($result['copied'] === [] ? 'Nothing copied' : 'Animation copied to '.implode(', ', $result['copied']))
+                            ->body($skipped === '' ? null : $skipped);
+                        $notification = $result['copied'] === [] ? $notification->warning() : $notification->success();
+                        // What was skipped stays up to be read.
+                        ($skipped === '' ? $notification : $notification->persistent())->send();
+                    }),
                 Action::make('publish')
                     ->label('Publish')
                     ->icon(Heroicon::OutlinedEye)

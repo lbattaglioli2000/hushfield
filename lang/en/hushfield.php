@@ -48,6 +48,8 @@ return [
     'furniture_in_doorway' => 'Doorways are to be kept clear. Hearthmore Group does not say what for.',
     'furniture_cuts_off' => 'That would wall off part of your home from the door. Rooms that cannot be reached tend to fill up with something.',
     'furniture_traps' => 'Someone is standing there, and would have no way out. Please wait for them to move. They will, eventually.',
+    'furniture_not_here' => "That isn't here. Or it is, and you aren't.",
+    'furniture_does_not_switch' => 'It has no switch. You looked. Everyone looks.',
     'furniture_full' => 'Your home holds all the furniture it is going to. The floor has asked, politely, for no more.',
     'home_too_fast' => 'Your residence needs a moment to settle. Please try again shortly.',
 

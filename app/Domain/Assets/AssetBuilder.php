@@ -45,6 +45,16 @@ final class AssetBuilder
     /** The props tileset's first GID in a map that doesn't have it yet: well past the ground's. */
     private const int PROPS_FIRSTGID = 1001;
 
+    /**
+     * The widest an uploaded furniture animation may be once trimmed, its
+     * frames side by side in game pixels: the largest texture every device
+     * the game runs on loads. Any number of frames fits, if what moves is small.
+     */
+    private const int MAX_UPLOAD_STRIP_WIDTH = 4096;
+
+    /** The shortest an uploaded animation may show a frame: anything quicker flickers. */
+    private const int MIN_FRAME_MS = 60;
+
     /** Every room piece and the tiles it covers: see PropRegistry. */
     private const string PROP_REGISTRY = 'props/props.json';
 
@@ -339,7 +349,7 @@ final class AssetBuilder
         $building = Png::decode((string) file_get_contents("{$sources}/buildings/{$slug}.png"), "art/buildings/{$slug}.png");
 
         return $this->overlay(
-            $sources, $file, $building, "buildings/{$slug}.png", $scale,
+            Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}"), "art/{$file}", $building, "art/buildings/{$slug}.png", $scale,
             $footprint[0] * intdiv(32, $scale), "a {$footprint[0]} × {$footprint[1]} footprint", $timing,
             fn (int $count): string => 'art/'.self::ANIMATIONS.': "'.substr($file, strlen('buildings/'), -4)."\": {\"frame_ms\": 200} shows every frame for 200 ms, or give a list of {$count} times, one for each frame.",
         );
@@ -353,34 +363,34 @@ final class AssetBuilder
      * draws, so the game loads only what moves, and where that box lies on
      * the picture. `timing` holds `frame_ms`, one time for every frame or a
      * list; `timesGo` says where they go, for a strip of so many frames.
+     * `name` and `baseName` are how messages refer to the strip and picture.
      *
      * @param  Closure(int): string  $timesGo
      * @return array{Image, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}}
      */
-    private function overlay(string $sources, string $file, Image $base, string $baseFile, int $scale, int $corner, string $what, mixed $timing, Closure $timesGo): array
+    private function overlay(Image $strip, string $name, Image $base, string $baseName, int $scale, int $corner, string $what, mixed $timing, Closure $timesGo): array
     {
-        $strip = Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}");
         [$w, $h] = [$base->width, $base->height];
 
         if ($scale > 1 && $strip->height === $h * $scale && $strip->width % ($w * $scale) === 0 && $strip->isScaledUp($scale)) {
-            throw new InvalidAssetException("art/{$file} is already scaled up to {$strip->width}×{$strip->height}. Export it at 100%: ".intdiv($strip->width, $scale)."×{$h}.");
+            throw new InvalidAssetException("{$name} is already scaled up to {$strip->width}×{$strip->height}. Export it at 100%: ".intdiv($strip->width, $scale)."×{$h}.");
         }
 
         if ($strip->height !== $h || $strip->width % $w !== 0) {
-            throw new InvalidAssetException("art/{$file} is {$strip->width}×{$strip->height}; its frames must be {$w} × {$h}, like art/{$baseFile}, side by side.");
+            throw new InvalidAssetException("{$name} is {$strip->width}×{$strip->height}; its frames must be {$w} × {$h}, like {$baseName}, side by side.");
         }
 
         $count = intdiv($strip->width, $w);
 
         if ($count < 2) {
-            throw new InvalidAssetException("art/{$file} has one frame. An animation needs two or more; a part that doesn't move belongs in art/{$baseFile}.");
+            throw new InvalidAssetException("{$name} has one frame. An animation needs two or more; a part that doesn't move belongs in {$baseName}.");
         }
 
         $times = match (true) {
             is_array($timing) && is_int($timing['frame_ms'] ?? null) && $timing['frame_ms'] > 0 => array_fill(0, $count, $timing['frame_ms']),
             is_array($timing) && is_array($timing['frame_ms'] ?? null) && array_is_list($timing['frame_ms']) && count($timing['frame_ms']) === $count
                 && array_all($timing['frame_ms'], fn (mixed $ms): bool => is_int($ms) && $ms > 0) => $timing['frame_ms'],
-            default => throw new InvalidAssetException("art/{$file} needs its frame times in {$timesGo($count)}"),
+            default => throw new InvalidAssetException("{$name} needs its frame times in {$timesGo($count)}"),
         };
 
         [$minX, $minY, $maxX, $maxY] = [$w, $h, -1, -1];
@@ -388,14 +398,14 @@ final class AssetBuilder
 
         for ($n = 0; $n < $count; $n++) {
             $frame = $strip->crop($n * $w, 0, $w, $h);
-            $this->checkFootprint('Frame '.($n + 1)." of art/{$file}", $frame, $corner, $what);
+            $this->checkFootprint('Frame '.($n + 1)." of {$name}", $frame, $corner, $what);
 
             for ($y = 0; $y < $h; $y++) {
                 for ($x = 0; $x < $w; $x++) {
                     $alpha = $frame->alphaAt($x, $y);
 
                     if ($alpha > 0 && $alpha < 255) {
-                        throw new InvalidAssetException('Frame '.($n + 1)." of art/{$file} has a half-transparent pixel at ({$x}, {$y}). Use solid pixels.");
+                        throw new InvalidAssetException('Frame '.($n + 1)." of {$name} has a half-transparent pixel at ({$x}, {$y}). Use solid pixels.");
                     }
 
                     if ($alpha > 0) {
@@ -408,7 +418,7 @@ final class AssetBuilder
         }
 
         if ($maxX < 0) {
-            throw new InvalidAssetException("art/{$file} has nothing drawn in it.");
+            throw new InvalidAssetException("{$name} has nothing drawn in it.");
         }
 
         [$width, $height] = [$maxX - $minX + 1, $maxY - $minY + 1];
@@ -649,7 +659,7 @@ final class AssetBuilder
                     }
 
                     [$outputs["props/{$prop['slug']}/{$facing}-on"], $animations[$n][$facing]] = $this->overlay(
-                        $sources, $on, $art[$facing], $file, $scale, $wide * intdiv(32, $scale), "a {$wide} × {$deep} footprint at facing {$facing}", $prop,
+                        Png::decode((string) file_get_contents("{$sources}/{$on}"), "art/{$on}"), "art/{$on}", $art[$facing], "art/{$file}", $scale, $wide * intdiv(32, $scale), "a {$wide} × {$deep} footprint at facing {$facing}", $prop,
                         fn (int $count): string => "props/props.json: add \"frame_ms\": 200 to {$prop['slug']} to show every frame for 200 ms, or give a list of {$count} times, one for each frame.",
                     );
                     $strip = $outputs["props/{$prop['slug']}/{$facing}-on"];
@@ -739,6 +749,42 @@ final class AssetBuilder
         $this->checkFootprint($name, $art, $wide * intdiv(32, $scale), "a {$wide} × {$deep} footprint");
 
         return $art->scale($scale);
+    }
+
+    /**
+     * The animation uploaded with a furniture facing, to play over its
+     * picture (`picture`, in game pixels, as furnitureFacing returns it)
+     * while the piece is switched on: checked and trimmed as a room piece's
+     * is (see overlay), at most MAX_UPLOAD_STRIP_WIDTH wide once trimmed,
+     * each frame shown at least MIN_FRAME_MS. `name` is how messages refer
+     * to the file.
+     *
+     * @param  list<int>  $frameMs  one time for every frame, or one for each
+     * @return array{Image, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}}
+     */
+    public function furnitureAnimation(string $bytes, string $name, Image $picture, int $wide, int $deep, array $frameMs): array
+    {
+        $scale = $this->scale('items');
+        $base = $picture->sample($scale);
+
+        if (array_any($frameMs, fn (int $ms): bool => $ms < self::MIN_FRAME_MS)) {
+            throw new InvalidAssetException("{$name} shows a frame for less than ".self::MIN_FRAME_MS.' ms. Anything quicker flickers.');
+        }
+
+        $animation = $this->overlay(
+            Png::decode($bytes, $name), $name, $base, 'its picture', $scale, $wide * intdiv(32, $scale), "a {$wide} × {$deep} footprint",
+            ['frame_ms' => count($frameMs) === 1 ? $frameMs[0] : $frameMs],
+            fn (int $count): string => "\"Frame times\": one time for every frame, or {$count} times, one for each frame.",
+        );
+        ['width' => $width, 'frames' => $frames] = $animation[1];
+
+        if ($width * $frames > self::MAX_UPLOAD_STRIP_WIDTH) {
+            $most = intdiv(self::MAX_UPLOAD_STRIP_WIDTH, $width);
+
+            throw new InvalidAssetException("{$name} is too long to load: {$frames} frames of what moves, each ".intdiv($width, $scale)." art pixels across, fit only {$most} at a time. Use up to {$most} frames, or make the moving part narrower.");
+        }
+
+        return $animation;
     }
 
     /** Fails unless nothing hangs below the footprint diamond whose bottom corner is `corner` pixels in. */

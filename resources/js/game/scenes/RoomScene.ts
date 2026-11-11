@@ -19,7 +19,7 @@ import { pathState } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
 import type { FurniturePiece } from '../shared/furniture';
-import { withFurniture } from '../shared/furniture';
+import { asDrawn, switches, withFurniture } from '../shared/furniture';
 import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { positionOf } from '../shared/pathClock';
 import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
@@ -44,7 +44,7 @@ import {
     FurnitureLayer,
     itemTexture,
     mirroredTexture,
-    propAnimationTexture,
+    pieceAnimationTexture,
 } from '../world/FurnitureLayer';
 import { HouseLights } from '../world/HouseLights';
 import { ScreenLayer } from '../world/ScreenLayer';
@@ -79,6 +79,8 @@ export type RoomPort = MovementPort &
         /** Ends the game with a fatal screen, for failures the scene can't recover from. */
         abort(error: unknown): void;
         useExit(name: string): Promise<void>;
+        /** Switches a placed piece on or off; anyone in the room may. */
+        switchFurniture(piece: number, on: boolean): Promise<void>;
     };
 
 export type RoomSceneOptions = {
@@ -531,7 +533,9 @@ export class RoomScene
             (tile && this.map?.buildingAt(tile)) ??
             null;
         this.buildings?.hover(pointer.wasTouch ? null : building);
-        this.input.setDefaultCursor(building ? 'pointer' : 'default');
+        this.input.setDefaultCursor(
+            building || this.pointerSwitch(pointer) ? 'pointer' : 'default',
+        );
 
         this.decorate.hover(this.map, tile);
 
@@ -593,6 +597,17 @@ export class RoomScene
             }
         }
 
+        // Tapping a piece that switches on switches it, from wherever the player stands.
+        const piece = this.pointerSwitch(pointer);
+
+        if (piece) {
+            this.port
+                .switchFurniture(piece.piece, !piece.on)
+                .catch(this.options.refused);
+
+            return;
+        }
+
         // Tapping a building walks the player in through its door.
         const building = this.pointerBuilding(pointer);
 
@@ -616,10 +631,11 @@ export class RoomScene
     private setFurniture(placed: PlacedFurniture[]): void {
         this.placed = placed;
         this.decorate.arrange(placed);
-        this.furniture?.set([...(this.map?.props ?? []), ...placed]);
+        const drawn = placed.map(asDrawn);
+        this.furniture?.set([...(this.map?.props ?? []), ...drawn]);
         this.walkGrid = this.map ? withFurniture(this.map.grid, placed) : null;
 
-        const files = this.itemFiles(placed);
+        const files = this.itemFiles(drawn);
 
         if (this.assets.missing(files).length === 0) return;
 
@@ -662,7 +678,7 @@ export class RoomScene
                 ),
             ),
             ...walls,
-            ...this.itemFiles([...map.props, ...placed]),
+            ...this.itemFiles([...map.props, ...placed.map(asDrawn)]),
         ];
     }
 
@@ -689,7 +705,7 @@ export class RoomScene
                 url: () => url,
             })),
             ...[...animations.values()].map(({ url, width, height }) => ({
-                key: propAnimationTexture(url),
+                key: pieceAnimationTexture(url),
                 url: () => url,
                 spritesheet: { frameWidth: width, frameHeight: height },
             })),
@@ -747,6 +763,20 @@ export class RoomScene
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
 
         return this.buildings?.at(world.x, world.y) ?? null;
+    }
+
+    /** The home's piece under the pointer, if it can be switched on (see switches). */
+    private pointerSwitch(
+        pointer: Phaser.Input.Pointer,
+    ): PlacedFurniture | null {
+        const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const drawn = this.furniture?.at(world.x, world.y);
+        const placed =
+            drawn && 'piece' in drawn
+                ? this.placed.find((p) => p.piece === drawn.piece)
+                : undefined;
+
+        return placed && switches(placed) ? placed : null;
     }
 
     private showMarker(tile: Tile): void {

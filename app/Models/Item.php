@@ -158,7 +158,7 @@ class Item extends Model
      * `family` is the item a colour belongs to (itself for a parent or an item
      * without colours), so the shop shows one entry per family.
      *
-     * @return array{id: int, slug: string, family: int, colour: string|null, swatch: string|null, name: string, description: string|null, slot: string, rarity: string, price: int, members_only: bool, furniture: array{wide: int, deep: int, height: int, floor: bool, shape: list<string>|null, art: object}|null}
+     * @return array{id: int, slug: string, family: int, colour: string|null, swatch: string|null, name: string, description: string|null, slot: string, rarity: string, price: int, members_only: bool, furniture: array{wide: int, deep: int, height: int, floor: bool, shape: list<string>|null, art: object, animations: object}|null}
      */
     public function toPayload(): array
     {
@@ -178,7 +178,9 @@ class Item extends Model
                 ? [
                     'wide' => $this->wide, 'deep' => $this->deep, 'height' => $this->height, 'floor' => $this->floor, 'shape' => $this->shape,
                     // Facing => URL, for the facings that have art.
-                    'art' => (object) array_map(fn (array $art): string => $art['url'], app(ItemArt::class)->facings($this)),
+                    'art' => (object) array_map(fn (array $art): string => $art['url'], $facings = app(ItemArt::class)->facings($this)),
+                    // Facing => what plays over its art while a placed piece is switched on, for the facings that have one.
+                    'animations' => (object) array_filter(array_map(fn (array $art): ?array => $art['animation'] ?? null, $facings)),
                 ]
                 : null,
         ];

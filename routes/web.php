@@ -10,6 +10,7 @@ use App\Http\Controllers\Housing\HomesController;
 use App\Http\Controllers\Housing\HomeVisitorsController;
 use App\Http\Controllers\Housing\PlaceFurnitureController;
 use App\Http\Controllers\Housing\PutAwayFurnitureController;
+use App\Http\Controllers\Housing\SwitchFurnitureController;
 use App\Http\Controllers\Identity\AgeGateController;
 use App\Http\Controllers\Social\FriendsController;
 use App\Http\Controllers\WelcomeController;
@@ -88,6 +89,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('home/visitors', HomeVisitorsController::class)->name('home.visitors');
                 Route::post('home/furniture/{piece}', PlaceFurnitureController::class)->name('home.furniture.place');
                 Route::delete('home/furniture/{piece}', PutAwayFurnitureController::class)->name('home.furniture.remove');
+                // Anyone in the room, not only the owner.
+                Route::post('home/furniture/{piece}/switch', SwitchFurnitureController::class)->name('home.furniture.switch');
             });
         });
     });

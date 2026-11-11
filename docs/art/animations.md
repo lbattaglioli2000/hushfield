@@ -6,8 +6,10 @@ so everything there still applies.
 
 Animating a room piece instead, such as the Coin Laundry's washers tumbling
 when they're on? That works the same way, over the piece's own picture: see
-[room pieces](room-pieces.md#2b-moving-parts-a-washer-thats-on). Home
-furniture and walls can't move yet.
+[room pieces](room-pieces.md#2b-moving-parts-a-washer-thats-on), and for
+furniture residents buy, see
+[furniture that switches on](furniture.md#6-a-piece-that-switches-on).
+Walls can't move yet.
 
 The building stays **one still picture**. Each moving part is a **second
 file**: a short strip of frames that the game plays over the building in a

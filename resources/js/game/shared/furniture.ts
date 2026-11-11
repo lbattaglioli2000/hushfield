@@ -144,6 +144,18 @@ export function roomPieces(
     });
 }
 
+/** Whether a placed piece can be switched on: its item has an animation to play. */
+export function switches(piece: FurniturePiece): boolean {
+    return Object.keys(piece.item.furniture?.animations ?? {}).length > 0;
+}
+
+/** A home's piece as it is drawn: playing its item's animations while it is switched on. */
+export function asDrawn(placed: PlacedFurniture): FurniturePiece {
+    return placed.on && switches(placed)
+        ? { ...placed, animations: placed.item.furniture?.animations }
+        : placed;
+}
+
 /**
  * The piece standing on a tile, if any: the one on top when a piece stands on a rug.
  */

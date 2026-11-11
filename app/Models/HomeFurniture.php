@@ -11,7 +11,8 @@ use Illuminate\Support\Carbon;
 /**
  * One owned furniture item placed in its owner's home, in the house or the
  * yard (`room_instance_id`), its back corner on tile (x, y), turned
- * `rotation` quarter turns.
+ * `rotation` quarter turns, and whether it is switched on (see
+ * SwitchFurniture). A new piece starts off; moving it keeps its state.
  *
  * @property int $id
  * @property int $home_id
@@ -20,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property int $x
  * @property int $y
  * @property int $rotation Quarter turns clockwise from how the item's art faces, 0–3.
+ * @property bool $switched_on Playing its animation, if its art has one.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Home $home
@@ -36,6 +38,7 @@ class HomeFurniture extends Model
             'x' => 'integer',
             'y' => 'integer',
             'rotation' => 'integer',
+            'switched_on' => 'boolean',
         ];
     }
 
@@ -65,7 +68,7 @@ class HomeFurniture extends Model
     /**
      * `piece` is the owned piece (inventory row) placed, which decorating moves, turns and puts away.
      *
-     * @return array{piece: int, x: int, y: int, rotation: int, item: array<string, mixed>}
+     * @return array{piece: int, x: int, y: int, rotation: int, on: bool, item: array<string, mixed>}
      */
     public function toPayload(): array
     {
@@ -74,6 +77,7 @@ class HomeFurniture extends Model
             'x' => $this->x,
             'y' => $this->y,
             'rotation' => $this->rotation,
+            'on' => $this->switched_on,
             'item' => $this->inventoryItem->item->toPayload(),
         ];
     }

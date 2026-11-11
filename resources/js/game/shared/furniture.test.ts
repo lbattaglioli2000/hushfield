@@ -3,6 +3,7 @@ import type { Item, PlacedFurniture, RoomPiece } from '../protocol/types';
 import { findPath } from './astar';
 import { covers, distanceTo, tilesOf } from './footprint';
 import {
+    asDrawn,
     facingArt,
     footprintOf,
     pieceAt,
@@ -22,6 +23,7 @@ function piece(
         x,
         y,
         rotation,
+        on: false,
         item: {
             id: x * 100 + y,
             slug: 'piece',
@@ -296,5 +298,45 @@ describe('roomPieces', () => {
     it('skips what it cannot place: no props tileset, or a retired piece', () => {
         expect(roomPieces([at(0, 4, 1)], null, registry)).toEqual([]);
         expect(roomPieces([at(9, 4, 1)], 1001, registry)).toEqual([]);
+    });
+});
+
+describe('asDrawn', () => {
+    const spin = {
+        url: 'washer-0-on.png',
+        x: 8,
+        y: 40,
+        width: 16,
+        height: 16,
+        frames: 4,
+        frame_ms: [120, 120, 120, 120],
+    };
+    const washer = (on: boolean): PlacedFurniture => {
+        const placed = piece(1, 1, 0, { wide: 1, deep: 1 });
+
+        return {
+            ...placed,
+            on,
+            item: {
+                ...placed.item,
+                furniture: {
+                    ...placed.item.furniture!,
+                    art: { 0: 'washer-0.png' },
+                    animations: { 0: spin },
+                },
+            },
+        };
+    };
+
+    it('plays a piece only while it is switched on', () => {
+        expect(asDrawn(washer(true)).animations).toEqual({ 0: spin });
+        expect(asDrawn(washer(false)).animations).toBeUndefined();
+    });
+
+    it('has nothing to play for a piece switched on without animations', () => {
+        expect(
+            asDrawn({ ...piece(1, 1, 0, { wide: 1, deep: 1 }), on: true })
+                .animations,
+        ).toBeUndefined();
     });
 });

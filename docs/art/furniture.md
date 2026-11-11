@@ -1,10 +1,11 @@
 # Drawing furniture for Hushfield
 
-How to draw a piece of furniture and get it into the game, in five steps.
-This is furniture residents buy for their homes. A room's own machines and
-tables, such as the Coin Laundry's washers, are
+How to draw a piece of furniture and get it into the game, in five steps,
+and a sixth if it [switches on](#6-a-piece-that-switches-on), like a washer
+that tumbles. This is furniture residents buy for their homes. A room's own
+machines and tables, such as the Coin Laundry's washers, are
 [room pieces](room-pieces.md): drawn the same way, but sent to Luigi and
-placed in Tiled, and they can animate. Drawing something else? See
+placed in Tiled. Drawing something else? See
 [all the art guides](README.md).
 If an upload is refused, the [last table](#if-the-upload-says-no) says why
 and how to fix it.
@@ -110,16 +111,49 @@ with their own art. Recolour the finished piece and change nothing else: same
 canvas, same facings. Upload from the original's page, under **Variants →
 Edit and art**.
 
+## 6. A piece that switches on
+
+A piece can have a moving part that plays while it's **on**, such as clothes
+tumbling in a washer. Anyone in the home, the owner or a visitor, taps the
+piece to switch it on or off, and everyone there sees it. A new piece starts
+off. Rugs and other floor pieces can't switch on yet.
+
+1. **Draw the moving part** over the picture, exactly as for a room piece:
+   only what moves, two or more frames each the size of the picture, frame 1 good
+   on its own. See [room pieces, step 2b](room-pieces.md#2b-moving-parts-a-washer-thats-on).
+2. **Upload it with its picture.** In **Upload art**, add the strip under
+   **Switched on** and fill in **Frame times (ms)**: one time for every frame
+   (`140`), or one for each (`600, 80, 80, 80`). Each frame shows for at
+   least 60 ms.
+3. The picture and its animation are one row, published and rolled back
+   together. To change the animation, upload the picture again with the new
+   strip.
+4. **Other colours** (Variants) need the animation too. Draw it once: on the
+   row with the animation, press **Copy animation to colours…** and pick the
+   colours. Each gets its own picture with your animation, as a new row. A
+   colour needs its picture for that facing uploaded first, at the same size.
+   If the moving part is itself coloured, like a lamp's glow, upload that
+   colour's own strip instead.
+
+The mirrored facing gets the animation mirrored for free, as it gets the
+picture. A piece needs an animation on at least one facing it shows to be
+switchable.
+
 ## If the upload says no
 
-| The message says…                            | What it means and how to fix it                                                                                                                                                                                                                                    |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "is 128×64; it must be 96 wide"              | The canvas is the wrong width. Start again from the right template. Don't resize the picture to fit: that squashes the angles.                                                                                                                                     |
-| "has pixels below its footprint diamond at…" | Something hangs below the diamond, usually because the piece is drawn **longer** than its tiles. Put the template back under it and shorten the piece until its base sits inside the diamond. The (x, y) is the first bad pixel, counted from the top-left corner. |
-| "It stands on a 2 × 4 footprint"             | At facings 1 and 3 a long piece turns, so a 4 × 2 sofa becomes 2 × 4. Use that facing's own template.                                                                                                                                                              |
-| "is already scaled up" / "far bigger than"   | It was exported at 200% or more. Export at 100%.                                                                                                                                                                                                                   |
-| "may be up to 256 tall" / "up to 64 KB"      | Too tall or too big a file. Crop empty space from the top. Furniture is usually 1 to 3 KB.                                                                                                                                                                         |
-| "is not a PNG"                               | Export as PNG.                                                                                                                                                                                                                                                     |
+| The message says…                              | What it means and how to fix it                                                                                                                                                                                                                                    |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "is 128×64; it must be 96 wide"                | The canvas is the wrong width. Start again from the right template. Don't resize the picture to fit: that squashes the angles.                                                                                                                                     |
+| "has pixels below its footprint diamond at…"   | Something hangs below the diamond, usually because the piece is drawn **longer** than its tiles. Put the template back under it and shorten the piece until its base sits inside the diamond. The (x, y) is the first bad pixel, counted from the top-left corner. |
+| "It stands on a 2 × 4 footprint"               | At facings 1 and 3 a long piece turns, so a 4 × 2 sofa becomes 2 × 4. Use that facing's own template.                                                                                                                                                              |
+| "is already scaled up" / "far bigger than"     | It was exported at 200% or more. Export at 100%.                                                                                                                                                                                                                   |
+| "may be up to 256 tall" / "up to 64 KB"        | Too tall or too big a file. Crop empty space from the top. Furniture is usually 1 to 3 KB.                                                                                                                                                                         |
+| "is not a PNG"                                 | Export as PNG.                                                                                                                                                                                                                                                     |
+| "needs its frame times"                        | Fill in **Frame times (ms)**: one time, or as many as the strip has frames.                                                                                                                                                                                        |
+| "its frames must be 48 × 44, like its picture" | Each frame of the **Switched on** strip is the picture's whole canvas. Start the strip from the picture.                                                                                                                                                           |
+| "is too long to load"                          | Too many frames for how wide the moving part is. Use as many frames as the message says, or keep the moving part narrower.                                                                                                                                         |
+| "less than 60 ms"                              | A frame flashes by too fast. Make every time 60 or more.                                                                                                                                                                                                           |
+| "rugs and other floor pieces can't play"       | Floor pieces can't switch on yet. Upload the picture on its own.                                                                                                                                                                                                   |
 
 Stuck? Send the PNG to Luigi with the message.
 

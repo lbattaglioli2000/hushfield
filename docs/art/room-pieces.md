@@ -42,7 +42,7 @@ stays as you drew it in `0.png`.
 1. In Aseprite, keep the machine (your off-state `0.png`) on a locked layer
    underneath, so you can trace over it.
 2. On a new layer, draw **only the moving part** in each frame, such as the
-   clothes inside the porthole. Leave everything else clear. Use **2 to 8
+   clothes inside the porthole. Leave everything else clear. Use **2 or more
    frames**, all the same size as `0.png`.
 3. Make frame 1 look good on its own: players who turn off motion on their
    device see only that frame.

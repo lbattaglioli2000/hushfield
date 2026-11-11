@@ -11,6 +11,7 @@ template, drawing, exporting and handing it over.
 | Room pieces (the Coin Laundry's washers)       | [room-pieces.md](room-pieces.md)                                   | [`templates/furniture/`](templates/furniture/)               | send to Luigi, place in Tiled |
 | Buildings (the outside)                        | [buildings.md](buildings.md)                                       | [`templates/buildings/`](templates/buildings/)               | send to Luigi                 |
 | Moving parts of a building (a blinking light)  | [animations.md](animations.md)                                     | the building's own canvas                                    | send to Luigi                 |
+| Moving parts of furniture (a washer's drum)    | [furniture.md](furniture.md#6-a-piece-that-switches-on)            | the piece's own canvas                                       | upload it yourself            |
 | Moving parts of a room piece (a washer's drum) | [room-pieces.md](room-pieces.md#2b-moving-parts-a-washer-thats-on) | the piece's own canvas                                       | send to Luigi, place in Tiled |
 | Walls and wallpaper (indoors)                  | [walls.md](walls.md)                                               | [`templates/walls/`](templates/walls/), one folder per style | send to Luigi                 |
 | Avatars, hair and clothes (test first)         | [avatars.md](avatars.md)                                           | [`templates/avatars/`](templates/avatars/)                   | send to Luigi                 |

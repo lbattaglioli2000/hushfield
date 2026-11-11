@@ -87,6 +87,8 @@ export type PlacedFurniture = {
     x: number;
     y: number;
     rotation: number;
+    /** Switched on: it plays its item's animations, if it has any. Anyone in the room may switch it. */
+    on: boolean;
     item: Item;
 };
 
@@ -265,6 +267,8 @@ export type Item = {
         shape: string[] | null;
         /** Art URL by facing, `0` to `3`, for the facings that have art (see facingArt). */
         art: Record<string, string>;
+        /** What plays over a facing's art while a placed piece is switched on, by facing; a piece with any can be switched. */
+        animations?: Record<string, ArtAnimation>;
     } | null;
 };
 

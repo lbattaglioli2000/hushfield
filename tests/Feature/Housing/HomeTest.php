@@ -10,6 +10,7 @@ use App\Models\Home;
 use App\Models\HomeFurniture;
 use App\Models\InventoryItem;
 use App\Models\Item;
+use App\Models\ItemArtUpload;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
@@ -203,7 +204,7 @@ test('a piece covers every tile of its footprint, and nothing else may stand on 
 
     placeFurniture($seat, 0, 0)->assertOk()
         ->assertJsonPath('furniture.0.rotation', 0)
-        ->assertJsonPath('furniture.0.item.furniture', ['wide' => 2, 'deep' => 1, 'height' => 18, 'floor' => false, 'shape' => null, 'art' => []]);
+        ->assertJsonPath('furniture.0.item.furniture', ['wide' => 2, 'deep' => 1, 'height' => 18, 'floor' => false, 'shape' => null, 'art' => [], 'animations' => []]);
 
     placeFurniture(ownedPiece(), 1, 0)->assertStatus(422)->assertJsonPath('reason', 'furniture_blocked');
     // A 2 × 2 piece whose back corner is clear but whose other tiles are not.
@@ -446,4 +447,70 @@ test('furniture placed in the yard stays in the yard', function () {
     placeFurniture($chair, 2, 0)->assertOk()->assertJsonCount(2, 'furniture');
     expect($this->home->instance->furniture()->count())->toBe(0);
     Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$this->home->room_instance_id}" && $event->furniture === []);
+});
+
+/** A 1 × 1 piece the owner owns whose published art plays an animation while it's on. */
+function switchablePiece(): InventoryItem
+{
+    $item = Item::factory()->furniture()->create(['slug' => 'washer']);
+    ItemArtUpload::query()->create([
+        'item_id' => $item->id, 'facing' => 0, 'path' => 'items/washer/0.aaaaaaaa.png', 'sha256' => str_repeat('a', 64), 'bytes' => 100, 'width' => 64, 'height' => 72,
+        'animation_path' => 'items/washer/0-on.bbbbbbbb.png', 'animation' => ['x' => 8, 'y' => 40, 'width' => 16, 'height' => 16, 'frames' => 4, 'frame_ms' => [120, 120, 120, 120]],
+        'published_at' => now(),
+    ]);
+
+    return own(test()->owner, $item);
+}
+
+function switchFurniture(User $user, InventoryItem $piece, bool $on)
+{
+    return asResident($user, $user->worldSession->session_token)
+        ->postJson(route('world.home.furniture.switch', $piece), ['on' => $on]);
+}
+
+test('anyone in the room switches a piece on or off, and everyone inside sees it; a new piece starts off, and a moved one keeps its state', function () {
+    $washer = switchablePiece();
+
+    placeFurniture($washer, 1, 1)->assertOk()
+        ->assertJsonPath('furniture.0.on', false)
+        ->assertJsonPath('furniture.0.item.furniture.animations.0.frames', 4);
+
+    switchFurniture($this->owner, $washer, true)->assertOk()->assertJsonPath('furniture.0.on', true);
+    placeFurniture($washer, 3, 2)->assertOk()->assertJsonPath('furniture.0.on', true);
+
+    $this->home->update(['visitors' => HomeVisitors::Everyone]);
+    $guest = resident();
+    visitHome($guest, $this->home->room_instance_id)->assertOk()->assertJsonPath('snapshot.furniture.0.on', true);
+
+    switchFurniture($guest, $washer, false)->assertOk()->assertJsonPath('furniture.0.on', false);
+    // Asking for the state it is already in changes nothing, so two people tapping at once agree.
+    switchFurniture($guest, $washer, false)->assertOk()->assertJsonPath('furniture.0.on', false);
+
+    // Place, switch on, move, switch off: the second "off" broadcast nothing.
+    Event::assertDispatchedTimes(FurnitureChanged::class, 4);
+    Event::assertDispatched(FurnitureChanged::class, fn (FurnitureChanged $event): bool => $event->broadcastOn()->name === "presence-room.{$this->home->room_instance_id}");
+
+    // Put away and placed again, it starts off.
+    switchFurniture($this->owner, $washer, true)->assertOk();
+    asResident($this->owner, $this->ownerToken)->deleteJson(route('world.home.furniture.remove', $washer))->assertOk();
+    placeFurniture($washer, 1, 1)->assertOk()->assertJsonPath('furniture.0.on', false);
+});
+
+test('only someone in the room switches a piece, and only a piece with something to play', function () {
+    $washer = switchablePiece();
+    $chair = ownedPiece();
+    placeFurniture($washer, 1, 1)->assertOk();
+    placeFurniture($chair, 3, 1)->assertOk();
+
+    $outsider = resident();
+    enterWorld($outsider, $this->lane);
+
+    switchFurniture($outsider->fresh(), $washer, true)->assertNotFound()->assertJsonPath('reason', 'furniture_not_here');
+    switchFurniture($this->owner, $chair, true)->assertUnprocessable()->assertJsonPath('reason', 'furniture_does_not_switch');
+
+    // Unplaced, there is nothing to switch.
+    asResident($this->owner, $this->ownerToken)->deleteJson(route('world.home.furniture.remove', $washer))->assertOk();
+    switchFurniture($this->owner, $washer, true)->assertNotFound();
+
+    expect(HomeFurniture::query()->where('switched_on', true)->count())->toBe(0);
 });

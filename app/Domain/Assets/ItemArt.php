@@ -25,9 +25,10 @@ final class ItemArt
     ) {}
 
     /**
-     * The art the game draws for each facing that has any, by facing.
+     * The art the game draws for each facing that has any, by facing, with
+     * the animation an upload plays over it while the piece is switched on.
      *
-     * @return array<int, array{url: string, width: int}> width in game pixels
+     * @return array<int, array{url: string, width: int, animation?: array{url: string, x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}}> width in game pixels
      */
     public function facings(Item $item): array
     {
@@ -46,6 +47,10 @@ final class ItemArt
         // An item not saved yet has no uploads.
         foreach ($item->exists ? $item->publishedArt : [] as $upload) {
             $facings[$upload->facing] = ['url' => $this->url($upload->path), 'width' => $upload->width];
+
+            if ($upload->animation_path !== null && $upload->animation !== null) {
+                $facings[$upload->facing]['animation'] = ['url' => $this->url($upload->animation_path), ...$upload->animation];
+            }
         }
 
         ksort($facings);
@@ -85,6 +90,15 @@ final class ItemArt
         return $bucket !== ''
             ? rtrim($bucket, '/')."/{$path}"
             : Storage::disk((string) config('hushfield.assets.disk'))->url($path);
+    }
+
+    /**
+     * Whether a placed piece of the item can be switched on: a facing it
+     * draws has an animation to play.
+     */
+    public function switches(Item $item): bool
+    {
+        return array_any($this->facings($item), fn (array $art): bool => isset($art['animation']));
     }
 
     /**

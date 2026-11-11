@@ -178,3 +178,124 @@ test('resizing or reshaping a piece makes its uploads stale: no longer drawn, an
         ->and(artPayload($this->seat))->toBe([])
         ->and(fn () => app(PublishItemArt::class)($upload->fresh(), $this->admin))->toThrow(ModerationActionRefused::class);
 });
+
+/**
+ * The love seat's facing 0 switched on: frames of 48 × 44, a red 2 × 2
+ * square at (10, 20), then (12, 22), and so on; `across` draws a red line the
+ * whole width of each frame instead, so nothing trims away.
+ */
+function seatStrip(int $frames = 2, bool $across = false): string
+{
+    $red = $across ? new Image(48, 1, str_repeat("\xFF\0\0\xFF", 48)) : new Image(2, 2, str_repeat("\xFF\0\0\xFF", 4));
+    $strip = Image::blank(48 * $frames, 44);
+
+    foreach (range(0, $frames - 1) as $n) {
+        $strip = $across ? $strip->paste($red, 48 * $n, 5 + $n % 2) : $strip->paste($red, 48 * $n + 10 + 2 * ($n % 2), 20 + 2 * ($n % 2));
+    }
+
+    return Png::encode($strip);
+}
+
+test('an animation may have as many frames as fit once what moves is trimmed', function () {
+    // 40 frames of a small moving part: 8 game pixels each, well within the limit.
+    $upload = app(UploadItemArt::class)($this->seat, 0, Png::encode(drawnFacing(48, 32)), $this->admin, seatStrip(40), [100]);
+
+    expect($upload->animation['frames'] ?? null)->toBe(40);
+});
+
+test('a facing may come with what plays over it while the piece is on, trimmed to what moves and published with its picture', function () {
+    Livewire::test(ArtRelationManager::class, ['ownerRecord' => $this->seat, 'pageClass' => EditItem::class])
+        ->callAction(TestAction::make('upload')->table(), data: [
+            'facing' => 0,
+            'file' => UploadedFile::fake()->createWithContent('love-seat-0.png', Png::encode(drawnFacing(48, 32))),
+            'strip' => UploadedFile::fake()->createWithContent('love-seat-0-on.png', seatStrip()),
+            'frame_ms' => '600, 80',
+            'publish' => true,
+        ])
+        ->assertHasNoActionErrors()
+        ->assertNotified('Art uploaded');
+
+    $upload = ItemArtUpload::query()->sole();
+    $stored = Png::decode((string) Storage::disk('public')->get((string) $upload->animation_path));
+    $red = new Image(4, 4, str_repeat("\xFF\0\0\xFF", 16));
+    // The box both squares fall in, 4 × 4 art pixels from (10, 20), doubled: each frame 8 × 8.
+    $animation = ['x' => 20, 'y' => 40, 'width' => 8, 'height' => 8, 'frames' => 2, 'frame_ms' => [600, 80]];
+
+    expect($upload->animation)->toBe($animation)
+        ->and($upload->animation_path)->toStartWith('items/love-seat/0-on.')
+        ->and([$stored->width, $stored->height])->toBe([16, 8])
+        ->and($stored->crop(0, 0, 4, 4)->equals($red))->toBeTrue()
+        ->and($stored->crop(8 + 4, 4, 4, 4)->equals($red))->toBeTrue();
+
+    $payload = json_decode((string) json_encode($this->seat->fresh()?->toPayload()), true)['furniture'];
+
+    expect($payload['animations'])->toBe([0 => ['url' => Storage::disk('public')->url((string) $upload->animation_path), ...$animation]]);
+
+    // Unpublished, the animation goes with the picture.
+    app(UnpublishItemArt::class)($upload, $this->admin);
+
+    expect(json_decode((string) json_encode($this->seat->fresh()?->toPayload()), true)['furniture']['animations'])->toBe([]);
+});
+
+test('an animation that can\'t play, or would play on a rug, is refused, and nothing is stored', function (Closure $upload, string $message) {
+    expect(fn () => $upload($this->seat, $this->admin))->toThrow(InvalidAssetException::class, $message);
+
+    expect(ItemArtUpload::query()->count())->toBe(0)
+        ->and(Storage::disk('public')->allFiles())->toBe([]);
+})->with([
+    'no frame times' => [
+        fn (Item $seat, User $staff) => app(UploadItemArt::class)($seat, 0, Png::encode(drawnFacing(48, 32)), $staff, seatStrip(), []),
+        'love-seat facing 0, switched on needs its frame times in "Frame times": one time for every frame, or 2 times, one for each frame.',
+    ],
+    'too long to load once trimmed' => [
+        // Full width, nothing trims: 43 frames of 96 game pixels is 4128, past 4096.
+        fn (Item $seat, User $staff) => app(UploadItemArt::class)($seat, 0, Png::encode(drawnFacing(48, 32)), $staff, seatStrip(43, across: true), [100]),
+        'love-seat facing 0, switched on is too long to load: 43 frames of what moves, each 48 art pixels across, fit only 42 at a time.',
+    ],
+    'a flickering frame' => [
+        fn (Item $seat, User $staff) => app(UploadItemArt::class)($seat, 0, Png::encode(drawnFacing(48, 32)), $staff, seatStrip(), [200, 40]),
+        'shows a frame for less than 60 ms.',
+    ],
+    'frames another size than the picture' => [
+        fn (Item $seat, User $staff) => app(UploadItemArt::class)($seat, 0, Png::encode(drawnFacing(48, 32, 24)), $staff, seatStrip(), [100]),
+        'its frames must be 48 × 48, like its picture, side by side.',
+    ],
+    'on a rug' => [
+        function (Item $seat, User $staff) {
+            $seat->update(['floor' => true]);
+
+            return app(UploadItemArt::class)($seat, 0, Png::encode(drawnFacing(48, 32)), $staff, seatStrip(), [100]);
+        },
+        "rugs and other floor pieces can't play an animation yet.",
+    ],
+]);
+
+test('an animation is copied to other colours with their own pictures; a colour with no picture for the facing, or another size, is skipped', function () {
+    $colour = fn (string $label) => Item::factory()->create(['variant_of' => $this->seat->id, 'variant_label' => $label, 'slug' => 'love-seat-'.strtolower($label)]);
+    [$moss, $slate, $rose] = [$colour('Moss'), $colour('Slate'), $colour('Rose')];
+    $source = app(UploadItemArt::class)($this->seat, 0, Png::encode(drawnFacing(48, 32)), $this->admin, seatStrip(), [140]);
+    // Moss has its own picture for facing 0; Slate's is taller; Rose has none.
+    $mossPicture = uploadFacing($moss, 0, drawnFacing(48, 32, 20, "\x20\x60\x40\xFF"), $this->admin);
+    app(PublishItemArt::class)($mossPicture, $this->admin);
+    app(PublishItemArt::class)(uploadFacing($slate, 0, drawnFacing(48, 32, 30), $this->admin), $this->admin);
+
+    Livewire::test(ArtRelationManager::class, ['ownerRecord' => $this->seat, 'pageClass' => EditItem::class])
+        ->callAction(TestAction::make('copyAnimation')->table($source), data: ['colours' => [$moss->id, $slate->id, $rose->id], 'publish' => true])
+        ->assertHasNoActionErrors()
+        ->assertNotified("Animation copied to {$moss->label()}");
+
+    $copy = $moss->publishedArt()->sole();
+    $animations = json_decode((string) json_encode($moss->fresh()?->toPayload()), true)['furniture']['animations'];
+
+    expect($copy->id)->not->toBe($mossPicture->id)
+        // Moss's own picture, the seat's animation.
+        ->and([$copy->path, $copy->animation_path, $copy->animation])->toBe([$mossPicture->path, $source->animation_path, $source->animation])
+        ->and($animations[0]['frame_ms'])->toBe([140, 140])
+        ->and($slate->publishedArt()->sole()->animation_path)->toBeNull()
+        ->and($rose->artUploads()->count())->toBe(0);
+
+    // Publishing Moss's earlier upload rolls it back to the still picture, as with any upload.
+    app(PublishItemArt::class)($mossPicture->fresh(), $this->admin);
+
+    expect(json_decode((string) json_encode($moss->fresh()?->toPayload()), true)['furniture']['animations'])->toBe([]);
+});

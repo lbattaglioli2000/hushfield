@@ -117,7 +117,7 @@ final readonly class Image
     }
 
     /** Every `factor`-th pixel, from the top left: the inverse of scale() on a scaled-up image. */
-    private function sample(int $factor): self
+    public function sample(int $factor): self
     {
         $pixels = '';
 

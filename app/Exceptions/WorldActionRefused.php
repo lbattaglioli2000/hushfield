@@ -244,6 +244,16 @@ final class WorldActionRefused extends RuntimeException
         return new self('furniture_traps', 422);
     }
 
+    public static function furnitureNotHere(): self
+    {
+        return new self('furniture_not_here', 404);
+    }
+
+    public static function furnitureDoesNotSwitch(): self
+    {
+        return new self('furniture_does_not_switch', 422);
+    }
+
     public static function furnitureFull(): self
     {
         return new self('furniture_full', 409);

@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property int $bytes The file as uploaded.
  * @property int $width In game pixels, as stored.
  * @property int $height In game pixels, as stored.
+ * @property string|null $animation_path What plays over the picture while the piece is on: items/{slug}/{facing}-on.{hash}.png.
+ * @property array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}|null $animation Where its trimmed frames lie on the picture, in game pixels, and how long each shows.
  * @property int|null $uploaded_by
  * @property Carbon|null $published_at
  * @property int|null $published_by
@@ -32,7 +34,7 @@ use Illuminate\Support\Carbon;
  * @property-read User|null $uploader
  * @property-read User|null $publisher
  */
-#[Fillable(['item_id', 'facing', 'path', 'sha256', 'bytes', 'width', 'height', 'uploaded_by', 'published_at', 'published_by', 'stale_at'])]
+#[Fillable(['item_id', 'facing', 'path', 'sha256', 'bytes', 'width', 'height', 'animation_path', 'animation', 'uploaded_by', 'published_at', 'published_by', 'stale_at'])]
 class ItemArtUpload extends Model
 {
     protected $table = 'item_art';
@@ -44,6 +46,7 @@ class ItemArtUpload extends Model
             'bytes' => 'integer',
             'width' => 'integer',
             'height' => 'integer',
+            'animation' => 'array',
             'published_at' => 'datetime',
             'stale_at' => 'datetime',
         ];
