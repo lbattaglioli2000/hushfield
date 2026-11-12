@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { ArmedPiece, EventBus, FishingPhase } from '../bus';
+import type { Copy } from '../copy';
 import type { FishingView } from '../fishing';
 import type { VoicePositions, VoiceView } from '../voice';
 import type { WorldListener } from '../net/WorldNet';
@@ -19,7 +20,13 @@ import { pathState } from '../protocol/types';
 import type { Grid } from '../shared/astar';
 import { isWalkable } from '../shared/astar';
 import type { FurniturePiece } from '../shared/furniture';
-import { asDrawn, switches, withFurniture } from '../shared/furniture';
+import {
+    asDrawn,
+    holdsBooks,
+    switches,
+    tilesBeside,
+    withFurniture,
+} from '../shared/furniture';
 import { TILE_IMAGE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { positionOf } from '../shared/pathClock';
 import { CAMERA, COLORS, DEPTH, TRAVEL } from '../theme';
@@ -91,6 +98,7 @@ export type RoomSceneOptions = {
     refused: (error: unknown) => void;
     bubbleSeconds: number;
     maxPathSteps: number;
+    copy: Copy;
 };
 
 const TAP_SLOP_PX = 10;
@@ -151,6 +159,8 @@ export class RoomScene
     private loadingMap = false;
     /** Live events that arrived after the latest snapshot but before it could be drawn. */
     private queued: Array<() => void> = [];
+    /** The bookshelf the player tapped, and the tile beside it they are walking to; it opens when they arrive. */
+    private shelfWalk: { piece: number; tile: Tile } | null = null;
     /** WHSH has a broadcast on the air, so its beacon flashes. */
     private stationOnAir = false;
     private readonly offStation: () => void;
@@ -178,7 +188,8 @@ export class RoomScene
         );
         this.arrivals = new Arrivals({
             door: (door) => this.travel(() => this.port.useExit(door.name)),
-            fixture: ({ kind }) => this.bus.emit('use-fixture', { kind }),
+            fixture: ({ kind, name }) =>
+                this.bus.emit('use-fixture', { kind, name }),
         });
         // Heard before create(), so a broadcast already on when the scene boots still lights the beacon.
         this.offStation = bus.on('broadcast-state', ({ state }) => {
@@ -274,7 +285,10 @@ export class RoomScene
 
             const walk = this.movement.arrivedAt(pos.tile);
 
-            if (walk) this.arrivals.arrived(this.map, walk, pos.tile);
+            if (walk) {
+                this.arrivals.arrived(this.map, walk, pos.tile);
+                this.arrivedAtShelf(pos.tile);
+            }
         }
 
         this.map.hideLabelsNear(positions);
@@ -534,7 +548,7 @@ export class RoomScene
             null;
         this.buildings?.hover(pointer.wasTouch ? null : building);
         this.input.setDefaultCursor(
-            building || this.pointerSwitch(pointer) ? 'pointer' : 'default',
+            building || this.pointerPiece(pointer) ? 'pointer' : 'default',
         );
 
         this.decorate.hover(this.map, tile);
@@ -571,6 +585,9 @@ export class RoomScene
 
         this.bus.emit('input-activity', {});
 
+        // Any tap starts something new: a bookshelf walked toward no longer opens on arrival.
+        this.shelfWalk = null;
+
         if (this.decorate.on) {
             this.decorate.tap(this.pointerTile(pointer));
 
@@ -597,9 +614,16 @@ export class RoomScene
             }
         }
 
-        // Tapping a piece that switches on switches it, from wherever the player stands.
-        const piece = this.pointerSwitch(pointer);
+        const piece = this.pointerPiece(pointer);
 
+        // Tapping a bookshelf walks up to it, and opens it there.
+        if (piece && holdsBooks(piece)) {
+            this.walkToShelf(piece);
+
+            return;
+        }
+
+        // Tapping a piece that switches on switches it, from wherever the player stands.
         if (piece) {
             this.port
                 .switchFurniture(piece.piece, !piece.on)
@@ -765,8 +789,57 @@ export class RoomScene
         return this.buildings?.at(world.x, world.y) ?? null;
     }
 
-    /** The home's piece under the pointer, if it can be switched on (see switches). */
-    private pointerSwitch(
+    /**
+     * Walks to the nearest open tile beside a bookshelf, and opens it on
+     * arriving (see arrivedAtShelf); opens it at once if already there.
+     */
+    private walkToShelf(piece: PlacedFurniture): void {
+        const self = this.avatars.get(this.selfId);
+
+        if (!self || !this.walkGrid) return;
+
+        const at = positionOf(self.state, this.port.serverNow());
+        const tiles = tilesBeside(piece, this.walkGrid, at.tile);
+        const tile = tiles[0];
+
+        if (!tile) {
+            this.bus.emit('notice', {
+                message: this.options.copy.shelf_too_far,
+            });
+
+            return;
+        }
+
+        if (
+            at.finished &&
+            tiles.some(([x, y]) => x === at.tile[0] && y === at.tile[1])
+        ) {
+            this.bus.emit('use-bookshelf', { piece: piece.piece });
+
+            return;
+        }
+
+        this.shelfWalk = { piece: piece.piece, tile };
+        void this.movement.walkTo(tile);
+    }
+
+    /** The player's walk ended: if it was to a bookshelf, open it. */
+    private arrivedAtShelf(tile: Tile): void {
+        const walk = this.shelfWalk;
+
+        if (!walk || walk.tile[0] !== tile[0] || walk.tile[1] !== tile[1]) {
+            return;
+        }
+
+        this.shelfWalk = null;
+
+        if (this.placed.some((p) => p.piece === walk.piece)) {
+            this.bus.emit('use-bookshelf', { piece: walk.piece });
+        }
+    }
+
+    /** The home's piece under the pointer, if tapping does something: it switches on (see switches) or holds books. */
+    private pointerPiece(
         pointer: Phaser.Input.Pointer,
     ): PlacedFurniture | null {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
@@ -776,7 +849,9 @@ export class RoomScene
                 ? this.placed.find((p) => p.piece === drawn.piece)
                 : undefined;
 
-        return placed && switches(placed) ? placed : null;
+        return placed && (switches(placed) || holdsBooks(placed))
+            ? placed
+            : null;
     }
 
     private showMarker(tile: Tile): void {

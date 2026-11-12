@@ -141,6 +141,20 @@ The mirrored facing gets the animation mirrored for free, as it gets the
 picture. A piece needs an animation on at least one facing it shows to be
 switchable.
 
+## 7. A bookshelf
+
+Any piece can hold books: a bookcase, a shelf on legs, a crate. Draw it like
+any other piece, with books already painted on. One picture is enough: it
+looks the same however many books someone puts on it.
+
+To make it a bookshelf, open the piece in **Economy → Item catalog** and set
+**Holds books** to how many fit. Its colours get the same number.
+
+In the game, anyone in the home taps the piece to walk up to it and look at
+its books. The owner adds and takes back books there; visitors can only read
+them. A bookshelf that also switches on opens its books when tapped, rather
+than switching.
+
 ## If the upload says no
 
 | The message says…                              | What it means and how to fix it                                                                                                                                                                                                                                    |

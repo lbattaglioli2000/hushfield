@@ -110,6 +110,10 @@ class AppServiceProvider extends ServiceProvider
             ->by('home:'.$request->user()?->id)
             ->response(fn (): JsonResponse => WorldActionRefused::homeTooFast()->render()));
 
+        RateLimiter::for('library', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by('library:'.$request->user()?->id)
+            ->response(fn (): JsonResponse => WorldActionRefused::libraryTooFast()->render()));
+
         RateLimiter::for('wear', fn (Request $request): Limit => Limit::perMinute(30)
             ->by('wear:'.$request->user()?->id)
             ->response(fn (): JsonResponse => WorldActionRefused::wearTooFast()->render()));

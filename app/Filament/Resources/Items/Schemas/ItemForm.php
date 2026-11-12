@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Items\Schemas;
 use App\Domain\Items\ItemRarity;
 use App\Domain\Items\ItemSlot;
 use App\Domain\World\Footprint;
+use App\Exceptions\ModerationActionRefused;
 use App\Filament\Forms\Components\ShapePicker;
 use App\Models\Item;
 use Closure;
@@ -93,6 +94,20 @@ class ItemForm
                                 ->suffix('px')
                                 ->default(18)
                                 ->required(),
+                            TextInput::make('holds_books')
+                                ->label('Holds books')
+                                ->helperText('Makes it a bookshelf: how many books fit on it. Leave empty for furniture that holds none.')
+                                ->numeric()
+                                ->integer()
+                                ->minValue(1)
+                                ->maxValue(200)
+                                ->rules([fn (?Item $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record): void {
+                                    $fullest = $record?->fullestShelf() ?? 0;
+
+                                    if ($fullest > 0 && (! is_numeric($value) || (int) $value < $fullest)) {
+                                        $fail(ModerationActionRefused::shelfInUse($fullest)->getMessage());
+                                    }
+                                }]),
                             Toggle::make('floor')
                                 ->label('Lies on the floor')
                                 ->helperText('Like a rug: walked over, and one other piece may stand on it.')

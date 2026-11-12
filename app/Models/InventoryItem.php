@@ -6,6 +6,7 @@ use App\Domain\Items\InventorySource;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -24,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property-read Item $item
  * @property-read LedgerEntry|null $ledgerEntry
  * @property-read User|null $granter
+ * @property-read HomeFurniture|null $placement
  */
 #[Fillable(['user_id', 'item_id', 'source', 'ledger_entry_id', 'granted_by'])]
 class InventoryItem extends Model
@@ -59,5 +61,15 @@ class InventoryItem extends Model
     public function granter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'granted_by');
+    }
+
+    /**
+     * Where the piece stands in its owner's home, if it is placed.
+     *
+     * @return HasOne<HomeFurniture, $this>
+     */
+    public function placement(): HasOne
+    {
+        return $this->hasOne(HomeFurniture::class);
     }
 }

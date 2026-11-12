@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
+import { BelongingsBooks } from '@/components/play/books';
 import InventoryPanel from '@/components/play/inventory-panel';
 import ShopPanel from '@/components/play/shop-panel';
 import { OnTray } from '@/components/play/signal-tray';
 import AmberReadout from '@/components/radio/amber-readout';
 import RadioKey from '@/components/radio/radio-key';
 import SignalCard, { ResultCard } from '@/components/radio/signal-card';
-import type { Copy, EventBus, GameEvents, Wallet } from '@/game';
+import type { Copy, EventBus, GameEvents, HeldBook, Wallet } from '@/game';
 import { useFleeting } from '@/hooks/use-fleeting';
 import { useFixture, useGameBus } from '@/hooks/use-game-bus';
 
@@ -25,6 +26,7 @@ export default function EconomyHud({
     copy: Copy;
 }) {
     const [wallet, setWallet] = useState<Wallet | null>(null);
+    const [books, setBooks] = useState<HeldBook[]>([]);
     const [panel, setPanel] = useState<'shop' | 'inventory' | null>(null);
     const [busy, setBusy] = useState(false);
     const [result, setResult] =
@@ -48,6 +50,7 @@ export default function EconomyHud({
         bus.emit('load-shop', {});
     });
     useGameBus(bus, 'wallet', setWallet);
+    useGameBus(bus, 'books', (next) => setBooks(next.books));
     useGameBus(bus, 'economy-result', (next) => {
         setBusy(false);
         setResult(next);
@@ -127,6 +130,7 @@ export default function EconomyHud({
                 busy={busy}
                 onWear={(piece, on) => request('wear-item', { piece, on })}
                 result={resultLine}
+                books={<BelongingsBooks bus={bus} copy={copy} held={books} />}
             />
         </>
     );

@@ -85,6 +85,29 @@ It shows up in the tileset in your next zip.
 Want to change the shape or size of the room, or move the door? Ask Luigi.
 Those touch the hidden layers.
 
+### Library shelves
+
+Each category of books in the library (such as **New arrivals**) has its own
+shelf on the library map, `library.json`. Standing at a shelf opens that
+category's books. Staff add categories in the admin (see
+[the staff guide](../books.md#library-shelves-categories)) and tell you the
+new one's **slug**, such as `town-history`.
+
+1. Pick the `fixtures` layer, choose **Insert Point** (the pin), and click
+   the square where a reader should stand.
+2. In the **Properties** panel, set:
+    - **Name** to the slug, exactly: `town-history`.
+    - **kind** to `library` (copy it from the `new-arrivals` point).
+    - **label** to the words on the floor sign, such as `Town history`.
+
+Players open a shelf by walking onto its point. A point can't sit on the
+door, and two points can't share a name.
+
+The library has no bookcase pictures yet, so for now a shelf is just its
+floor sign. Once a bookcase is drawn as a room piece
+([room-pieces.md](room-pieces.md)), it stands on a `props` layer just behind
+each point.
+
 ## 4. Send it back
 
 Save in Tiled (_File → Save_). Send Luigi **just the room's `.json` file**,

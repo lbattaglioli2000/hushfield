@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Avatars\OutfitController;
+use App\Http\Controllers\Books\BooksController;
+use App\Http\Controllers\Books\LibraryController;
 use App\Http\Controllers\Economy\ClaimStipendController;
 use App\Http\Controllers\Economy\PurchaseItemController;
 use App\Http\Controllers\Economy\ShopController;
@@ -93,6 +95,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::delete('home/furniture/{piece}', PutAwayFurnitureController::class)->name('home.furniture.remove');
                 // Anyone in the room, not only the owner.
                 Route::post('home/furniture/{piece}/switch', SwitchFurnitureController::class)->name('home.furniture.switch');
+                // Books on a bookshelf at home: anyone beside it browses and reads; only its owner arranges them.
+                Route::get('home/furniture/{piece}/books', [BooksController::class, 'shelf'])->name('home.shelf');
+                Route::post('home/furniture/{piece}/books/{copy}', [BooksController::class, 'shelve'])->name('home.shelf.shelve');
+                Route::delete('books/{copy}/shelf', [BooksController::class, 'unshelve'])->name('books.unshelve');
+            });
+
+            Route::middleware('throttle:library')->group(function () {
+                Route::get('books', [BooksController::class, 'index'])->name('books');
+                Route::get('books/{copy}', [BooksController::class, 'read'])->name('books.read');
+                // {shelf} is a library category's slug, which names its shelf on the map.
+                Route::get('library/{shelf}', [LibraryController::class, 'show'])->name('library.show');
+                Route::get('library/{shelf}/books/{book}', [LibraryController::class, 'read'])->name('library.read');
+                Route::post('library/{shelf}/books/{book}', [LibraryController::class, 'checkOut'])->name('library.check-out');
             });
         });
     });

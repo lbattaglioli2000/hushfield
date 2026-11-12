@@ -34,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property int $deep Furniture only: tiles along y, before any turn.
  * @property int $height Furniture only: how tall its placeholder block stands, in pixels.
  * @property bool $floor Furniture only: lies flat, like a rug. Walked over, and one other piece may stand on it.
+ * @property int|null $holds_books Furniture only: how many books it holds, making it a bookshelf; null for any other furniture.
  * @property list<string>|null $shape Furniture only: which tiles of the wide × deep block it covers, before any turn, as a Footprint mask. Null covers them all.
  * @property bool $in_shop
  * @property bool $members_only
@@ -44,7 +45,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ItemArtUpload> $artUploads
  * @property-read Collection<int, ItemArtUpload> $publishedArt
  */
-#[Fillable(['slug', 'variant_of', 'variant_label', 'swatch', 'name', 'description', 'slot', 'rarity', 'price', 'wide', 'deep', 'height', 'floor', 'shape', 'in_shop', 'members_only'])]
+#[Fillable(['slug', 'variant_of', 'variant_label', 'swatch', 'name', 'description', 'slot', 'rarity', 'price', 'wide', 'deep', 'height', 'floor', 'shape', 'holds_books', 'in_shop', 'members_only'])]
 class Item extends Model
 {
     /** @use HasFactory<ItemFactory> */
@@ -61,13 +62,14 @@ class Item extends Model
             'height' => 'integer',
             'floor' => 'boolean',
             'shape' => 'array',
+            'holds_books' => 'integer',
             'in_shop' => 'boolean',
             'members_only' => 'boolean',
         ];
     }
 
     /** What a variant takes from its parent, so every colour stands on the same tiles. */
-    public const array INHERITED = ['slot', 'wide', 'deep', 'height', 'floor', 'shape'];
+    public const array INHERITED = ['slot', 'wide', 'deep', 'height', 'floor', 'shape', 'holds_books'];
 
     /**
      * A variant always stands like its parent, and follows it when staff
@@ -80,6 +82,11 @@ class Item extends Model
         static::saving(function (self $item): void {
             if ($item->variant_of !== null) {
                 $item->fill(self::query()->findOrFail($item->variant_of)->only(self::INHERITED));
+            }
+
+            // Only furniture stands in a home to hold books.
+            if ($item->slot !== ItemSlot::Furniture) {
+                $item->holds_books = null;
             }
         });
 
@@ -158,7 +165,7 @@ class Item extends Model
      * `family` is the item a colour belongs to (itself for a parent or an item
      * without colours), so the shop shows one entry per family.
      *
-     * @return array{id: int, slug: string, family: int, colour: string|null, swatch: string|null, name: string, description: string|null, slot: string, rarity: string, price: int, members_only: bool, furniture: array{wide: int, deep: int, height: int, floor: bool, shape: list<string>|null, art: object, animations: object}|null}
+     * @return array{id: int, slug: string, family: int, colour: string|null, swatch: string|null, name: string, description: string|null, slot: string, rarity: string, price: int, members_only: bool, furniture: array{wide: int, deep: int, height: int, floor: bool, shape: list<string>|null, holds_books: int|null, art: object, animations: object}|null}
      */
     public function toPayload(): array
     {
@@ -177,6 +184,8 @@ class Item extends Model
             'furniture' => $this->slot === ItemSlot::Furniture
                 ? [
                     'wide' => $this->wide, 'deep' => $this->deep, 'height' => $this->height, 'floor' => $this->floor, 'shape' => $this->shape,
+                    // How many books it holds, for a bookshelf; null for anything else.
+                    'holds_books' => $this->holds_books,
                     // Facing => URL, for the facings that have art.
                     'art' => (object) array_map(fn (array $art): string => $art['url'], $facings = app(ItemArt::class)->facings($this)),
                     // Facing => what plays over its art while a placed piece is switched on, for the facings that have one.
@@ -184,5 +193,21 @@ class Item extends Model
                 ]
                 : null,
         ];
+    }
+
+    /**
+     * The most books any bookshelf of this item, or of its colours, holds
+     * now, placed or put away: "Holds books" can't go below it.
+     */
+    public function fullestShelf(): int
+    {
+        $items = [$this->id, ...$this->variants()->pluck('id')->all()];
+
+        return (int) BookCopy::query()
+            ->whereIn('shelf_id', InventoryItem::query()->whereIn('item_id', $items)->select('id'))
+            ->selectRaw('count(*) as books')
+            ->groupBy('shelf_id')
+            ->orderByDesc('books')
+            ->value('books');
     }
 }

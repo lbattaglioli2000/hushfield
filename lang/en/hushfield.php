@@ -136,6 +136,24 @@ return [
     'concessions_hint' => 'The popcorn machine is warming up. It has been warming up since 1987. Please check back.',
     'concessions_elsewhere' => 'The concession counter is in the lobby of the VFA, off Lantern Street.',
     'concessions_too_far' => 'Step up to the counter.',
+
+    // Books: the library and bookshelves at home
+    'library_elsewhere' => 'Books are lent from the Hushfield Public Library, on Lantern Street. It keeps regular hours. Nobody knows whose.',
+    'library_too_far' => 'Step up to the shelf. The books will not come down to you.',
+    'library_too_fast' => 'The library asks that you browse slowly. Please try again shortly.',
+    'books_closed' => 'The books are resting. Nobody may borrow, shelve or read one just now. Everyone keeps what they hold.',
+    'not_a_bookshelf' => 'That holds no books. It may hold other things. Best not to ask.',
+    'shelf_too_far' => 'Step up to the shelf to see what is on it.',
+    'shelf_full' => 'That shelf is full. It creaks when you try. Please do not try again.',
+    'book_not_yours' => 'Only the owner of this shelf may arrange its books.',
+    'book_already_held' => 'You already have a copy of this book. One is all anyone needs. One is plenty.',
+    'book_unavailable' => 'That book is not here. It may never have been.',
+    'book_checked_out' => 'You have checked out :title. It is in your belongings now.',
+    'book_shelved' => ':title is on the shelf.',
+    'book_unshelved' => ':title is back in your belongings.',
+    'book_withdrawn' => 'This book has been withdrawn. Its pages have gone quiet.',
+    'shelf_empty' => 'Nothing on this shelf yet. It is waiting, patiently, the way shelves do.',
+    'books_empty' => 'You have no books yet. The library on Lantern Street will lend you one.',
     'cinema_unavailable' => 'This film will not play here. The archive apologizes to everyone involved.',
 
     // Friends

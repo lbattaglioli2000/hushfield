@@ -7,6 +7,7 @@ import {
     WHISPERS,
 } from '../protocol/channels';
 import type {
+    BookText,
     BroadcastChangedEvent,
     ChatMessageSentEvent,
     CinemaChangedEvent,
@@ -17,6 +18,7 @@ import type {
     FriendsUpdatedEvent,
     HomeVisitors,
     FurnitureChangedEvent,
+    HeldBook,
     OutfitChangedEvent,
     HomesList,
     IdleWhisper,
@@ -29,6 +31,8 @@ import type {
     PlacedFurniture,
     RareCatchLandedEvent,
     ReelResult,
+    ShelfChangedEvent,
+    ShelfView,
     Snapshot,
     Tile,
     TownMap,
@@ -47,6 +51,13 @@ export type NetConfig = {
     heartbeatSeconds: number;
     realtime: RealtimeConfig;
     copy: Copy;
+};
+
+/** The answer to anything that changes which books the player holds or where. The shelf comes back when one changed. */
+export type BooksUpdate = {
+    message: string;
+    books: HeldBook[];
+    shelf?: ShelfView;
 };
 
 /** The answer to anything that changes a wallet. */
@@ -338,6 +349,63 @@ export class WorldNet {
             `/world/home/furniture/${piece}`,
         );
         this.showFurniture(body.furniture);
+    }
+
+    /** The books the player holds, on their shelves or not, newest first. */
+    async books(): Promise<HeldBook[]> {
+        return (
+            await this.request<{ books: HeldBook[] }>('GET', '/world/books')
+        ).books;
+    }
+
+    /** A library shelf the player stands at, by its category's slug. */
+    async libraryShelf(slug: string): Promise<ShelfView> {
+        return (
+            await this.request<{ shelf: ShelfView }>(
+                'GET',
+                `/world/library/${encodeURIComponent(slug)}`,
+            )
+        ).shelf;
+    }
+
+    /** A bookshelf in a home, for a player standing beside it. */
+    async homeShelf(piece: number): Promise<ShelfView> {
+        return (
+            await this.request<{ shelf: ShelfView }>(
+                'GET',
+                `/world/home/furniture/${piece}/books`,
+            )
+        ).shelf;
+    }
+
+    checkOutBook(slug: string, book: number): Promise<BooksUpdate> {
+        return this.request(
+            'POST',
+            `/world/library/${encodeURIComponent(slug)}/books/${book}`,
+        );
+    }
+
+    shelveBook(piece: number, copy: number): Promise<BooksUpdate> {
+        return this.request(
+            'POST',
+            `/world/home/furniture/${piece}/books/${copy}`,
+        );
+    }
+
+    unshelveBook(copy: number): Promise<BooksUpdate> {
+        return this.request('DELETE', `/world/books/${copy}/shelf`);
+    }
+
+    /** A book's text: a copy the player can reach, or a book on the library shelf they stand at. */
+    async readBook(
+        from: { copy: number } | { slug: string; book: number },
+    ): Promise<BookText> {
+        const path =
+            'copy' in from
+                ? `/world/books/${from.copy}`
+                : `/world/library/${encodeURIComponent(from.slug)}/books/${from.book}`;
+
+        return (await this.request<{ book: BookText }>('GET', path)).book;
     }
 
     /** Cosmetic only: tells others to dim this avatar. Nothing on the server changes. */
@@ -643,6 +711,12 @@ export class WorldNet {
                     // A failed fetch leaves the old arrangement until the next change or resync.
                     this.fetchFurniture().catch(() => {});
                 }),
+            )
+            .listen(
+                ROOM_EVENTS.shelfChanged,
+                guardProtocol((e: ShelfChangedEvent) =>
+                    this.bus.emit('shelf-changed', { piece: e.piece }),
+                ),
             )
             .listen(
                 ROOM_EVENTS.cinemaChanged,

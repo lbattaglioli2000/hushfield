@@ -22,6 +22,7 @@ use App\Events\World\OutfitChanged;
 use App\Events\World\PlayerJoined;
 use App\Events\World\PlayerLeft;
 use App\Events\World\PlayerMoved;
+use App\Events\World\ShelfChanged;
 use App\Http\Middleware\EnsureWorldSession;
 use App\Models\BlockedTerm;
 use App\Models\Room;
@@ -70,6 +71,7 @@ const WORLD_EVENTS = [
     CinemaChanged::class,
     OutfitChanged::class,
     BroadcastChanged::class,
+    ShelfChanged::class,
 ];
 
 function fakeWorldEvents(): void

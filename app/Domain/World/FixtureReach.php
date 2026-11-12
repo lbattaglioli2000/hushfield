@@ -21,11 +21,12 @@ final readonly class FixtureReach
     ) {}
 
     /**
+     * @param  string|null  $name  Only the fixture of this name will do, such as one library shelf among several.
      * @return RoomInstance The instance the player is using the fixture in.
      *
      * @throws WorldActionRefused when the player's room has no such fixture, or they are not near enough to one.
      */
-    public function ensureWithin(User $user, FixtureKind $kind): RoomInstance
+    public function ensureWithin(User $user, FixtureKind $kind, ?string $name = null): RoomInstance
     {
         $instance = $user->lastRoomInstance;
 
@@ -33,7 +34,10 @@ final readonly class FixtureReach
             throw WorldActionRefused::fixtureElsewhere($kind);
         }
 
-        $fixtures = $this->grids->forRoom($instance->room)->fixtures($kind);
+        $fixtures = array_values(array_filter(
+            $this->grids->forRoom($instance->room)->fixtures($kind),
+            fn (MapFixture $fixture): bool => $name === null || $fixture->name === $name,
+        ));
 
         if ($fixtures === []) {
             throw WorldActionRefused::fixtureElsewhere($kind);

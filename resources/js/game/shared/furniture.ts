@@ -3,10 +3,19 @@ import type {
     Item,
     PlacedFurniture,
     RoomPiece,
+    Tile,
 } from '../protocol/types';
 import type { Grid } from './astar';
+import { isWalkable } from './astar';
 import type { Footprint } from './footprint';
-import { covers, mirrored, sameShape, tilesOf, turned } from './footprint';
+import {
+    covers,
+    distanceTo,
+    mirrored,
+    sameShape,
+    tilesOf,
+    turned,
+} from './footprint';
 import { TILE_HEIGHT } from './iso';
 
 /* How furniture is sized, turned and drawn, and its art: resources/maps/README.md. */
@@ -136,6 +145,8 @@ export function roomPieces(
                         height: TILE_HEIGHT,
                         floor: false,
                         shape: null,
+                        // Room pieces hold no books yet: the library's shelves are fixtures.
+                        holds_books: null,
                         art: piece.art,
                     },
                 },
@@ -147,6 +158,41 @@ export function roomPieces(
 /** Whether a placed piece can be switched on: its item has an animation to play. */
 export function switches(piece: FurniturePiece): boolean {
     return Object.keys(piece.item.furniture?.animations ?? {}).length > 0;
+}
+
+/** Whether a placed piece is a bookshelf: its item holds books. */
+export function holdsBooks(piece: FurniturePiece): boolean {
+    return (piece.item.furniture?.holds_books ?? null) !== null;
+}
+
+/**
+ * Where to stand to use a piece: the walkable tiles a step from it (its
+ * footprint is blocked), nearest `from` first. Mirrors Bookshelves::REACH.
+ */
+export function tilesBeside(
+    piece: FurniturePiece,
+    grid: Grid,
+    from: Tile,
+): Tile[] {
+    const footprint = placedFootprint(piece);
+    const tiles: Tile[] = [];
+
+    for (let y = footprint.y - 1; y <= footprint.y + footprint.deep; y++) {
+        for (let x = footprint.x - 1; x <= footprint.x + footprint.wide; x++) {
+            if (
+                isWalkable(grid, x, y) &&
+                !covers(footprint, [x, y]) &&
+                distanceTo(footprint, [x, y]) <= 1
+            ) {
+                tiles.push([x, y]);
+            }
+        }
+    }
+
+    const steps = ([x, y]: Tile) =>
+        Math.max(Math.abs(x - from[0]), Math.abs(y - from[1]));
+
+    return tiles.sort((a, b) => steps(a) - steps(b));
 }
 
 /** A home's piece as it is drawn: playing its item's animations while it is switched on. */

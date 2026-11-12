@@ -18,6 +18,7 @@ enum WorldFlag: string implements HasLabel
     case Fishing = FishingEnabled::class;
     case Voice = VoiceEnabled::class;
     case Cinema = CinemaEnabled::class;
+    case Books = BooksEnabled::class;
 
     public function getLabel(): string
     {
@@ -28,6 +29,7 @@ enum WorldFlag: string implements HasLabel
             self::Fishing => 'Fishing',
             self::Voice => 'Proximity voice',
             self::Cinema => 'VFA screen',
+            self::Books => 'Books',
         };
     }
 
@@ -40,6 +42,7 @@ enum WorldFlag: string implements HasLabel
             self::Fishing => 'Kill switch for fishing at the Pier. When off, nobody can cast or land a catch, so fishing pays nothing.',
             self::Voice => 'Kill switch for proximity voice (18+ only). When off, nobody new can connect; anyone already talking can carry on until they change rooms.',
             self::Cinema => 'Kill switch for the screen at the VFA. When off, every screen goes dark at once and stays dark; the programme is kept for when it comes back on.',
+            self::Books => 'Kill switch for books in the game: the library\'s shelves and bookshelves at home. When off, nobody can browse, read, check out or shelve a book; everyone keeps the copies they hold.',
         };
     }
 
@@ -61,6 +64,7 @@ enum WorldFlag: string implements HasLabel
                 self::Fishing => WorldActionRefused::fishingClosed(),
                 self::Voice => WorldActionRefused::voicePaused(),
                 self::Cinema => WorldActionRefused::cinemaDark(),
+                self::Books => WorldActionRefused::booksClosed(),
             };
         }
     }

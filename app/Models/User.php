@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -50,6 +51,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property-read WorldSession|null $worldSession
  * @property-read RoomInstance|null $lastRoomInstance
  * @property-read Home|null $home
+ * @property-read Collection<int, BookCopy> $bookCopies
  */
 #[Fillable(['username', 'email', 'password', 'birth_year', 'is_minor', 'chat_filter_level', 'direct_messages_allowed', 'friend_requests_allowed'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'birth_year'])]
@@ -145,6 +147,26 @@ class User extends Authenticatable implements FilamentUser, HasName, MustVerifyE
     public function inventory(): HasMany
     {
         return $this->hasMany(InventoryItem::class);
+    }
+
+    /**
+     * The copies of books they hold, in their belongings or on their shelves.
+     *
+     * @return HasMany<BookCopy, $this>
+     */
+    public function bookCopies(): HasMany
+    {
+        return $this->hasMany(BookCopy::class);
+    }
+
+    /**
+     * Books that credit them as author.
+     *
+     * @return HasMany<Book, $this>
+     */
+    public function creditedBooks(): HasMany
+    {
+        return $this->hasMany(Book::class, 'author_id');
     }
 
     /** @return HasMany<ChatMessage, $this> */

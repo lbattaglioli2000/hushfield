@@ -22,6 +22,7 @@ export const ROOM_EVENTS = {
     playerMoved: '.PlayerMoved',
     chatMessageSent: '.ChatMessageSent',
     furnitureChanged: '.FurnitureChanged',
+    shelfChanged: '.ShelfChanged',
     outfitChanged: '.OutfitChanged',
     rareCatchLanded: '.RareCatchLanded',
     cinemaChanged: '.CinemaChanged',

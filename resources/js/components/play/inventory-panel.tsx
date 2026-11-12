@@ -15,6 +15,7 @@ export default function InventoryPanel({
     busy,
     onWear,
     result,
+    books,
 }: {
     copy: Copy;
     wallet: Wallet;
@@ -25,6 +26,8 @@ export default function InventoryPanel({
     onWear: (piece: number, on: boolean) => void;
     /** The outcome of the last request, shown above the belongings. */
     result: ReactNode;
+    /** The player's books, listed under their other belongings. */
+    books?: ReactNode;
 }) {
     return (
         <RadioDialog
@@ -79,6 +82,7 @@ export default function InventoryPanel({
                     })}
                 </ul>
             )}
+            {books}
         </RadioDialog>
     );
 }

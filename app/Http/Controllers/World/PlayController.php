@@ -69,6 +69,10 @@ final class PlayController extends Controller
         'concessions_hint',
         'broadcast_station',
         'broadcast_listen',
+        'shelf_too_far',
+        'shelf_empty',
+        'books_empty',
+        'book_withdrawn',
     ];
 
     public function __invoke(Request $request, LiveKit $liveKit): Response

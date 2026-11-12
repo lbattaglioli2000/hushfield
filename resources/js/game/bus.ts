@@ -1,14 +1,17 @@
 import type {
+    BookText,
     Broadcast,
     CinemaProgramme,
     FishingCatch,
     FixtureKind,
     FriendsList,
+    HeldBook,
     HomeInfo,
     HomeVisitors,
     HomesList,
     Item,
     PlacedFurniture,
+    ShelfView,
     TownMap,
     Wallet,
 } from './protocol/types';
@@ -124,8 +127,20 @@ export type GameEvents = {
     'report-result': { ok: boolean; message: string };
     /** After entering the world and after every purchase or stipend claim. */
     wallet: Wallet;
-    /** The player walked onto a fixture on the map, such as the shop counter. */
-    'use-fixture': { kind: FixtureKind };
+    /** The player walked onto a fixture on the map, such as the shop counter; `name` tells apart several of a kind, such as library shelves. */
+    'use-fixture': { kind: FixtureKind; name: string };
+    /** The player walked up to a bookshelf in a home (the owned piece). */
+    'use-bookshelf': { piece: number };
+    /** Someone shelved or took back a book on a bookshelf in this home. */
+    'shelf-changed': { piece: number };
+    /** The shelf the player is at, when it opens and after every change to it; null once they leave it. */
+    shelf: { shelf: ShelfView | null };
+    /** The books the player holds, after entering the world and every change. */
+    books: { books: HeldBook[] };
+    /** A book opened to read. */
+    book: { book: BookText };
+    /** The outcome of anything asked of books: checking out, shelving, reading. */
+    'books-result': { ok: boolean; message: string };
     /** The answer to a 'load-shop'. */
     shop: { items: Item[]; open: boolean };
     /** The answer to a 'purchase-item', 'claim-stipend' or 'wear-item', and failures of 'load-shop'. */
@@ -195,6 +210,15 @@ export type GameEvents = {
     decorate: { active: boolean; armed: ArmedPiece | null };
     /** Turn a placed piece a quarter turn clockwise, where it stands. */
     'turn-furniture': { piece: number };
+    /** Check out a copy of a book from the library shelf the player is at. */
+    'check-out-book': { slug: string; book: number };
+    /** Put a copy the player holds on their bookshelf, or take one back off its shelf. */
+    'shelve-book': { piece: number; copy: number };
+    'unshelve-book': { copy: number };
+    /** Open a book: one the player can reach on the shelf they are at, or a copy they hold. */
+    'read-book': { from: { copy: number } | { slug: string; book: number } };
+    /** The shelf panel closed. */
+    'close-shelf': Record<string, never>;
     /** No payload: any input that keeps the player from being shown as away. */
     'input-activity': Record<string, never>;
 };

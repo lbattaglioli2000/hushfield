@@ -1,5 +1,6 @@
 import type { AvatarPose } from './world/AvatarView';
 import Phaser from 'phaser';
+import { connectBooks } from './books';
 import { connectBroadcast } from './broadcast';
 import type { EventBus } from './bus';
 import { connectCinema } from './cinema';
@@ -33,10 +34,13 @@ export type { Copy } from './copy';
 export type { RealtimeConfig } from './net/realtime';
 export { PROTOCOL } from './protocol/types';
 export type {
+    BookSpine,
+    BookText,
     FishingCatch,
     FixtureKind,
     Friend,
     FriendsList,
+    HeldBook,
     HomeInfo,
     HomeVisitors,
     HomesList,
@@ -44,6 +48,7 @@ export type {
     ItemSlot,
     OwnedItem,
     PlacedFurniture,
+    ShelfView,
     TownMap,
     TownRoom,
     Wallet,
@@ -205,6 +210,8 @@ export function startGame(
     cleanups.push(() => economy.dispose());
     cleanups.push(connectHousing(net, bus, config.copy, () => scene));
     cleanups.push(connectFishing(net, bus, config.copy, () => scene));
+    const books = connectBooks(net, bus, config.copy);
+    cleanups.push(() => books.dispose());
     const social = connectSocial(net, bus, config.copy);
     cleanups.push(() => social.dispose());
     cleanups.push(connectCinema(net, bus));
@@ -243,6 +250,7 @@ export function startGame(
                 }),
             bubbleSeconds: config.bubbleSeconds,
             maxPathSteps: config.maxPathSteps,
+            copy: config.copy,
         });
         game = new Phaser.Game({
             type: Phaser.AUTO,
@@ -265,6 +273,7 @@ export function startGame(
 
         if (!destroyed) {
             economy.loadWallet();
+            books.loadBooks();
             social.loadFriends();
         }
     })().catch((error: unknown) => {

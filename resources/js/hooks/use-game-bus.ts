@@ -18,14 +18,15 @@ export function useGameBus<K extends keyof GameEvents>(
 
 /**
  * Runs when the player walks onto a fixture of one kind, such as the shop
- * counter: how a panel opens at its place on the map.
+ * counter: how a panel opens at its place on the map. The handler gets the
+ * fixture's name, which tells apart several of a kind.
  */
 export function useFixture(
     bus: EventBus,
     kind: FixtureKind,
-    handler: () => void,
+    handler: (name: string) => void,
 ): void {
     useGameBus(bus, 'use-fixture', (fixture) => {
-        if (fixture.kind === kind) handler();
+        if (fixture.kind === kind) handler(fixture.name);
     });
 }

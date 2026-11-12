@@ -274,6 +274,50 @@ final class WorldActionRefused extends RuntimeException
         return new self('home_too_fast', 429);
     }
 
+    public static function booksClosed(): self
+    {
+        return new self('books_closed', 503);
+    }
+
+    public static function notABookshelf(): self
+    {
+        return new self('not_a_bookshelf', 422);
+    }
+
+    /** Home shelves are browsed and read standing beside them. */
+    public static function shelfTooFar(): self
+    {
+        return new self('shelf_too_far', 422);
+    }
+
+    public static function shelfFull(): self
+    {
+        return new self('shelf_full', 409);
+    }
+
+    /** Only the shelf's owner shelves or takes back books, and only their own copies. */
+    public static function bookNotYours(): self
+    {
+        return new self('book_not_yours', 403);
+    }
+
+    /** One copy of each book per resident, however they got it. */
+    public static function bookAlreadyHeld(): self
+    {
+        return new self('book_already_held', 409);
+    }
+
+    /** A draft, a withdrawn book, or one not on this shelf. */
+    public static function bookUnavailable(): self
+    {
+        return new self('book_unavailable', 404);
+    }
+
+    public static function libraryTooFast(): self
+    {
+        return new self('library_too_fast', 429);
+    }
+
     public static function friendUnknown(): self
     {
         return new self('friend_unknown', 404);

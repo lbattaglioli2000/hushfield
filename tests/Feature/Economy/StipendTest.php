@@ -20,7 +20,7 @@ test('the daily stipend is credited once per Hushfield day', function () {
 
     claimStipend()
         ->assertCreated()
-        ->assertJsonPath('protocol', 7)
+        ->assertJsonPath('protocol', 8)
         ->assertJsonPath('message', __('hushfield.stipend_granted'))
         ->assertJsonPath('wallet.balance', 25)
         ->assertJsonPath('wallet.stipend.available', false)

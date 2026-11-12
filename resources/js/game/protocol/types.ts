@@ -1,5 +1,5 @@
 /** Must match config('hushfield.protocol'). A server payload with a higher value means this build is outdated. */
-export const PROTOCOL = 7;
+export const PROTOCOL = 8;
 
 export type Tile = [number, number];
 
@@ -167,6 +167,9 @@ export type OutfitChangedEvent = Stamped & {
 /** Fetch the arrangement: it outgrows a socket message. */
 export type FurnitureChangedEvent = Stamped;
 
+/** The books on a bookshelf in this home changed: fetch it again if it is open. */
+export type ShelfChangedEvent = Stamped & { piece: number };
+
 export type CinemaChangedEvent = Stamped & { cinema: CinemaProgramme };
 
 export type BroadcastChangedEvent = Stamped & { broadcasts: Broadcast[] };
@@ -224,7 +227,7 @@ export type RoomPiece = {
 };
 
 /** What a fixture on a map is for; App\Domain\World\FixtureKind on the server. */
-export type FixtureKind = 'shop' | 'fishing' | 'concessions';
+export type FixtureKind = 'shop' | 'fishing' | 'concessions' | 'library';
 
 export type ItemSlot =
     | 'head'
@@ -264,11 +267,64 @@ export type Item = {
         floor: boolean;
         /** Which of those tiles it covers, as a Footprint mask (['##', '#.'] for an L); null for all of them. */
         shape: string[] | null;
+        /** How many books it holds, which makes it a bookshelf; null for any other furniture. */
+        holds_books: number | null;
         /** Art URL by facing, `0` to `3`, for the facings that have art (see facingArt). */
         art: Record<string, string>;
         /** What plays over a facing's art while a placed piece is switched on, by facing; a piece with any can be switched. */
         animations?: Record<string, ArtAnimation>;
     } | null;
+};
+
+/**
+ * A book as it shows on a shelf: no text, which is fetched when it is opened.
+ * A withdrawn book shows a plain spine, without its title or author.
+ */
+export type BookSpine = {
+    book: number;
+    title: string | null;
+    author: string | null;
+    /** The cover's colour, #rrggbb. */
+    cover: string;
+    withdrawn: boolean;
+};
+
+/** A copy the resident holds: in their belongings, or on one of their shelves (`shelf`, the owned piece). */
+export type HeldBook = BookSpine & {
+    copy: number;
+    source: 'checked_out' | 'staff_gift';
+    acquired_at: string;
+    shelf: number | null;
+};
+
+/** A shelf the player stands at: one of the library's categories, or a bookshelf in a home. */
+export type ShelfView =
+    | {
+          kind: 'library';
+          slug: string;
+          name: string;
+          books: BookSpine[];
+          /** The books the player already holds a copy of. */
+          held: number[];
+      }
+    | {
+          kind: 'home';
+          piece: number;
+          name: string;
+          owner: string;
+          /** The player's own shelf: they add books and take them back. */
+          own: boolean;
+          holds: number;
+          books: Array<BookSpine & { copy: number }>;
+      };
+
+/** A book opened to read. `body` is plain text, paragraphs split by blank lines. */
+export type BookText = {
+    book: number;
+    title: string;
+    author: string | null;
+    cover: string;
+    body: string;
 };
 
 /** A resident's coins, stipend status and inventory, as every economy response carries them. */

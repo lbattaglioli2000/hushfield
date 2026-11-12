@@ -103,6 +103,16 @@ the event bus, and the panel for that kind opens. It may not sit on a door.
 | `shop`    | a shop counter  | anywhere in the room                       |
 | `fishing` | a fishing spot  | on the spot or a step from it              |
 | `concessions` | the VFA's concession counter | anywhere in the room (nothing is sold yet) |
+| `library` | one library shelf; its **name** is a `LibraryShelf` slug | on the spot or a step from it, at that shelf only |
+
+A library fixture's name picks its category: `use-fixture` carries the
+name, and `FixtureReach::ensureWithin($user, FixtureKind::Library, $slug)`
+checks the player is at that very shelf, not merely at one. Its `label` is
+the floor sign; the panel's title comes from the database. Staff add
+categories in the admin (`LibraryShelfResource`, which shows whether a map
+has each slug yet, via `Library::shelvesOnMaps`); a slug never changes
+once made. Ship a new shelf by importing the map after the deploy's
+migrations (`hushfield:import-map library`).
 
 To add a kind (a minigame, say):
 
@@ -203,6 +213,25 @@ colours of the piece a facing's animation over their own pictures. Items send it
 room switches it (`SwitchFurniture`, which takes the state wanted, so two
 taps at once agree), by tapping it in play. `FurnitureLayer` plays it as it
 plays a room piece that's on.
+
+A piece is a **bookshelf** if its item `holds_books` (how many; inherited by
+colours, cleared on anything not furniture, never set below
+`Item::fullestShelf()`). Books live outside the catalog: a `Book` is
+staff-written text with a state (draft, published, withdrawn), and a
+`BookCopy` is one resident's copy, at most one per book per resident
+(`unique(book_id, user_id)`), with how and when they got it (`source`,
+`created_at`: what later returns and late fees will need). A shelved copy
+points at the shelf's `inventory_items` row (`shelf_id`), so it stays on a
+put-away shelf and comes back with it. Tapping a bookshelf in play walks the
+player beside its footprint (`tilesBeside`) and opens it there
+(`use-bookshelf`); `Bookshelves::ensureBeside` judges reach on the server, a
+step from any covered tile. Only the owner shelves and takes back
+(`ShelveBook` locks the home and counts against `holds_books`;
+`UnshelveBook` also works from anywhere once the shelf is put away);
+visitors in the instance only read (`ReadBook::copy`). Every change sends
+`ShelfChanged` (just the piece id) to the instance, and open panels refetch.
+Shelf and Belongings lists never carry a book's text; it loads when opened.
+Staff guide: `docs/books.md`.
 
 ## Room pieces
 

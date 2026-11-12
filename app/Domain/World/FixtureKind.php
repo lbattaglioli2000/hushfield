@@ -20,6 +20,13 @@ enum FixtureKind: string
     case Concessions = 'concessions';
 
     /**
+     * A shelf of the library, for one category: the fixture is named the
+     * category's slug (App\Models\LibraryShelf). Players browse, read and
+     * check out its books standing at it or a step from it.
+     */
+    case Library = 'library';
+
+    /**
      * How many steps from the fixture a player may use it from, diagonals
      * counting as one; null for anywhere in its room.
      */
@@ -29,6 +36,7 @@ enum FixtureKind: string
             self::Shop => null,
             self::Fishing => 1,
             self::Concessions => null,
+            self::Library => 1,
         };
     }
 }

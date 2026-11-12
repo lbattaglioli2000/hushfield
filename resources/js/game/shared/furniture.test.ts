@@ -9,6 +9,7 @@ import {
     pieceAt,
     placedFootprint,
     roomPieces,
+    tilesBeside,
     withFurniture,
 } from './furniture';
 
@@ -338,5 +339,28 @@ describe('asDrawn', () => {
             asDrawn({ ...piece(1, 1, 0, { wide: 1, deep: 1 }), on: true })
                 .animations,
         ).toBeUndefined();
+    });
+});
+
+describe('tilesBeside', () => {
+    it('stands a step from a turned piece, on open floor only, nearest the player first', () => {
+        // A 2 × 1 shelf turned once lies 1 wide and 2 deep, on (2, 1) and (2, 2).
+        const shelf = piece(2, 1, 1, { wide: 2, deep: 1 });
+        const open = {
+            width: 5,
+            height: 5,
+            walkable: new Uint8Array(25).fill(1),
+        };
+        open.walkable[1 * 5 + 1] = 0;
+
+        const tiles = tilesBeside(shelf, open, [4, 4]);
+
+        expect(tiles[0]).toEqual([3, 3]);
+        expect(tiles).toHaveLength(9);
+        expect(tiles).not.toContainEqual([1, 1]);
+        expect(tiles).not.toContainEqual([2, 1]);
+        expect(
+            tiles.every(([x, y]) => x >= 1 && x <= 3 && y >= 0 && y <= 3),
+        ).toBe(true);
     });
 });

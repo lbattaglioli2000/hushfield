@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
+import Books from '@/components/play/books';
 import ChatBar from '@/components/play/chat-bar';
 import CinemaBar, { CinemaLayer } from '@/components/play/cinema-screen';
 import Concessions from '@/components/play/concessions';
@@ -173,6 +174,7 @@ export default function Play({ game }: PlayProps) {
                                     <Residences bus={bus} copy={game.copy} />
                                     <Fishing bus={bus} copy={game.copy} />
                                     <Concessions bus={bus} copy={game.copy} />
+                                    <Books bus={bus} copy={game.copy} />
                                 </div>
                             </div>
                         </div>
