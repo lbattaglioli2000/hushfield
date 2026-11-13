@@ -1,16 +1,105 @@
 #!/usr/bin/env bash
-# Orb setup: a Java runtime and Adobe S3Mock, to test publishing art to an
-# S3 bucket locally (docs/assets-plan.md §7). It runs as the s3mock service in
-# .amp/services.yaml. Postgres, Redis, PHP and Node come with the orb template.
+# Orb setup. Fresh orbs come with Node but no PHP or databases, so this installs
+# what the tests need, matching .github/workflows/tests.yml:
+#   - PHP 8.4 with CI's extensions (Sury's apt repo) and Composer 2, then the
+#     Composer dependencies and a .env with an app key;
+#   - Postgres 17 (PGDG's apt repo) with a cluster owned by the orb user, whose
+#     superuser is hushfield (password secret) and which has a hushfield_test
+#     database, and Redis 7;
+#   - a Java runtime and Adobe S3Mock, to test publishing art to an S3 bucket
+#     locally (docs/assets-plan.md §7).
+# Postgres, Redis and S3Mock run as services in .amp/services.yaml, so they keep
+# running across orb pause and resume; nothing here starts them.
 set -euo pipefail
 
+# shellcheck disable=SC1091
+. /etc/os-release
+TOOLS="$HOME/.local/share/hushfield"
+PG_BIN="/usr/lib/postgresql/17/bin"
+PG_DATA="$TOOLS/postgres-17"
+COMPOSER_VERSION="2.11.2"
+COMPOSER_SHA256="dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028"
 JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jre_x64_linux_hotspot_21.0.13_9.tar.gz"
 JRE_SHA256="a535a1df9c6284d9618872984e026ae0352d1f7e9e0605425c0e6114f47351dd"
 S3MOCK_VERSION="5.2.3"
 S3MOCK_SHA1="6a1bc60e6a37aaecc93181414933b2ed75738f43"
-TOOLS="$HOME/.local/share/hushfield"
 
 mkdir -p "$TOOLS"
+
+PACKAGES=(
+  php8.4-cli php8.4-pgsql php8.4-redis php8.4-intl php8.4-bcmath php8.4-mbstring
+  php8.4-xml php8.4-curl php8.4-zip php8.4-gd
+  postgresql-17 redis-server
+)
+missing=()
+for package in "${PACKAGES[@]}"; do
+  dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed' || missing+=("$package")
+done
+
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "== Installing ${missing[*]}"
+  time {
+    sudo install -d -m 0755 /etc/apt/keyrings
+    if [ ! -f /etc/apt/sources.list.d/sury-php.list ]; then
+      curl -fsSL https://packages.sury.org/php/apt.gpg | sudo tee /etc/apt/keyrings/sury-php.gpg >/dev/null
+      echo "deb [signed-by=/etc/apt/keyrings/sury-php.gpg] https://packages.sury.org/php/ $VERSION_CODENAME main" |
+        sudo tee /etc/apt/sources.list.d/sury-php.list >/dev/null
+    fi
+    if [ ! -f /etc/apt/sources.list.d/pgdg.list ]; then
+      curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/keyrings/pgdg.asc >/dev/null
+      echo "deb [signed-by=/etc/apt/keyrings/pgdg.asc] https://apt.postgresql.org/pub/repos/apt $VERSION_CODENAME-pgdg main" |
+        sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+    fi
+
+    # The services in .amp/services.yaml run Postgres and Redis, so skip the
+    # packages' default Postgres cluster and keep them from starting daemons.
+    sudo install -d -m 0755 /etc/postgresql-common/createcluster.d
+    echo 'create_main_cluster = false' | sudo tee /etc/postgresql-common/createcluster.d/hushfield.conf >/dev/null
+    (
+      trap 'sudo rm -f /usr/sbin/policy-rc.d' EXIT
+      printf '#!/bin/sh\nexit 101\n' | sudo tee /usr/sbin/policy-rc.d >/dev/null
+      sudo chmod 0755 /usr/sbin/policy-rc.d
+      sudo apt-get update -qq
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
+    )
+  }
+fi
+
+# Where systemd runs, it would start the system units on boot and take the ports.
+if [ -d /run/systemd/system ]; then
+  sudo systemctl disable --now --quiet postgresql.service redis-server.service
+fi
+
+if ! composer --version 2>/dev/null | grep -qF " $COMPOSER_VERSION "; then
+  echo "== Installing Composer $COMPOSER_VERSION"
+  time {
+    curl -fsSL "https://getcomposer.org/download/$COMPOSER_VERSION/composer.phar" -o "$TOOLS/composer.phar"
+    echo "$COMPOSER_SHA256  $TOOLS/composer.phar" | sha256sum -c -
+    sudo install -m 0755 "$TOOLS/composer.phar" /usr/local/bin/composer
+    rm "$TOOLS/composer.phar"
+  }
+fi
+
+if [ ! -f "$PG_DATA/PG_VERSION" ]; then
+  echo "== Creating the Postgres cluster in $PG_DATA"
+  time {
+    rm -rf "$PG_DATA.tmp"
+    pwfile="$(mktemp)"
+    echo secret >"$pwfile"
+    "$PG_BIN/initdb" -D "$PG_DATA.tmp" -U hushfield --pwfile="$pwfile" \
+      --auth-local=trust --auth-host=scram-sha-256 --encoding=UTF8 --locale=C.UTF-8 >/dev/null
+    rm "$pwfile"
+    echo 'CREATE DATABASE hushfield_test' | "$PG_BIN/postgres" --single -D "$PG_DATA.tmp" postgres >/dev/null
+    mv "$PG_DATA.tmp" "$PG_DATA"
+  }
+fi
+
+echo "== composer install"
+time composer install --no-interaction --no-progress
+
+# As in CI, the tests need an app key from .env; keep any .env already here.
+[ -f .env ] || cp -- .env.example .env
+grep -q '^APP_KEY=.' .env || php artisan key:generate --no-interaction
 
 if [ ! -x "$TOOLS/jre/bin/java" ]; then
   echo "== Installing Temurin JRE 21"

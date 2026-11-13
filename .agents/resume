@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Start Postgres and Redis (services in .amp/services.yaml) when the orb starts
+# or wakes, so the tests and the app reach them without a manual
+# `amp orb services ensure`. Running services are left alone; S3Mock and any
+# other services still start on demand.
+set -euo pipefail
+
+for service in postgres:5432 redis:6379; do
+  if ! (exec 3<>"/dev/tcp/127.0.0.1/${service#*:}") 2>/dev/null; then
+    amp orb service restart "${service%%:*}"
+  fi
+done

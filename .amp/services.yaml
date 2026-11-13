@@ -1,7 +1,19 @@
-# Adobe S3Mock (installed by .agents/setup): a local stand-in for the Laravel
-# Cloud buckets, to test hushfield:publish-assets and cross-origin art loads.
-# To point the app at it, see "Local S3" in resources/maps/README.md.
 services:
+    # Postgres 17 and Redis 7 for the tests and the dev app (installed by
+    # .agents/setup), on the ports phpunit.xml and .env.example use. Postgres
+    # runs the orb user's cluster, tuned for speed over durability.
+    postgres:
+        command: >-
+            exec /usr/lib/postgresql/17/bin/postgres -D "$HOME/.local/share/hushfield/postgres-17"
+            -c listen_addresses=127.0.0.1 -c port=5432 -c unix_socket_directories=/tmp
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+        port: 5432
+    redis:
+        command: exec redis-server --bind 127.0.0.1 --port 6379 --save '' --appendonly no
+        port: 6379
+    # Adobe S3Mock (installed by .agents/setup): a local stand-in for the Laravel
+    # Cloud buckets, to test hushfield:publish-assets and cross-origin art loads.
+    # To point the app at it, see "Local S3" in resources/maps/README.md.
     s3mock:
         command: >-
             mkdir -p storage/s3mock &&
