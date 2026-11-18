@@ -22,6 +22,7 @@
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
         "league/flysystem-aws-s3-v3": "^3.35",
+        "resend/resend-laravel": "^1.7",
         "sentry/sentry-laravel": "^4.29",
         "spatie/laravel-activitylog": "^5.1"
     },
