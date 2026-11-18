@@ -20,7 +20,7 @@ test('the dashboard redirects to the game', function () {
         ->assertRedirect('/play');
 });
 
-test('verified residents get the game shell', function () {
+test('residents get the game shell', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -70,21 +70,14 @@ test('the game shell does not expose the birth year', function () {
         ->assertInertia(fn (Assert $page) => $page->missing('auth.user.birth_year')->missing('auth.user.password'));
 });
 
-test('unverified residents cannot reach the game or the world API', function () {
-    $room = importRoom();
-    $instance = $room->instances()->firstOrFail();
+test('residents can play without verifying their email', function () {
     $user = User::factory()->unverified()->create();
     $this->actingAs($user);
 
-    $this->get(route('play'))->assertRedirect(route('verification.notice'));
-    $this->postJson(route('world.session.start'))->assertForbidden();
-    $this->postJson('/world/heartbeat')->assertForbidden();
-    $this->postJson(route('world.rooms.join', $room))->assertForbidden();
-    $this->getJson(route('world.instances.snapshot', $instance))->assertForbidden();
-    $this->postJson(route('world.instances.move', $instance), ['x' => 1, 'y' => 1])->assertForbidden();
-    $this->postJson(route('world.instances.chat', $instance), ['body' => 'hi'])->assertForbidden();
+    $this->get(route('play'))->assertOk();
+    $this->postJson(route('world.session.start'))->assertCreated();
 
-    expect(WorldSession::query()->count())->toBe(0);
+    expect(WorldSession::query()->count())->toBe(1);
 });
 
 test('the asset manifest lists every built image by its content-hashed URL', function () {

@@ -9,7 +9,6 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
 use Filament\Panel;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -55,7 +54,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  */
 #[Fillable(['username', 'email', 'password', 'birth_year', 'is_minor', 'chat_filter_level', 'direct_messages_allowed', 'friend_requests_allowed'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'birth_year'])]
-class User extends Authenticatable implements FilamentUser, HasName, MustVerifyEmail, PasskeyUser
+class User extends Authenticatable implements FilamentUser, HasName, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;

@@ -43,7 +43,7 @@ Route::get('assets/manifest.json', AssetManifestController::class)->name('assets
 Route::get('assets/{path}', AssetFileController::class)->where('path', '[a-z0-9/-]+\.[0-9a-f]{8}\.png')->name('assets.file');
 Route::get('world/maps/{room}/{version}.json', MapController::class)->name('world.maps.show');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware('auth')->group(function () {
     Route::redirect('dashboard', '/play')->name('dashboard');
     Route::get('play', PlayController::class)->name('play');
 

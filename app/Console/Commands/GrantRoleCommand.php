@@ -56,7 +56,7 @@ final class GrantRoleCommand extends Command
         if ($role !== null && ! $user->hasVerifiedEmail()) {
             if (! $this->option('verify-email')) {
                 $this->error("{$user->username} has not verified {$user->email}, and the admin panel requires a verified email.");
-                $this->line('Ask them to verify it first, or rerun with --verify-email if you can vouch for the address.');
+                $this->line('Rerun with --verify-email if you can vouch for the address.');
 
                 return self::FAILURE;
             }
