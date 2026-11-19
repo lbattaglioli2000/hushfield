@@ -4,5 +4,56 @@
         "wide": 1,
         "deep": 1,
         "frame_ms": 120
+    },
+    {
+        "slug": "christmas-tree",
+        "wide": 2,
+        "deep": 2,
+        "frame_ms": 700
+    },
+    {
+        "slug": "present-candy-stripe",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "present-green-flat",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "present-stack",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "present-blue-tall",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "present-red-cube",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "present-gold-small",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "present-teal-long",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "present-purple-dots",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "santa-sleigh",
+        "wide": 5,
+        "deep": 1
     }
 ]

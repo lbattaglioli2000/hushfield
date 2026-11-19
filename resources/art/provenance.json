@@ -204,5 +204,25 @@
         "by": "our artist",
         "received": "2026-11-11",
         "notes": "coin washer facing the upper right: its back, with the kG plate and hose ports"
+    },
+    "art/props/christmas-tree/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread as tree_big_0; one half-transparent glow pixel at (38, 19) cleared, as the twinkle can't draw it"
+    },
+    "art/props/christmas-tree/0-on.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "the twinkle: frame 1 the pixels of tree_big_0 and frame 2 those of tree_big_1 where the two differ"
+    },
+    "art/props/present-*/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread as present_{name}.png; added as drawn"
+    },
+    "art/props/santa-sleigh/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread; Santa in his sleigh with three reindeer, added as drawn"
     }
 }
