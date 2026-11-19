@@ -206,6 +206,8 @@ export type AssetManifest = {
     animations: Record<string, Record<string, ArtAnimation>>;
     /** Art for wall styles that have it, by style and part: `left`, `right`, `left-door`, `right-door`. */
     walls: Record<string, Record<string, string>>;
+    /** String lights along the top of back walls, by set and side (`left`, `right`): each frame one panel wide. */
+    lights?: Record<string, Record<string, ArtAnimation>>;
     /** Null until the build has avatar art: residents are then one tinted sprite. */
     avatar: AvatarRig | null;
     /**

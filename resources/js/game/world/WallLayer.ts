@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
+import type { AssetManifest } from '../protocol/types';
 import type { WallPanel, WallSide } from '../shared/walls';
 import { placePanel, wallPanels } from '../shared/walls';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
 import { DEPTH, WALL } from '../theme';
+import type { PlayingAnimation } from './BuildingLayer';
+import { frameAt, showFrame } from './BuildingLayer';
 import { colourFor } from './FurnitureLayer';
 import type { IsoMap } from './IsoMap';
 
@@ -14,6 +17,14 @@ export function wallTexture(name: string): string {
     return `wall:${name}`;
 }
 
+/** The texture key a set of wall lights is loaded under, by set and side: `{set}/{side}`. */
+export function lightsTexture(name: string): string {
+    return `wall-lights:${name}`;
+}
+
+/** Just over the walls they hang on. */
+const LIGHTS_DEPTH = DEPTH.walls + 0.01;
+
 /** A panel is one tile edge across: half a tile wide on screen. */
 const PANEL_WIDTH = TILE_WIDTH / 2;
 
@@ -22,18 +33,31 @@ const PANEL_WIDTH = TILE_WIDTH / 2;
  * back row and column, drawn from the style's art or as a tinted placeholder.
  * Nothing stands behind them, so they lie under everything that stands and
  * never fade. A doorway is the style's door art, a placeholder with an
- * opening, or, for a style with art but no door art, a gap.
+ * opening, or, for a style with art but no door art, a gap. A map that names
+ * a set of lights strings them along the top of every panel drawn, a panel's
+ * worth each, twinkling in step; with reduced motion they hold the first frame.
  */
 export class WallLayer {
     private readonly panels: Phaser.GameObjects.Image[] = [];
+    private readonly lights: PlayingAnimation[] = [];
+    private readonly still = window.matchMedia?.(
+        '(prefers-reduced-motion: reduce)',
+    ).matches;
 
     constructor(
         private readonly scene: Phaser.Scene,
         map: IsoMap,
+        lights: NonNullable<AssetManifest['lights']>,
     ) {
         const style = map.walls;
 
         if (!style) return;
+
+        const strand = map.wallLights ? lights[map.wallLights] : undefined;
+        const bulbs: Record<WallSide, Phaser.GameObjects.Image[]> = {
+            left: [],
+            right: [],
+        };
 
         for (const panel of wallPanels(
             map.grid.width,
@@ -56,11 +80,48 @@ export class WallLayer {
                     .setOrigin(0, 0)
                     .setDepth(DEPTH.walls),
             );
+
+            // Each side's strand falls across a panel as its top edge does, so it hangs from the top left corner.
+            const key = lightsTexture(`${map.wallLights}/${panel.side}`);
+
+            if (strand?.[panel.side] && scene.textures.exists(key)) {
+                bulbs[panel.side].push(
+                    scene.add
+                        .image(left, top + WALL.lightsDropPx, key, 0)
+                        .setOrigin(0, 0)
+                        .setDepth(LIGHTS_DEPTH),
+                );
+            }
+        }
+
+        for (const [side, pieces] of Object.entries(bulbs)) {
+            const timing = strand?.[side];
+
+            if (!timing || pieces.length === 0) continue;
+
+            this.lights.push({
+                pieces,
+                frameMs: timing.frame_ms,
+                totalMs: timing.frame_ms.reduce((sum, ms) => sum + ms, 0),
+                frame: 0,
+            });
+        }
+    }
+
+    update(): void {
+        for (const lights of this.lights) {
+            showFrame(
+                lights,
+                this.still ? 0 : frameAt(lights, this.scene.time.now),
+            );
         }
     }
 
     destroy(): void {
         this.panels.forEach((panel) => panel.destroy());
+        this.lights.forEach(({ pieces }) =>
+            pieces.forEach((bulb) => bulb.destroy()),
+        );
     }
 
     private texture(

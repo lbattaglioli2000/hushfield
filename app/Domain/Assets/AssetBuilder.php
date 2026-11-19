@@ -72,6 +72,9 @@ final class AssetBuilder
     /** How long each frame of each building animation shows, by building and part: see docs/art/animations.md. */
     private const string ANIMATIONS = 'buildings/animations.json';
 
+    /** How long each frame of each set of string lights shows, by set: see "Walls" in resources/maps/README.md. */
+    private const string LIGHTS = 'lights/lights.json';
+
     /** The avatar rig: frame size, animations, anchors and layer order (docs/assets-plan.md §14). */
     private const string RIG = 'avatars/rig.json';
 
@@ -134,7 +137,7 @@ final class AssetBuilder
         $avatar = $dressing === [] ? null : $this->avatar($sources, $files, $dressing, $outputs);
 
         $timings = $this->animationTimings($sources, $files, array_keys($animated));
-        $animations = [];
+        $animations = $this->lights($sources, $files, $outputs);
 
         foreach ($animated as $name => $slug) {
             $buildings ??= $this->buildingFootprints();
@@ -179,11 +182,12 @@ final class AssetBuilder
             }
 
             $png = preg_replace('/\.(aseprite|ase)$/', '.png', $file);
-            $known = in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG, self::PROP_REGISTRY], true)
+            $known = in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::LIGHTS, self::RIG, self::PROP_REGISTRY], true)
                 || preg_match('#^tiles/'.TileRegistry::NAME.'\.png$#', (string) $png)
                 || preg_match('#^(ui|buildings)/'.self::SLUG.'\.png$#', (string) $png)
                 || preg_match('#^buildings/'.self::SLUG.'/'.self::SLUG.'\.png$#', (string) $png)
                 || preg_match('#^walls/'.self::SLUG.'/'.self::WALL_PART.'\.png$#', (string) $png)
+                || preg_match('#^lights/'.self::SLUG.'/(left|right)\.png$#', (string) $png)
                 || preg_match('#^items/'.self::SLUG.'/[0-3]\.png$#', (string) $png)
                 || preg_match('#^props/'.self::SLUG.'/[0-3](-on)?\.png$#', (string) $png)
                 || preg_match('#^avatars/base/'.self::AVATAR_PART.'\.png$#', (string) $png)
@@ -218,7 +222,7 @@ final class AssetBuilder
 
         $unclaimed = array_filter(
             $files,
-            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::RIG, self::PROP_REGISTRY], true)
+            fn (string $file): bool => ! in_array($file, ['provenance.json', 'tiles/tiles.json', self::ANIMATIONS, self::LIGHTS, self::RIG, self::PROP_REGISTRY], true)
                 && ! array_any(array_keys($entries), fn (int|string $pattern): bool => fnmatch((string) $pattern, "art/{$file}", FNM_PATHNAME)),
         );
 
@@ -735,6 +739,65 @@ final class AssetBuilder
         }
 
         return $art->scale($scale);
+    }
+
+    /**
+     * String lights along the top of a room's back walls (the map's
+     * "wall_lights" names the set): for each set, `left` and `right`, a strip
+     * of frames one wall panel wide (16 art pixels, the strand falling 8 across
+     * it as that side's wall does), drawn from the top of every panel, with
+     * their frame times in lights.json: `{"warm": {"frame_ms": 700}}`.
+     *
+     * @param  list<string>  $files
+     * @param  array<string, Image>  $outputs
+     * @return array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}> by output name, lights/{set}/{side}
+     */
+    private function lights(string $sources, array $files, array &$outputs): array
+    {
+        $strands = array_values(array_filter($files, fn (string $file): bool => str_starts_with($file, 'lights/') && $file !== self::LIGHTS));
+        $timings = in_array(self::LIGHTS, $files, true) ? json_decode((string) file_get_contents("{$sources}/".self::LIGHTS), true) : [];
+
+        if (! is_array($timings) || ($timings !== [] && array_is_list($timings))) {
+            throw new InvalidAssetException('art/'.self::LIGHTS.' must be a JSON object: each set\'s frame times, such as {"warm": {"frame_ms": 700}}.');
+        }
+
+        foreach (array_keys($timings) as $set) {
+            if (! array_any($strands, fn (string $file): bool => str_starts_with($file, "lights/{$set}/"))) {
+                throw new InvalidAssetException('art/'.self::LIGHTS." times \"{$set}\", but there is no art/lights/{$set}/left.png or right.png.");
+            }
+        }
+
+        $scale = $this->scale('walls');
+        $panel = intdiv(32, $scale);
+        $animations = [];
+
+        foreach ($strands as $file) {
+            $name = substr($file, 0, -4);
+            $set = explode('/', $name)[1];
+            $strip = Png::decode((string) file_get_contents("{$sources}/{$file}"), "art/{$file}");
+
+            if ($scale > 1 && $strip->width % ($panel * $scale) === 0 && $strip->isScaledUp($scale)) {
+                throw new InvalidAssetException("art/{$file} is already scaled up to {$strip->width}×{$strip->height}. Export it at 100%: ".intdiv($strip->width, $scale).'×'.intdiv($strip->height, $scale).'.');
+            }
+
+            if ($strip->width % $panel !== 0 || $strip->width < 2 * $panel) {
+                throw new InvalidAssetException("art/{$file} is {$strip->width}×{$strip->height}; it must be two or more frames {$panel} wide, one wall panel, side by side.");
+            }
+
+            $count = intdiv($strip->width, $panel);
+            $timing = $timings[$set] ?? null;
+            $times = match (true) {
+                is_array($timing) && is_int($timing['frame_ms'] ?? null) && $timing['frame_ms'] > 0 => array_fill(0, $count, $timing['frame_ms']),
+                is_array($timing) && is_array($timing['frame_ms'] ?? null) && array_is_list($timing['frame_ms']) && count($timing['frame_ms']) === $count
+                    && array_all($timing['frame_ms'], fn (mixed $ms): bool => is_int($ms) && $ms > 0) => $timing['frame_ms'],
+                default => throw new InvalidAssetException("art/{$file} needs its frame times in art/".self::LIGHTS.": \"{$set}\": {\"frame_ms\": 700} shows every frame for 700 ms, or give a list of {$count} times, one for each frame."),
+            };
+
+            $outputs[$name] = $strip->scale($scale);
+            $animations[$name] = ['x' => 0, 'y' => 0, 'width' => $panel * $scale, 'height' => $strip->height * $scale, 'frames' => $count, 'frame_ms' => $times];
+        }
+
+        return $animations;
     }
 
     /**

@@ -85,6 +85,8 @@ export const WALL = {
     /** A doorway is open from the floor up to here, between narrow jambs. */
     doorHeightPx: 64,
     jambTiles: 0.12,
+    /** String lights hang from this far below the top of the wall, under its trim. */
+    lightsDropPx: 4,
 } as const;
 
 /** A TV on the wall, as it shows while no film plays on it: a dark screen in a bezel, with a standby light. */

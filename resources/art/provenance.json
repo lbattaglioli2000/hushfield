@@ -220,6 +220,11 @@
         "received": "2026-11-19",
         "notes": "handed over in an Amp thread as present_{name}.png; added as drawn"
     },
+    "art/lights/*/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread as lights_{left,right}_{set}_{0,1}.png, each half a swag along a tile's front edges; the half that falls to the right (lights_left) became right.png and the one that climbs (lights_right) left.png, cut to the strand (rows 8 to 19), frames 0 and 1 side by side"
+    },
     "art/props/santa-sleigh/0.png": {
         "by": "Luigi",
         "received": "2026-11-19",

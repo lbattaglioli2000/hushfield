@@ -96,6 +96,8 @@ export class IsoMap {
     readonly wallHeight: number;
     /** The style of the room's back walls (the map's "walls" property), or null for a room without. */
     readonly walls: string | null;
+    /** The set of string lights along the top of the walls (the map's "wall_lights" property), or null for none. */
+    readonly wallLights: string | null;
     /** The back edges the walls stand on (the map's "wall_sides" property): both by default. */
     readonly wallSides: readonly WallSide[];
     /** The map's diamond, from world (0, 0). */
@@ -172,6 +174,9 @@ export class IsoMap {
 
         const walls = rawProperty(map, 'walls');
         this.walls = typeof walls === 'string' ? walls : null;
+        const wallLights = rawProperty(map, 'wall_lights');
+        this.wallLights =
+            this.walls && typeof wallLights === 'string' ? wallLights : null;
         const wallHeight = rawProperty(map, 'wall_height');
         this.wallHeight =
             typeof wallHeight === 'number' ? wallHeight : WALL.heightPx;

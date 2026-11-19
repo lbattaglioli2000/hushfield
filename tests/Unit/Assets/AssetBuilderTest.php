@@ -16,7 +16,7 @@ function scratchArt(): string
 {
     $root = sys_get_temp_dir().'/hushfield-art-'.uniqid();
     File::copyDirectory(resource_path('art'), "{$root}/art");
-    foreach (['buildings', 'walls', 'items', 'avatars', 'props'] as $kind) {
+    foreach (['buildings', 'walls', 'lights', 'items', 'avatars', 'props'] as $kind) {
         File::deleteDirectory("{$root}/art/{$kind}");
     }
     File::ensureDirectoryExists("{$root}/maps");
@@ -317,6 +317,7 @@ function claimAll(string $root): void
         'art/buildings/*.png' => ['by' => 'our artist'],
         'art/buildings/*/*.png' => ['by' => 'our artist'],
         'art/walls/*/*.png' => ['by' => 'our artist'],
+        'art/lights/*/*.png' => ['by' => 'our artist'],
         'art/items/*/*.png' => ['by' => 'our artist'],
         'art/props/*/*.png' => ['by' => 'our artist'],
     ]));
@@ -421,6 +422,28 @@ it('trims a building animation to what moves, doubles it, and lists it with wher
         ->and(builtIndex()['animations']['buildings/library/sign']['frame_ms'])->toBe([200, 200, 200]);
 });
 
+it('doubles a set of wall lights and lists each side by set, a panel wide, with its frame times', function () {
+    $root = scratchArt();
+    claimAll($root);
+    File::ensureDirectoryExists("{$root}/art/lights/warm");
+    // Three frames a panel (16) wide, each lighting a different bulb.
+    $bulb = new Image(1, 1, "\xFF\xD6\x82\xFF");
+    File::put("{$root}/art/lights/warm/right.png", Png::encode(Image::blank(48, 12)->paste($bulb, 0, 0)->paste($bulb, 20, 5)->paste($bulb, 47, 11)));
+    File::put("{$root}/art/lights/lights.json", '{"warm": {"frame_ms": [700, 500, 300]}}');
+    $this->artisan('hushfield:build-assets')->assertSuccessful();
+
+    $index = builtIndex();
+
+    // Not trimmed: every frame hangs from the panel's top left corner.
+    expect($index['animations'])->toBe(['lights/warm/right' => ['x' => 0, 'y' => 0, 'width' => 32, 'height' => 24, 'frames' => 3, 'frame_ms' => [700, 500, 300]]])
+        ->and(builtImage('lights/warm/right')->equals(Image::blank(48, 12)->paste($bulb, 0, 0)->paste($bulb, 20, 5)->paste($bulb, 47, 11)->scale(2)))->toBeTrue();
+
+    expect($this->getJson(route('assets.manifest'))->assertOk()->json('lights'))->toBe(['warm' => ['right' => [
+        'url' => asset('assets').'/'.$index['files']['lights/warm/right'],
+        'x' => 0, 'y' => 0, 'width' => 32, 'height' => 24, 'frames' => 3, 'frame_ms' => [700, 500, 300],
+    ]]]);
+});
+
 it('refuses building, wall and furniture art that breaks its canvas rule', function (Closure $draw, string $message) {
     $root = scratchArt();
     claimAll($root);
@@ -497,6 +520,21 @@ it('refuses building, wall and furniture art that breaks its canvas rule', funct
             File::put("{$root}/art/buildings/animations.json", '{"library/sign": {"frame_ms": 200}}');
         },
         'art/buildings/animations.json times "library/sign", but there is no art/buildings/library/sign.png.',
+    ],
+    'wall lights not a whole number of panels across' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/lights/warm");
+            File::put("{$root}/art/lights/warm/left.png", Png::encode(Image::blank(40, 12)));
+            File::put("{$root}/art/lights/lights.json", '{"warm": {"frame_ms": 700}}');
+        },
+        'art/lights/warm/left.png is 40×12; it must be two or more frames 16 wide, one wall panel, side by side.',
+    ],
+    'wall lights without frame times' => [
+        function (string $root) {
+            File::ensureDirectoryExists("{$root}/art/lights/warm");
+            File::put("{$root}/art/lights/warm/left.png", Png::encode(Image::blank(32, 12)->paste(new Image(1, 1, "\xFF\xD6\x82\xFF"), 1, 0)));
+        },
+        'art/lights/warm/left.png needs its frame times in art/lights/lights.json: "warm": {"frame_ms": 700} shows every frame for 700 ms, or give a list of 2 times, one for each frame.',
     ],
     'a wall panel exported at 200%' => [
         function (string $root) {

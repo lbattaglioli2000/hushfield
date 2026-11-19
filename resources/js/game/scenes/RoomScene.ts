@@ -55,7 +55,7 @@ import {
 } from '../world/FurnitureLayer';
 import { HouseLights } from '../world/HouseLights';
 import { ScreenLayer } from '../world/ScreenLayer';
-import { WallLayer, wallTexture } from '../world/WallLayer';
+import { lightsTexture, WallLayer, wallTexture } from '../world/WallLayer';
 import type { MapBuilding, ScreenRect } from '../world/IsoMap';
 import { IsoMap, TILES_TEXTURE } from '../world/IsoMap';
 import { KeyboardMovement } from '../world/KeyboardMovement';
@@ -300,6 +300,7 @@ export class RoomScene
                 : null;
         this.buildings?.update(seen, delta, this.stationOnAir);
         this.furniture?.update(seen, delta);
+        this.walls?.update();
 
         this.fishingLine?.update(time, self?.target ?? null);
 
@@ -454,7 +455,11 @@ export class RoomScene
                 this.map,
                 this.assets.manifest.animations ?? {},
             );
-            this.walls = new WallLayer(this, this.map);
+            this.walls = new WallLayer(
+                this,
+                this.map,
+                this.assets.manifest.lights ?? {},
+            );
             this.screen = ScreenLayer.forMap(this, this.bus, this.map);
         }
 
@@ -672,7 +677,7 @@ export class RoomScene
         );
     }
 
-    /** The art a room draws: its buildings, its wall style, and the furniture placed in it. */
+    /** The art a room draws: its buildings, its wall style and lights, and the furniture placed in it. */
     private roomFiles(map: IsoMap, placed: PlacedFurniture[]): AssetFile[] {
         const { manifest } = this.assets;
         const walls = map.walls
@@ -684,6 +689,23 @@ export class RoomScene
                       url: (m: AssetManifest) => m.walls[style]?.[part],
                   };
               })
+            : [];
+        const lights = map.wallLights
+            ? Object.entries(manifest.lights?.[map.wallLights] ?? {}).map(
+                  ([side, { width, height }]) => {
+                      const set = map.wallLights as string;
+
+                      return {
+                          key: lightsTexture(`${set}/${side}`),
+                          url: (m: AssetManifest) =>
+                              m.lights?.[set]?.[side]?.url,
+                          spritesheet: {
+                              frameWidth: width,
+                              frameHeight: height,
+                          },
+                      };
+                  },
+              )
             : [];
 
         return [
@@ -702,6 +724,7 @@ export class RoomScene
                 ),
             ),
             ...walls,
+            ...lights,
             ...this.itemFiles([...map.props, ...placed.map(asDrawn)]),
         ];
     }

@@ -25,8 +25,8 @@ it reads:
   `frequency` (the room's station on the tuning dial, in MHz),
   `home_frequency` (a residence's homes on the dial), `town_x`, `town_y`
   (its cell on the town map; without them the room is listed under the map),
-  `walls` (an indoor room's wall style) and `wall_sides` (which back edges
-  it lines; see below).
+  `walls` (an indoor room's wall style), `wall_sides` (which back edges
+  it lines) and `wall_lights` (string lights along their tops; see below).
   Add the room's dial label to `stations` in `lang/en/hushfield.php`.
 
 Tiled measures objects on isometric maps in tile-height (32 px) units on both
@@ -75,6 +75,17 @@ house in Hearthmore Residences), `velvet` (the VFA's lobby and screens),
 
 Each panel is one tile, so things hung on walls later (paintings, clocks) can
 name the panel they hang on.
+
+**String lights**: a string property **`wall_lights`** names a set of lights
+(`warm` in the Library, or `multi`) strung along the top of every panel the
+walls draw, `WALL.lightsDropPx` under it, twinkling in step (held on frame 1
+with reduced motion). A set is `resources/art/lights/{set}/left.png` and
+`right.png`: each a strip of two or more frames 16 art pixels wide, one
+panel, the strand falling across it as that side's top edge does (climbing
+to the right on `left`, falling on `right`), drawn from the panel's top left
+corner. Frame times go in `resources/art/lights/lights.json`,
+`{"warm": {"frame_ms": 700}}` or a list, one per frame. The manifest lists
+them under `lights`, by set and side.
 
 ## Doors
 
