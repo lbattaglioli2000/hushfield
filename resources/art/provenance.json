@@ -229,5 +229,35 @@
         "by": "Luigi",
         "received": "2026-11-19",
         "notes": "handed over in an Amp thread; Santa in his sleigh with three reindeer, added as drawn"
+    },
+    "art/props/fountain/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread as fountain_0; added as drawn"
+    },
+    "art/props/fountain/0-on.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "the water falling: frame 1 the pixels of fountain_0 and frame 2 those of fountain_1 where the two differ"
+    },
+    "art/props/bench/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread as bench_{down_left,up_left,up_right,down_right}, facings 0 to 3; added as drawn"
+    },
+    "art/props/lamp-post/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread; added as drawn, with its soft glow"
+    },
+    "art/props/pine-*/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread as pine_{small,tall,wide}; small and tall as drawn, wide padded 8 each side and 8 below to stand mid 2 x 2"
+    },
+    "art/props/maple-*/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "handed over in an Amp thread as maple_{small,a,b}; small padded 8 below to stand mid 2 x 2, a and b padded 8 each side and 16 below to stand mid 3 x 3"
     }
 }

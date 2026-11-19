@@ -55,5 +55,51 @@
         "slug": "santa-sleigh",
         "wide": 5,
         "deep": 1
+    },
+    {
+        "slug": "fountain",
+        "wide": 4,
+        "deep": 4,
+        "frame_ms": 250
+    },
+    {
+        "slug": "bench",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "lamp-post",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "pine-small",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "pine-tall",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "pine-wide",
+        "wide": 2,
+        "deep": 2
+    },
+    {
+        "slug": "maple-small",
+        "wide": 2,
+        "deep": 2
+    },
+    {
+        "slug": "maple-a",
+        "wide": 3,
+        "deep": 3
+    },
+    {
+        "slug": "maple-b",
+        "wide": 3,
+        "deep": 3
     }
 ]
