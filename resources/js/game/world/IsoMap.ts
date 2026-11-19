@@ -5,7 +5,11 @@ import { isWalkable } from '../shared/astar';
 import type { Footprint } from '../shared/footprint';
 import { centreOf, covers, tilesOf } from '../shared/footprint';
 import type { FurniturePiece } from '../shared/furniture';
-import { placedFootprint, roomPieces } from '../shared/furniture';
+import {
+    blocksWalking,
+    placedFootprint,
+    roomPieces,
+} from '../shared/furniture';
 import {
     screenToTile,
     TILE_FACE_TOP,
@@ -71,9 +75,11 @@ export type MapFixture = MapPlace & { kind: FixtureKind };
 
 /** A building on the map: walls nobody walks through, and a door on its front edge into the room inside. */
 export type MapBuilding = MapPlace & {
-    /** How tall the placeholder block stands, in pixels. */
+    /** How tall the placeholder block stands, in pixels: where its roof and eaves are. */
     height: number;
     door: MapDoor;
+    /** The set of string lights along its front eaves (its "lights" property), or null for none. */
+    lights: string | null;
 };
 
 /** One room's isometric tilemap: the drawn ground layer and doors, the walkable grid, and tile↔world conversion. */
@@ -169,6 +175,7 @@ export class IsoMap {
                 height: numberProperty(object, 'height') ?? TILE_WIDTH,
                 label: building.label ?? door.label,
                 door,
+                lights: property(object, 'lights'),
             };
         });
 
@@ -208,7 +215,7 @@ export class IsoMap {
             }
         }
 
-        // So do the room's own pieces: players walk around them.
+        // So do the room's own pieces: players walk around them, and under any on a roof.
         this.props = roomPieces(
             objects(MAP_LAYERS.props),
             map.imageCollections.find(
@@ -218,6 +225,8 @@ export class IsoMap {
         );
 
         for (const piece of this.props) {
+            if (piece.roof || !blocksWalking(piece)) continue;
+
             for (const [x, y] of tilesOf(placedFootprint(piece))) {
                 cells[y * map.width + x] = 0;
             }

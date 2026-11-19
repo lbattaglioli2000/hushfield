@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import type { ArtAnimation, AssetManifest } from '../protocol/types';
 import type { Placement } from '../shared/buildings';
-import { hidesPlayer, placeBuilding } from '../shared/buildings';
+import { eavesLights, hidesPlayer, placeBuilding } from '../shared/buildings';
 import { TILE_HEIGHT, TILE_WIDTH } from '../shared/iso';
-import { BUILDING, COLORS, DEPTH, DOOR } from '../theme';
+import { BUILDING, COLORS, DEPTH, DOOR, WALL } from '../theme';
 import { colourFor } from './FurnitureLayer';
 import type { IsoMap, MapBuilding } from './IsoMap';
 import { placeLabel } from './IsoMap';
+import { lightsTexture } from './WallLayer';
 
 /** The texture key building art from the asset manifest is loaded under. */
 export function buildingTexture(slug: string): string {
@@ -56,7 +57,9 @@ type DrawnBuilding = {
  * animations play over its art, cut along the same strips, so each piece
  * sorts like the part of the building it lies on; with reduced motion they
  * hold their first frame, as WHSH's beacon does while the station is off
- * the air.
+ * the air. A building whose map object names a set of `lights` has them
+ * strung along its two front eaves, twinkling like the lights on a room's
+ * walls (see eavesLights), and fading with it.
  */
 export class BuildingLayer {
     private readonly drawn: DrawnBuilding[];
@@ -68,6 +71,7 @@ export class BuildingLayer {
         private readonly scene: Phaser.Scene,
         map: IsoMap,
         animations: AssetManifest['animations'],
+        lights: NonNullable<AssetManifest['lights']>,
     ) {
         this.drawn = map.buildings.map((building) => {
             const texture = scene.textures.exists(
@@ -125,6 +129,7 @@ export class BuildingLayer {
                               ),
                           }))
                     : [];
+            drawnAnimations.push(...this.eaves(building, map.originX, lights));
             // Named over its door, where door labels go, so it stays on screen however tall the building is.
             const door = map.toWorld(...building.door.tile);
             const label = building.label
@@ -146,6 +151,43 @@ export class BuildingLayer {
                 alpha: 1,
                 faded: false,
             };
+        });
+    }
+
+    /** A building's eaves lights, one twinkling animation per side, each strand its own piece. */
+    private eaves(
+        building: MapBuilding,
+        originX: number,
+        lights: NonNullable<AssetManifest['lights']>,
+    ): DrawnAnimation[] {
+        const strand = building.lights ? lights[building.lights] : undefined;
+
+        if (!strand) return [];
+
+        return (['left', 'right'] as const).flatMap((side) => {
+            const key = lightsTexture(`${building.lights}/${side}`);
+            const timing = strand[side];
+
+            if (!timing || !this.scene.textures.exists(key)) return [];
+
+            const pieces = eavesLights(building, originX)
+                .filter((light) => light.side === side)
+                .map((light) =>
+                    this.scene.add
+                        .image(light.x, light.y + WALL.lightsDropPx, key, 0)
+                        .setOrigin(0, 0)
+                        .setDepth(DEPTH.avatars + light.depthY),
+                );
+
+            return [
+                {
+                    pieces,
+                    frameMs: timing.frame_ms,
+                    totalMs: timing.frame_ms.reduce((sum, ms) => sum + ms, 0),
+                    frame: 0,
+                    onAirOnly: false,
+                },
+            ];
         });
     }
 

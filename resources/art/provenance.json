@@ -259,5 +259,120 @@
         "by": "Luigi",
         "received": "2026-11-19",
         "notes": "handed over in an Amp thread as maple_{small,a,b}; small padded 8 below to stand mid 2 x 2, a and b padded 8 each side and 16 below to stand mid 3 x 3"
+    },
+    "art/props/bait-shack/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/shack/shack_bait.png"
+    },
+    "art/props/rowboat/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/boats/boat_down_{left,right}_{0,1}.png: facings 0 and 3, each split into what both frames share and a two-frame strip of the bob"
+    },
+    "art/props/rail/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/rails/rail_{down_left,up_left,up_right,down_right}.png as facings 0 to 3, the side of the tile each lines"
+    },
+    "art/props/rail-lights/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/rails/rail_*_lights_{0,1}.png as facings 0 to 3, split into what both frames share and a two-frame strip; the soft halos that change between frames are left out"
+    },
+    "art/props/rail-post/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/rails/rail_post_{bottom,left,top,right}.png as facings 0 to 3"
+    },
+    "art/props/barrel/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/crate/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/rope-coil/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/lobster-trap/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/tackle-box/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/reeds/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/lily-pads/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/fishing-rod/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/fishing_rod.png on a 1 x 2 canvas (48 x 40, the rod's tile at the back), so its line hangs into the water tile in front"
+    },
+    "art/props/bait-bucket/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/, as drawn"
+    },
+    "art/props/buoy/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/{buoy,gull_post}_{0,1}.png, split into what both frames share and a two-frame strip"
+    },
+    "art/props/gull-post/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, pier/pier_props/{buoy,gull_post}_{0,1}.png, split into what both frames share and a two-frame strip"
+    },
+    "art/props/bus-shelter/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
+    },
+    "art/props/bus/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
+    },
+    "art/props/bus-stop-sign/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
+    },
+    "art/props/bus-timetable/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
+    },
+    "art/props/trash-can/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
+    },
+    "art/props/road-bus-bay/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
+    },
+    "art/props/road-crosswalk/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
     }
 }

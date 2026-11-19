@@ -621,6 +621,11 @@ it('builds room pieces against their size in props.json, and writes the props ti
     $library = json_decode((string) File::get("{$root}/maps/library.json"), true);
     $library['layers'][] = ['id' => 99, 'name' => 'props', 'type' => 'objectgroup', 'objects' => []];
     File::put("{$root}/maps/library.json", (string) json_encode($library));
+    // Lantern Street, without the sleigh on its roof: a map with no props layer.
+    $street = json_decode((string) File::get("{$root}/maps/lantern-street.json"), true);
+    $street['layers'] = array_values(array_filter($street['layers'], fn (array $layer): bool => $layer['name'] !== 'props'));
+    $street['tilesets'] = array_values(array_filter($street['tilesets'], fn (array $tileset): bool => $tileset['name'] !== 'props'));
+    File::put("{$root}/maps/lantern-street.json", (string) json_encode($street));
     $this->artisan('hushfield:build-assets')->assertSuccessful();
 
     $index = builtIndex();

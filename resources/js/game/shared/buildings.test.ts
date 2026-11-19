@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { hides, hidesPlayer, placeBuilding } from './buildings';
+import {
+    eavesLights,
+    hides,
+    hidesPlayer,
+    onRoof,
+    placeBuilding,
+} from './buildings';
 import type { Footprint } from './footprint';
 import { covers } from './footprint';
 import { tileToScreen } from './iso';
@@ -217,5 +223,82 @@ describe('hides', () => {
         ).toBe(true);
         expect(hidesPlayer(placement, door, player(7, 0))).toBe(true);
         expect(hidesPlayer(placement, door, player(3, 3))).toBe(true);
+    });
+});
+
+describe('on a building', () => {
+    // The Library: tiles x 4–10, y 1–5, 96 tall. Its left corner is grid point (4, 6), its bottom corner (11, 6).
+    const library = { x: 4, y: 1, wide: 7, deep: 5, height: 96 };
+    const below = placeBuilding(library, library.height, ORIGIN_X);
+    // The depth of the building's strip at world x, and of an avatar standing on a tile.
+    const stripDepth = (x: number) =>
+        Math.max(
+            ...below.strips
+                .filter(
+                    (s) =>
+                        below.left + s.offsetX <= x &&
+                        x < below.left + s.offsetX + s.width,
+                )
+                .map((s) => s.depthY),
+        );
+    const avatarDepth = (x: number, y: number) =>
+        tileToScreen(x, y, ORIGIN_X).y;
+
+    it('strings a strand along each tile of the two front eaves, sorting just in front of the wall below it', () => {
+        const lights = eavesLights(library, ORIGIN_X);
+
+        expect(lights.map((light) => light.side)).toEqual([
+            ...Array<string>(7).fill('right'),
+            ...Array<string>(5).fill('left'),
+        ]);
+        // Along the south-west face from its left corner, falling 16 a tile.
+        expect(lights[0]).toMatchObject({
+            x: ORIGIN_X + (4 - 6) * 32,
+            y: (4 + 6) * 16 - 96,
+        });
+        expect(lights[6]).toMatchObject({
+            x: ORIGIN_X + (10 - 6) * 32,
+            y: (10 + 6) * 16 - 96,
+        });
+        // Then up the south-east face from its bottom corner, each frame hung from its higher, right end.
+        expect(lights[7]).toMatchObject({
+            x: ORIGIN_X + (11 - 6) * 32,
+            y: (11 + 5) * 16 - 96,
+        });
+        expect(lights[11]).toMatchObject({
+            x: ORIGIN_X + (11 - 2) * 32,
+            y: (11 + 1) * 16 - 96,
+        });
+
+        for (const light of lights) {
+            expect(light.depthY).toBeGreaterThan(stripDepth(light.x + 16));
+        }
+        // Under anyone standing in front of the building.
+        expect(lights[2].depthY).toBeLessThan(avatarDepth(6, 6));
+        expect(lights[9].depthY).toBeLessThan(avatarDepth(11, 3));
+    });
+
+    it('lifts a piece onto the roof, over the building but under anyone in front of it', () => {
+        // The sleigh, 5 × 1, on the middle of the roof: x 5–9, y 3.
+        const sleigh = placeBuilding(
+            { x: 5, y: 3, wide: 5, deep: 1 },
+            80,
+            ORIGIN_X,
+        );
+        const lifted = onRoof(sleigh, library, ORIGIN_X);
+
+        expect(lifted.top).toBe(sleigh.top - 96);
+
+        for (const strip of lifted.strips) {
+            const x = lifted.left + strip.offsetX + strip.width / 2;
+
+            // Its own front edge is behind the building's walls; on the roof it draws over them.
+            expect(stripDepth(x)).toBeGreaterThan(
+                sleigh.strips[lifted.strips.indexOf(strip)].depthY,
+            );
+            expect(strip.depthY).toBeGreaterThan(stripDepth(x));
+            // Only just: anything sorting in front of the building also sorts in front of the piece.
+            expect(strip.depthY).toBeLessThan(stripDepth(x) + 0.01);
+        }
     });
 });

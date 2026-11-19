@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { Placement } from '../shared/buildings';
 import type { Footprint } from '../shared/footprint';
-import { hides, placeBuilding } from '../shared/buildings';
+import { hides, onRoof, placeBuilding } from '../shared/buildings';
 import { covers } from '../shared/footprint';
 import type { FurniturePiece } from '../shared/furniture';
 import type { PlayingAnimation } from './BuildingLayer';
@@ -29,6 +29,8 @@ export function mirroredTexture(key: string): string {
 type DrawnPiece = {
     placed: FurniturePiece;
     placement: Placement;
+    /** The placement cut down to where its art has pixels, to tell whether it hides the player. */
+    drawn: Placement;
     strips: Phaser.GameObjects.Image[];
     /** What plays over it while it's switched on, once its art and the strip are loaded. */
     animation: PlayingAnimation | null;
@@ -114,7 +116,7 @@ export class FurnitureLayer {
             const hiding =
                 self !== null &&
                 blocksWalking(piece.placed) &&
-                hides(piece.placement, self.box, self.depthY);
+                hides(piece.drawn, self.box, self.depthY);
             const target = hiding ? FURNITURE.fadedAlpha : 1;
 
             if (piece.alpha === target) continue;
@@ -171,11 +173,18 @@ export class FurnitureLayer {
                 : (key(art.facing) as string)
             : this.placeholder(placed, footprint);
         const source = this.scene.textures.get(texture);
-        const placement = placeBuilding(
+        const building = placed.roof
+            ? this.map.buildings.find(({ name }) => name === placed.roof)
+            : undefined;
+        const standing = placeBuilding(
             footprint,
             source.getSourceImage().height,
             this.map.originX,
         );
+        // The server checked a roof piece's building is on the map.
+        const placement = building
+            ? onRoof(standing, building, this.map.originX)
+            : standing;
         const flat = !blocksWalking(placed);
         const strips = placement.strips.map((strip) => {
             const frame = `strip:${strip.offsetX},${strip.offsetY},${strip.width}x${strip.height}`;
@@ -216,7 +225,31 @@ export class FurnitureLayer {
                   )
                 : null;
 
-        return { placed, placement, strips, animation, alpha: 1 };
+        // Art is often mostly empty canvas (a rowboat low in its box): a
+        // player beside it but inside that canvas isn't hidden by it.
+        const drawn = {
+            ...placement,
+            strips: placement.strips.flatMap((strip) => {
+                const box = opaqueBox(
+                    source.getSourceImage() as CanvasImageSource,
+                    strip,
+                );
+
+                return box
+                    ? [
+                          {
+                              ...strip,
+                              offsetX: strip.offsetX + box.left,
+                              offsetY: strip.offsetY + box.top,
+                              width: box.right - box.left,
+                              height: box.bottom - box.top,
+                          },
+                      ]
+                    : [];
+            }),
+        };
+
+        return { placed, placement, drawn, strips, animation, alpha: 1 };
     }
 
     /** Art flipped left to right, for a facing that has none of its own (see facingArt). */
@@ -452,4 +485,60 @@ export function colourFor(
         saturation,
         lightness,
     );
+}
+
+/**
+ * The box, within a region of an image, around its pixels that aren't
+ * transparent; null when they all are. Pixels that can't be read count as
+ * all there, as before.
+ */
+function opaqueBox(
+    image: CanvasImageSource,
+    region: { offsetX: number; offsetY: number; width: number; height: number },
+): { left: number; right: number; top: number; bottom: number } | null {
+    const { offsetX, offsetY, width, height } = region;
+    const whole = { left: 0, right: width, top: 0, bottom: height };
+    const context = document
+        .createElement('canvas')
+        .getContext('2d', { willReadFrequently: true });
+
+    if (!context || width < 1 || height < 1) return whole;
+
+    context.canvas.width = width;
+    context.canvas.height = height;
+
+    try {
+        context.drawImage(
+            image,
+            offsetX,
+            offsetY,
+            width,
+            height,
+            0,
+            0,
+            width,
+            height,
+        );
+        const alpha = context.getImageData(0, 0, width, height).data;
+        let box: typeof whole | null = null;
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (alpha[(y * width + x) * 4 + 3] === 0) continue;
+
+                box = box
+                    ? {
+                          left: Math.min(box.left, x),
+                          right: Math.max(box.right, x + 1),
+                          top: Math.min(box.top, y),
+                          bottom: Math.max(box.bottom, y + 1),
+                      }
+                    : { left: x, right: x + 1, top: y, bottom: y + 1 };
+            }
+        }
+
+        return box;
+    } catch {
+        return whole;
+    }
 }

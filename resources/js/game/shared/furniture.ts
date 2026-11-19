@@ -39,6 +39,8 @@ export type FurniturePiece = Pick<PlacedFurniture, 'x' | 'y' | 'rotation'> & {
     item: Pick<Item, 'slug' | 'swatch' | 'furniture'>;
     /** For a room piece placed switched on, what plays over its art, by the facing drawn over. */
     animations?: Record<string, ArtAnimation>;
+    /** For a room piece on a building's roof, that building's name: it is drawn on top and blocks no floor. */
+    roof?: string;
 };
 
 /** How big a furniture item is, and its shape (a Footprint mask) if it is not a plain block, before any turn. */
@@ -108,7 +110,12 @@ export function withFurniture(grid: Grid, placed: FurniturePiece[]): Grid {
  * Mirrors TiledMapParser::props, which checked them when the map was imported.
  */
 export function roomPieces(
-    objects: Array<{ gid?: number; x?: number; y?: number }>,
+    objects: Array<{
+        gid?: number;
+        x?: number;
+        y?: number;
+        properties?: Array<{ name: string; value: unknown }>;
+    }>,
     firstGid: number | null,
     registry: Array<RoomPiece | null>,
 ): FurniturePiece[] {
@@ -122,6 +129,7 @@ export function roomPieces(
         if (!piece) return [];
 
         const rotation = tile % FACINGS;
+        const roof = object.properties?.find((p) => p.name === 'roof')?.value;
         const on = tile % PROP_TILES >= FACINGS;
         const [wide, deep] =
             rotation % 2 === 0
@@ -136,6 +144,7 @@ export function roomPieces(
                 ...(on && piece.animations
                     ? { animations: piece.animations }
                     : {}),
+                ...(typeof roof === 'string' ? { roof } : {}),
                 item: {
                     slug: piece.slug,
                     swatch: null,
@@ -143,7 +152,7 @@ export function roomPieces(
                         wide: piece.wide,
                         deep: piece.deep,
                         height: TILE_HEIGHT,
-                        floor: false,
+                        floor: piece.floor ?? false,
                         shape: null,
                         // Room pieces hold no books yet: the library's shelves are fixtures.
                         holds_books: null,

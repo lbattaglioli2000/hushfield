@@ -98,7 +98,7 @@ final class AssetBuilder
         return $this->warnings;
     }
 
-    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>, props?: list<array{slug: string, wide: int, deep: int, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>} */
+    /** @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>, props?: list<array{slug: string, wide: int, deep: int, floor?: bool, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>} */
     public function build(bool $maps = true): array
     {
         $this->warnings = [];
@@ -147,7 +147,7 @@ final class AssetBuilder
         // The index keeps each piece's size, and the animations that play when it's on, by facing drawn over.
         $index = $this->write($outputs, $animations, $avatar, array_map(
             fn (?array $prop, int $n): ?array => $prop === null ? null
-                : ['slug' => $prop['slug'], 'wide' => $prop['wide'], 'deep' => $prop['deep'], ...(isset($running[$n]) ? ['animations' => $running[$n]] : [])],
+                : ['slug' => $prop['slug'], 'wide' => $prop['wide'], 'deep' => $prop['deep'], ...(($prop['floor'] ?? false) ? ['floor' => true] : []), ...(isset($running[$n]) ? ['animations' => $running[$n]] : [])],
             $props, array_keys($props),
         ));
 
@@ -620,7 +620,7 @@ final class AssetBuilder
      * and the facing it is drawn over.
      *
      * @param  list<string>  $files
-     * @param  list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>}|null>  $props
+     * @param  list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>, floor?: bool}|null>  $props
      * @param  array<string, Image>  $outputs
      * @return array{array<int, array<int, Image>>, array<int, array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>>} slot => tile => picture, in game pixels; slot => facing => animation
      */
@@ -1092,8 +1092,8 @@ final class AssetBuilder
      * @param  array<string, Image>  $outputs
      * @param  array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>  $animations
      * @param  array<string, mixed>|null  $avatar
-     * @param  list<array{slug: string, wide: int, deep: int, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>  $props
-     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>, props?: list<array{slug: string, wide: int, deep: int, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>}
+     * @param  list<array{slug: string, wide: int, deep: int, floor?: bool, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>  $props
+     * @return array{version: string, files: array<string, string>, sizes: array<string, array{int, int}>, animations?: array<string, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>, avatar?: array<string, mixed>, props?: list<array{slug: string, wide: int, deep: int, floor?: bool, animations?: array<int, array{x: int, y: int, width: int, height: int, frames: int, frame_ms: list<int>}>}|null>}
      */
     private function write(array $outputs, array $animations = [], ?array $avatar = null, array $props = []): array
     {
@@ -1154,7 +1154,7 @@ final class AssetBuilder
      * on for a piece that switches on, from previews in props/ beside them.
      *
      * @param  list<string|null>  $slots
-     * @param  list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>}|null>  $props
+     * @param  list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>, floor?: bool}|null>  $props
      * @param  array<int, array<int, Image>>  $pieces  slot => tile (4 × on + facing) => picture
      */
     private function writeMaps(string $png, Image $sheet, array $slots, array $props, array $pieces): void

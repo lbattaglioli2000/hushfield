@@ -101,5 +101,128 @@
         "slug": "maple-b",
         "wide": 3,
         "deep": 3
+    },
+    {
+        "slug": "bait-shack",
+        "wide": 2,
+        "deep": 2
+    },
+    {
+        "slug": "rowboat",
+        "wide": 1,
+        "deep": 2,
+        "frame_ms": 600
+    },
+    {
+        "slug": "barrel",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "crate",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "rope-coil",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "lobster-trap",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "tackle-box",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "reeds",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "lily-pads",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "fishing-rod",
+        "wide": 1,
+        "deep": 2,
+        "floor": true
+    },
+    {
+        "slug": "bait-bucket",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "buoy",
+        "wide": 1,
+        "deep": 1,
+        "frame_ms": 700
+    },
+    {
+        "slug": "gull-post",
+        "wide": 1,
+        "deep": 1,
+        "frame_ms": [1400, 400]
+    },
+    {
+        "slug": "rail",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "rail-lights",
+        "wide": 1,
+        "deep": 1,
+        "frame_ms": 700
+    },
+    {
+        "slug": "rail-post",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "bus-shelter",
+        "wide": 1,
+        "deep": 3
+    },
+    {
+        "slug": "bus",
+        "wide": 2,
+        "deep": 5
+    },
+    {
+        "slug": "bus-stop-sign",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "bus-timetable",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "trash-can",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "road-bus-bay",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "road-crosswalk",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
     }
 ]

@@ -33,6 +33,8 @@ export type Placement = {
 
 const HALF_W = TILE_WIDTH / 2;
 const HALF_H = TILE_HEIGHT / 2;
+/** Over the building it stands on, and over that building's animations. */
+const ROOF_DEPTH_EPSILON = 0.002;
 /** How many slices a strip with a gap in its tiles is cut into, 8 px each. */
 const GAP_SLICES = 4;
 
@@ -52,6 +54,107 @@ const GAP_SLICES = 4;
  * raised by the art's height), and each part sorts by the front edge of its
  * own arm.
  */
+/**
+ * A piece's placement lifted onto the roof of a building `height` pixels
+ * tall: drawn that much higher, each strip sorting just in front of the
+ * building's strip in the same column, so it shows over the building and
+ * under anyone standing before it. The piece lies on the building's footprint.
+ */
+export function onRoof(
+    placement: Placement,
+    building: Footprint & { height: number },
+    originX: number,
+): Placement {
+    const below = placeBuilding(building, building.height, originX);
+
+    return {
+        ...placement,
+        top: placement.top - building.height,
+        strips: placement.strips.map((strip) => ({
+            ...strip,
+            depthY: overFront(
+                below,
+                placement.left + strip.offsetX + strip.width / 2,
+            ),
+        })),
+    };
+}
+
+/**
+ * One strand of string lights along one tile edge of a building's front
+ * eaves, its frame's top left at world (x, y), sorting by `depthY`.
+ */
+export type EavesLight = {
+    x: number;
+    y: number;
+    /** Which strand hangs there: `right` falls to the right, as a right wall's top does; `left` climbs. */
+    side: 'left' | 'right';
+    depthY: number;
+};
+
+/**
+ * Where string lights hang along a building's two front eaves, `height`
+ * pixels above its footprint: a strand per tile edge, a wall panel's worth.
+ * Along the south-west face (its last row) the eaves fall to the right, so
+ * they take the `right` strand; along the south-east face (its last column)
+ * they climb, taking `left`. Each sorts just in front of the building's
+ * strip in its column, as a roof piece does.
+ */
+export function eavesLights(
+    building: Footprint & { height: number },
+    originX: number,
+): EavesLight[] {
+    const { x, y, wide, deep, height } = building;
+    const placement = placeBuilding(building, height, originX);
+    // A grid point's world position, raised to the eaves.
+    const at = (gx: number, gy: number) => ({
+        x: originX + (gx - gy) * HALF_W,
+        y: (gx + gy) * HALF_H - height,
+    });
+    const light = (
+        side: EavesLight['side'],
+        from: { x: number; y: number },
+        top: number,
+    ): EavesLight => ({
+        x: from.x,
+        y: top,
+        side,
+        depthY: overFront(placement, from.x + HALF_W / 2),
+    });
+
+    return [
+        // Left to right along the south-west face: each edge's left end is its high one.
+        ...Array.from({ length: wide }, (_, i) => {
+            const from = at(x + i, y + deep);
+
+            return light('right', from, from.y);
+        }),
+        // Then up the south-east face: each edge's right end is its high one.
+        ...Array.from({ length: deep }, (_, j) =>
+            light(
+                'left',
+                at(x + wide, y + deep - j),
+                at(x + wide, y + deep - j - 1).y,
+            ),
+        ),
+    ];
+}
+
+/** Just in front of the front-most of a placement's strips at world x. */
+function overFront(placement: Placement, x: number): number {
+    return (
+        Math.max(
+            ...placement.strips
+                .filter(
+                    (s) =>
+                        placement.left + s.offsetX <= x &&
+                        x < placement.left + s.offsetX + s.width,
+                )
+                .map((s) => s.depthY),
+        ) + ROOF_DEPTH_EPSILON
+    );
+}
+
 export function placeBuilding(
     footprint: Footprint,
     imageHeight: number,

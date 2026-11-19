@@ -10,7 +10,8 @@ namespace App\Domain\Assets;
  * with a "props" layer. Slot n's tiles are 8n to 8n + 7: facing f is
  * 8n + f, and 8n + 4 + f is the same facing switched on, its animation
  * playing (only for a piece with `frame_ms`), so the list only ever grows at
- * the end; a retired piece becomes null.
+ * the end; a retired piece becomes null. A piece with `"floor": true` lies
+ * on the floor, as a rug does: players walk over it.
  */
 final class PropRegistry
 {
@@ -20,7 +21,7 @@ final class PropRegistry
     /** The largest block a piece may cover each way, as for furniture shapes. */
     private const int MAX_TILES = 8;
 
-    /** @return list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>}|null> */
+    /** @return list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>, floor?: bool}|null> */
     public function slots(): array
     {
         $path = config('hushfield.assets.sources').'/props/props.json';
@@ -60,10 +61,14 @@ final class PropRegistry
                 throw new InvalidAssetException("props/props.json gives {$slot['slug']} frame times it can't use. \"frame_ms\": 200 shows every frame of its animation for 200 ms; a list gives one time for each frame.");
             }
 
+            if (array_key_exists('floor', $slot) && ! is_bool($slot['floor'])) {
+                throw new InvalidAssetException("props/props.json gives {$slot['slug']} a \"floor\" it can't use: true for a piece that lies on the floor, such as road markings, which players walk over.");
+            }
+
             $seen[$slot['slug']] = true;
         }
 
-        /** @var list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>}|null> $slots */
+        /** @var list<array{slug: string, wide: int, deep: int, frame_ms?: int|list<int>, floor?: bool}|null> $slots */
         return $slots;
     }
 

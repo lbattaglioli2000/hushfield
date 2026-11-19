@@ -88,7 +88,7 @@ final class TiledMapParser
         }
 
         // Players walk around room pieces, which may not wall any of the floor off from the door.
-        $props = $this->props($this->optionalLayer($layers, AssetBuilder::PROPS), $map, $tileHeight, new WalkabilityGrid($width, $height, $cells, $spawns, $exits, $arrivals, $fixtures));
+        $props = $this->props($this->optionalLayer($layers, AssetBuilder::PROPS), $map, $tileHeight, new WalkabilityGrid($width, $height, $cells, $spawns, $exits, $arrivals, $fixtures), $buildings);
 
         foreach ($props as $prop) {
             foreach ($prop->tiles() as [$x, $y]) {
@@ -367,15 +367,22 @@ final class TiledMapParser
      * with Insert Tile. Tiled pins each by the middle of its bottom edge, which
      * the build lines up with the footprint's front corner, so the object's
      * position, rounded to the nearest tile corner, is that corner. Each piece
-     * stands on open floor, clear of doors, arrival points, spawns, fixtures
-     * and other pieces. A piece placed switched on (the tileset's second four
-     * tiles for it) must be one that switches on, with frame times.
+     * stands on the map, off any building, clear of doors, arrival points,
+     * spawns, fixtures and other pieces; it may stand where nobody walks, such
+     * as in water or on a border, and there pieces may share tiles, as a rail
+     * and a moored boat do. A piece placed switched on (the tileset's second
+     * four tiles for it) must be one that switches on, with frame times. A
+     * piece with a "roof" property stands on top of that building instead,
+     * wholly on its footprint. Neither a roof piece nor one lying on the floor
+     * (`floor` in props.json, such as road markings) blocks anything, so
+     * either may stand anywhere on its ground, over anything.
      *
      * @param  array<mixed>  $layer
      * @param  array<mixed>  $map
-     * @return list<Footprint>
+     * @param  array<string, MapBuilding>  $buildings
+     * @return list<Footprint> the pieces players walk around
      */
-    private function props(array $layer, array $map, int $tileHeight, WalkabilityGrid $grid): array
+    private function props(array $layer, array $map, int $tileHeight, WalkabilityGrid $grid, array $buildings): array
     {
         $objects = is_array($layer['objects'] ?? null) ? $layer['objects'] : [];
 
@@ -399,6 +406,8 @@ final class TiledMapParser
         ];
         /** @var list<array{string, Footprint}> $placed */
         $placed = [];
+        /** @var list<Footprint> $blocking */
+        $blocking = [];
 
         foreach ($objects as $object) {
             $gid = is_array($object) ? ($object['gid'] ?? null) : null;
@@ -428,8 +437,38 @@ final class TiledMapParser
             }
 
             foreach ($piece->tiles() as [$x, $y]) {
-                if (! $grid->isWalkable($x, $y)) {
-                    throw new InvalidMapException("{$what} stands off the floor, at tile ({$x}, {$y}).");
+                if ($x < 0 || $y < 0 || $x >= $grid->width || $y >= $grid->height) {
+                    throw new InvalidMapException("{$what} stands off the map, at tile ({$x}, {$y}).");
+                }
+            }
+
+            $roof = $this->properties($object)['roof'] ?? null;
+
+            if ($roof !== null) {
+                $building = $buildings[is_string($roof) ? $roof : ''] ?? null;
+
+                if ($building === null) {
+                    throw new InvalidMapException("{$what} has a \"roof\" property, but the map has no building named \"".(is_scalar($roof) ? $roof : '').'" for it to stand on.');
+                }
+
+                foreach ($piece->tiles() as [$x, $y]) {
+                    if (! $building->covers($x, $y)) {
+                        throw new InvalidMapException("{$what} hangs off the roof of \"{$building->name}\", at tile ({$x}, {$y}).");
+                    }
+                }
+
+                continue;
+            }
+
+            if ($prop['floor'] ?? false) {
+                continue;
+            }
+
+            foreach ($piece->tiles() as [$x, $y]) {
+                foreach ($buildings as $building) {
+                    if ($building->covers($x, $y)) {
+                        throw new InvalidMapException("{$what} stands on building \"{$building->name}\", at tile ({$x}, {$y}). Give it a \"roof\" property to stand on top.");
+                    }
                 }
 
                 if ($grid->isExit($x, $y)) {
@@ -444,15 +483,18 @@ final class TiledMapParser
             }
 
             foreach ($placed as [$other, $footprint]) {
-                if ($piece->overlaps($footprint)) {
-                    throw new InvalidMapException("{$what} overlaps the {$other} at tile ({$footprint->x}, {$footprint->y}).");
+                foreach ($piece->tiles() as [$x, $y]) {
+                    if ($footprint->covers($x, $y) && $grid->isWalkable($x, $y)) {
+                        throw new InvalidMapException("{$what} overlaps the {$other} at tile ({$footprint->x}, {$footprint->y}).");
+                    }
                 }
             }
 
             $placed[] = [$prop['slug'], $piece];
+            $blocking[] = $piece;
         }
 
-        return array_column($placed, 1);
+        return $blocking;
     }
 
     /**

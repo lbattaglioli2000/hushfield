@@ -176,6 +176,10 @@ A building is a rectangle object on an object layer named `buildings`:
   placeholder block; real art brings its own height.
 - **`label`** (string, optional): the name shown when hovering the building.
   Defaults to the door's label.
+- **`lights`** (string, optional): a set of string lights, as a room's
+  `wall_lights` names (`warm`, `multi`), strung along its two front eaves
+  at `height`, a panel's strand per tile edge, twinkling and fading with the
+  building (`eavesLights`). The Library on Lantern Street has `warm`.
 
 Every tile of the footprint is blocked except the door's, whatever the
 `walkable` layer says. The footprint may not cover a spawn, an arrival, a
@@ -287,11 +291,20 @@ these pieces; furniture for homes is catalog items (above).
   tileset; snapping to the grid lines it up, and the import rounds to the
   nearest tile corner anyway. Flipping or rotating a piece is refused: place
   another facing instead.
+- **On a roof**: a piece with a string property **`roof`** naming a
+  building on the map stands on top of it, wholly on its footprint, lifted
+  by the building's `height` and sorted just in front of its walls
+  (`onRoof`). Nobody walks there, so it blocks nothing and skips the floor
+  rules below. Santa's sleigh stands on the Library on Lantern Street.
 - **The import** (`TiledMapParser::props`) reads each piece's footprint back
   from its front corner and blocks its tiles in the walkability grid. A piece
-  must stand on walkable floor, clear of doors, arrival points, spawns,
-  fixtures and other pieces, and the pieces together may not wall any floor
-  off from the first door. A piece placed switched on must have `frame_ms`.
+  must stand on the map and off every building (put it on a roof instead),
+  clear of doors, arrival points, spawns and fixtures. It may stand on tiles
+  nobody walks, such as the Pier's water, and overlap other pieces there, but
+  not on floor; the pieces together may not wall any floor off from the first
+  door. A prop marked `floor: true` in `props.json` (road markings, a bait
+  bucket) is drawn flat under avatars and skips these rules, blocking
+  nothing. A piece placed switched on must have `frame_ms`.
 - **The client** reads the pieces from the map JSON it already loads
   (`roomPieces` in `resources/js/game/shared/furniture.ts`), with sizes and
   art URLs from the manifest's `props`, blocks their tiles as the server

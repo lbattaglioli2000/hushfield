@@ -454,6 +454,7 @@ export class RoomScene
                 this,
                 this.map,
                 this.assets.manifest.animations ?? {},
+                this.assets.manifest.lights ?? {},
             );
             this.walls = new WallLayer(
                 this,
@@ -690,23 +691,21 @@ export class RoomScene
                   };
               })
             : [];
-        const lights = map.wallLights
-            ? Object.entries(manifest.lights?.[map.wallLights] ?? {}).map(
-                  ([side, { width, height }]) => {
-                      const set = map.wallLights as string;
-
-                      return {
-                          key: lightsTexture(`${set}/${side}`),
-                          url: (m: AssetManifest) =>
-                              m.lights?.[set]?.[side]?.url,
-                          spritesheet: {
-                              frameWidth: width,
-                              frameHeight: height,
-                          },
-                      };
-                  },
-              )
-            : [];
+        // String lights on the walls and on buildings' eaves, each set once.
+        const sets = new Set(
+            [map.wallLights, ...map.buildings.map((b) => b.lights)].filter(
+                (set): set is string => set !== null,
+            ),
+        );
+        const lights = [...sets].flatMap((set) =>
+            Object.entries(manifest.lights?.[set] ?? {}).map(
+                ([side, { width, height }]) => ({
+                    key: lightsTexture(`${set}/${side}`),
+                    url: (m: AssetManifest) => m.lights?.[set]?.[side]?.url,
+                    spritesheet: { frameWidth: width, frameHeight: height },
+                }),
+            ),
+        );
 
         return [
             ...map.buildings.map(({ name }) => ({

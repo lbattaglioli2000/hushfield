@@ -223,6 +223,8 @@ export type RoomPiece = {
     slug: string;
     wide: number;
     deep: number;
+    /** Lies on the floor, as a rug does, such as road markings: players walk over it. */
+    floor?: boolean;
     art: Record<string, string>;
     /** What plays over each facing's art, by facing, while the piece is placed switched on. */
     animations?: Record<string, ArtAnimation>;

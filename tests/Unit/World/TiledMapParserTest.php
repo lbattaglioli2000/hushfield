@@ -401,10 +401,57 @@ it('rejects room pieces that stand where players need to, or that it cannot read
     'on a door' => [[[0, 3, 5]], 'The washer at tile (2, 4) stands on a door, at tile (2, 4).'],
     'on an arrival point' => [[[0, 3, 4]], 'The washer at tile (2, 3) stands on arrival "door", at tile (2, 3).'],
     'on a spawn' => [[[0, 3, 3]], 'The washer at tile (2, 2) stands on a spawn, at tile (2, 2).'],
-    'off the floor' => [[[0, 6, 1]], 'The washer at tile (5, 0) stands off the floor, at tile (5, 0).'],
+    'off the map' => [[[0, 6, 1]], 'The washer at tile (5, 0) stands off the map, at tile (5, 0).'],
     'on another piece' => [[[8, 2, 1], [0, 2, 1]], 'The washer at tile (1, 0) overlaps the bench at tile (0, 0).'],
     'walling a corner off' => [[[0, 2, 1], [0, 1, 2]], 'The room pieces wall part of the floor off from the door.'],
     'flipped' => [[[0x80000000, 1, 1]], 'The washer at tile (0, 0) is flipped or rotated.'],
     'not in props.json' => [[[16, 1, 1]], "The room piece at tile corner (1, 1) isn't in props/props.json"],
     'switched on with nothing to play' => [[[12, 2, 1]], 'The bench at tile (0, 0) is placed switched on, but it has nothing to play'],
+]);
+
+it('stands room pieces on tiles nobody walks, such as water, overlapping there', function () {
+    $map = json_decode(furnishedHome([[0, 5, 1], [0, 5, 1]]), true);
+    // (4, 0) is water: off the floor, but on the map.
+    $walkable = array_search('walkable', array_column($map['layers'], 'name'), true);
+    $map['layers'][$walkable]['data'][4] = 0;
+
+    expect((new TiledMapParser)->parse((string) json_encode($map))->grid->isWalkable(4, 0))->toBeFalse();
+});
+
+/**
+ * test-street, whose 4 × 3 shed covers x 2–5, y 0–2, with room pieces on a
+ * "props" layer as furnishedHome places them, each optionally on a roof.
+ *
+ * @param  list<array{int, int, int, 3?: string}>  $pieces  [tile, front corner x, front corner y, roof]
+ */
+function streetWithPieces(array $pieces): string
+{
+    config(['hushfield.assets.sources' => dirname(__DIR__, 2).'/fixtures/art']);
+    $map = json_decode(fixtureMap('test-street'), true);
+    $map['tilesets'][] = ['firstgid' => 1001, 'name' => 'props', 'columns' => 0, 'tilecount' => 12, 'tiles' => []];
+    $map['layers'][] = ['id' => 9, 'name' => 'props', 'type' => 'objectgroup', 'objects' => array_map(
+        fn (array $piece): array => ['gid' => 1001 + $piece[0], 'x' => $piece[1] * 32.0, 'y' => $piece[2] * 32.0, 'width' => 64, 'height' => 64, 'rotation' => 0,
+            ...(isset($piece[3]) ? ['properties' => [['name' => 'roof', 'type' => 'string', 'value' => $piece[3]]]] : [])],
+        $pieces,
+    )];
+
+    return (string) json_encode($map);
+}
+
+it('stands a room piece with a roof on that building, where it blocks no floor', function () {
+    // A bench (2 × 1) on the shed's front row, x 3–4, y 2, over its door at (3, 2); a washer on the floor at (7, 1).
+    $map = (new TiledMapParser)->parse(streetWithPieces([[8, 5, 3, 'shed'], [0, 8, 2]]));
+
+    expect($map->grid->isWalkable(7, 1))->toBeFalse()
+        ->and($map->grid->isWalkable(3, 2))->toBeTrue()
+        ->and($map->grid->isExit(3, 2))->toBeTrue();
+});
+
+it('rejects a roof piece off its roof or on a building the map lacks', function (array $pieces, string $message) {
+    expect(fn () => (new TiledMapParser)->parse(streetWithPieces($pieces)))
+        ->toThrow(InvalidMapException::class, $message);
+})->with([
+    'hanging off the roof' => [[[8, 7, 1, 'shed']], 'The bench at tile (5, 0) hangs off the roof of "shed", at tile (6, 0).'],
+    'no such building' => [[[8, 5, 1, 'barn']], 'The bench at tile (3, 0) has a "roof" property, but the map has no building named "barn"'],
+    'on the roof without saying so' => [[[8, 5, 1]], 'The bench at tile (3, 0) stands on building "shed", at tile (3, 0). Give it a "roof" property to stand on top.'],
 ]);
