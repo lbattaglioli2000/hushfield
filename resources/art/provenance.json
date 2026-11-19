@@ -374,5 +374,105 @@
         "by": "Luigi",
         "received": "2026-11-19",
         "notes": "from assets.zip, bus_stop/: shelter_0, bus, sign_pole, timetable, trash_can, road_bus_bay, road_crosswalk, as drawn; shelter_1's flicker is left out, as its soft glass can't play"
+    },
+    "art/props/popcorn-machine/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/popcorn_machine/popcorn_machine_{0..7}.png, facing 0, split into what every frame shares and an 8-frame strip"
+    },
+    "art/props/counter-candy/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/counter/counter_candy.png, facing 0, as drawn"
+    },
+    "art/props/counter-register/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/counter/counter_register.png, facing 0, as drawn"
+    },
+    "art/props/counter-soda/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/counter/counter_soda.png, facing 0, as drawn"
+    },
+    "art/props/counter-tubs/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/counter/counter_tubs.png, facing 0, as drawn"
+    },
+    "art/props/arcade/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/arcade/arcade_down_{left,right}_{0,1}.png as facings 0 and 3, split into what both frames share and a two-frame strip"
+    },
+    "art/props/stanchion-post/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/stanchions/stanchion_post.png, as drawn"
+    },
+    "art/props/stanchion-rope/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/stanchions/stanchion_rope_down_{left,right}.png as facings 0 and 3"
+    },
+    "art/props/carpet-red/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/carpet/carpet_red.png, as drawn"
+    },
+    "art/props/carpet-runner/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/carpet/carpet_runner_down_{left,right}.png as facings 0 and 3"
+    },
+    "art/props/poster-monster/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/wall_decor/poster_monster_down_{left,right}.png as facings 0 (the back-right wall) and 3 (the back-left wall), on the floor tile in front of the wall"
+    },
+    "art/props/poster-popcorn/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/wall_decor/poster_popcorn_down_{left,right}.png as facings 0 (the back-right wall) and 3 (the back-left wall), on the floor tile in front of the wall"
+    },
+    "art/props/poster-rocket/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/wall_decor/poster_rocket_down_{left,right}.png as facings 0 (the back-right wall) and 3 (the back-left wall), on the floor tile in front of the wall"
+    },
+    "art/props/sconce/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/wall_decor/sconce_down_{left,right}.png as facings 0 (the back-right wall) and 3 (the back-left wall), on the floor tile in front of the wall"
+    },
+    "art/props/sign-exit/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/wall_decor/sign_exit_down_{left,right}.png as facings 0 (the back-right wall) and 3 (the back-left wall), on the floor tile in front of the wall"
+    },
+    "art/props/sign-screen-1/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/wall_decor/sign_screen_1_down_{left,right}.png as facings 0 (the back-right wall) and 3 (the back-left wall), on the floor tile in front of the wall"
+    },
+    "art/props/sign-screen-2/*.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/wall_decor/sign_screen_2_down_{left,right}.png as facings 0 (the back-right wall) and 3 (the back-left wall), on the floor tile in front of the wall"
+    },
+    "art/props/gumball-machine/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/gumball/gumball_machine.png, as drawn"
+    },
+    "art/props/palm/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/plants/plant_palm.png, as drawn"
+    },
+    "art/props/usher-podium/0.png": {
+        "by": "Luigi",
+        "received": "2026-11-19",
+        "notes": "from assets-1.zip, theatre_lobby/podium/usher_podium.png, as drawn"
     }
 }

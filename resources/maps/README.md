@@ -303,8 +303,11 @@ these pieces; furniture for homes is catalog items (above).
   nobody walks, such as the Pier's water, and overlap other pieces there, but
   not on floor; the pieces together may not wall any floor off from the first
   door. A prop marked `floor: true` in `props.json` (road markings, a bait
-  bucket) is drawn flat under avatars and skips these rules, blocking
-  nothing. A piece placed switched on must have `frame_ms`.
+  bucket, the VFA's carpet) is drawn flat under avatars and skips these
+  rules, blocking nothing. Floor pieces draw over the back walls, so things
+  hung on a wall (the VFA's posters, sconces and door signs) are floor pieces
+  on the tile in front of it, facing 0 on the row y = 0 and 3 on the column
+  x = 0. A piece placed switched on must have `frame_ms`.
 - **The client** reads the pieces from the map JSON it already loads
   (`roomPieces` in `resources/js/game/shared/furniture.ts`), with sizes and
   art URLs from the manifest's `props`, blocks their tiles as the server

@@ -224,5 +224,116 @@
         "wide": 1,
         "deep": 1,
         "floor": true
+    },
+    {
+        "slug": "popcorn-machine",
+        "wide": 1,
+        "deep": 1,
+        "frame_ms": 110
+    },
+    {
+        "slug": "counter-candy",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "counter-register",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "counter-soda",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "counter-tubs",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "arcade",
+        "wide": 1,
+        "deep": 1,
+        "frame_ms": [900, 300]
+    },
+    {
+        "slug": "stanchion-post",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "stanchion-rope",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "carpet-red",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "carpet-runner",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "poster-monster",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "poster-popcorn",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "poster-rocket",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "sconce",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "sign-exit",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "sign-screen-1",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "sign-screen-2",
+        "wide": 1,
+        "deep": 1,
+        "floor": true
+    },
+    {
+        "slug": "gumball-machine",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "palm",
+        "wide": 1,
+        "deep": 1
+    },
+    {
+        "slug": "usher-podium",
+        "wide": 1,
+        "deep": 1
     }
 ]
